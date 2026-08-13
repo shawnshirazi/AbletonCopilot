@@ -32,6 +32,40 @@ namespace Engine
                 steps[(size_t) step].velocity = velocity;
             }
         }
+
+        // Shared "syncopation" mechanism for HAT's second layer and PERC:
+        // the rhythmically weakest 16th-note position in each beat is the
+        // "a" just before the next beat (steps 3/7/11/15 of a 16-step bar).
+        // Returns a probability MULTIPLIER, not a probability itself - 1.0
+        // at syncopation=0 (no bias, uniform), up to 2x at weak positions /
+        // down to 0.5x elsewhere at syncopation=1.
+        bool isWeakPosition(int stepWithinBar, int stepsPerBar)
+        {
+            const int stepsPerBeat = std::max(1, stepsPerBar / 4);
+            return (stepWithinBar % stepsPerBeat) == (stepsPerBeat - 1);
+        }
+
+        float weakPositionBias(int stepWithinBar, int stepsPerBar, float syncopation)
+        {
+            return isWeakPosition(stepWithinBar, stepsPerBar)
+                       ? (1.0f + syncopation)
+                       : (1.0f - syncopation * 0.5f);
+        }
+
+        // Shared "variation" mechanism for HAT and PERC: thin even-indexed
+        // bars relative to odd ones (a real arrangement technique -
+        // alternating full/thinned bars) instead of pure per-step noise.
+        // 1.0 at variation=0 (every bar identical), down to 0.5x on even
+        // bars at variation=1.
+        float barThinningFactor(int bar, float variation)
+        {
+            return (bar % 2 == 0) ? (1.0f - variation * 0.5f) : 1.0f;
+        }
+
+        float clamp01(float v)
+        {
+            return std::max(0.0f, std::min(1.0f, v));
+        }
     }
 
     StepArray generateKick(const StepGridConfig& grid, const DrumPatternParams& params)
@@ -46,9 +80,10 @@ namespace Engine
         {
             const int base = bar * grid.stepsPerBar;
 
-            // Rare fill: drop one beat this bar. Kept genuinely rare
-            // (scaled well below variation's raw value) since a steady,
-            // reliable kick is the point, not the exception.
+            // variation: rare per-bar fill (drop one beat). Kept genuinely
+            // rare (scaled well below variation's raw value) since a
+            // steady, reliable kick is the point, not the exception - see
+            // the density=NOT-USED note in DrumEngine.h.
             bool dropABeat  = uniform01(rng) < params.variation * 0.15f;
             int  droppedBeat = dropABeat ? (int) (uniform01(rng) * 4.0f) : -1;
             droppedBeat = std::min(droppedBeat, 3);
@@ -60,8 +95,8 @@ namespace Engine
                 setHit(steps, base + beat * stepsPerBeat, 1.0f);
             }
 
-            // Rare syncopated push into the next bar - a real technique,
-            // not the default.
+            // syncopation: rare pushed hit on the weakest position (the
+            // "and" of the last beat), driving into the next bar.
             if (uniform01(rng) < params.syncopation * 0.2f)
                 setHit(steps, base + grid.stepsPerBar - 2, 0.7f);
         }
@@ -78,13 +113,12 @@ namespace Engine
         // Traditional backbeat position (beat 3) - the sourced pattern
         // still lands there, it's just sparse across bars rather than
         // hitting every bar.
-        const int backbeatStep = (grid.stepsPerBar * 3) / 4;
+        const int backbeatStep   = (grid.stepsPerBar * 3) / 4;
         const int doubletGapStep = std::max(1, grid.stepsPerBar / 8); // one 8th-note later
 
+        // syncopation: occasional +/-1 step nudge off the canonical position.
         auto jitter = [&](int step) -> int
         {
-            // Occasional +/-1 step nudge, scaled by syncopation - keeps the
-            // sourced pattern from being bar-identical every repeat.
             if (uniform01(rng) < params.syncopation * 0.3f)
                 return step + (uniform01(rng) < 0.5f ? -1 : 1);
             return step;
@@ -92,24 +126,33 @@ namespace Engine
 
         for (int cycleStart = 0; cycleStart < grid.numBars; cycleStart += 4)
         {
-            // Bar 2 of the cycle: single clap.
-            if (cycleStart + 1 < grid.numBars)
+            // variation: probability this cycle swaps which bar gets the
+            // single hit vs. the doublet, instead of the canonical
+            // bar-2=single/bar-4=doublet layout. At variation=0 this is
+            // never true (uniform01 never returns a negative number, so
+            // "< 0.0f" never fires); at variation=1 it's always true
+            // (uniform01's [0,1) range means "< 1.0f" always fires) - both
+            // boundaries are exact, not just statistically likely.
+            const bool swapped = uniform01(rng) < params.variation;
+            const int  singleBarOffset  = swapped ? 3 : 1;
+            const int  doubletBarOffset = swapped ? 1 : 3;
+
+            if (cycleStart + singleBarOffset < grid.numBars)
             {
-                const int base = (cycleStart + 1) * grid.stepsPerBar;
+                const int base = (cycleStart + singleBarOffset) * grid.stepsPerBar;
                 setHit(steps, jitter(base + backbeatStep), 1.0f);
             }
-            // Bar 4 of the cycle: doublet flourish.
-            if (cycleStart + 3 < grid.numBars)
+            if (cycleStart + doubletBarOffset < grid.numBars)
             {
-                const int base = (cycleStart + 3) * grid.stepsPerBar;
+                const int base = (cycleStart + doubletBarOffset) * grid.stepsPerBar;
                 setHit(steps, jitter(base + backbeatStep), 1.0f);
                 setHit(steps, jitter(base + backbeatStep + doubletGapStep), 0.8f);
             }
         }
 
-        // density can add a rare extra ghost clap elsewhere in a bar that
-        // would otherwise be silent - kept low-probability, this role is
-        // meant to stay sparse.
+        // density: rare extra ghost clap somewhere a bar would otherwise
+        // leave silent - kept low-probability, this role stays sparse even
+        // at density=1.
         for (int bar = 0; bar < grid.numBars; ++bar)
         {
             if (uniform01(rng) >= params.density * 0.1f)
@@ -134,7 +177,9 @@ namespace Engine
         {
             const int base = bar * grid.stepsPerBar;
 
-            // Primary pulse: off-beat 8ths (the "and" of each beat).
+            // Primary pulse: off-beat 8ths (the "and" of each beat) - the
+            // genre-defining baseline, always present, not parameterized
+            // (same reasoning as kick's four-on-the-floor).
             for (int k = 0; k < 4; ++k)
             {
                 const int step = base + eighthStep * (2 * k + 1);
@@ -142,14 +187,21 @@ namespace Engine
                     setHit(steps, step, 0.9f);
             }
 
-            // Second layer: the remaining 16th positions, velocity-reduced
-            // and probability-gated by density, for organic dynamics
-            // rather than a second, equally-loud pulse.
-            for (int step = base; step < base + grid.stepsPerBar; ++step)
+            // Second layer: density controls fill amount, syncopation
+            // biases WHICH remaining positions get filled (toward the
+            // weakest 16ths), variation thins even-indexed bars.
+            const float barDensity = clamp01(params.density * barThinningFactor(bar, params.variation));
+
+            for (int stepInBar = 0; stepInBar < grid.stepsPerBar; ++stepInBar)
             {
+                const int step = base + stepInBar;
                 if (steps[(size_t) step].active)
                     continue;
-                if (uniform01(rng) < params.density * 0.5f)
+
+                const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
+                const float p    = clamp01(barDensity * 0.5f * bias);
+
+                if (uniform01(rng) < p)
                 {
                     const float vel = 0.3f + uniform01(rng) * 0.25f; // 0.3-0.55, clearly under the primary pulse
                     setHit(steps, step, vel);
@@ -166,15 +218,31 @@ namespace Engine
         StepArray steps((size_t) total);
         std::mt19937 rng = makeRng(params.seed, kPercSalt);
 
-        for (int step = 0; step < total; ++step)
+        for (int bar = 0; bar < grid.numBars; ++bar)
         {
-            // Sparse by construction - density scales the chance but is
-            // deliberately dampened so this role stays an accent, not a
-            // second full pattern.
-            if (uniform01(rng) < params.density * 0.15f)
+            const int base = bar * grid.stepsPerBar;
+            const float barDensity = clamp01(params.density * barThinningFactor(bar, params.variation));
+
+            for (int stepInBar = 0; stepInBar < grid.stepsPerBar; ++stepInBar)
             {
-                const float vel = 0.4f + uniform01(rng) * (0.3f + params.syncopation * 0.3f);
-                setHit(steps, step, std::min(vel, 1.0f));
+                // density: base per-step probability, deliberately damped
+                // so this role stays an accent, not a second full pattern,
+                // even at density=1. syncopation: biases placement toward
+                // the weakest 16th positions (same mechanism as HAT's
+                // second layer) - this used to only affect velocity range,
+                // which didn't match its name; fixed.
+                const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
+                const float p    = clamp01(barDensity * 0.15f * bias);
+
+                if (uniform01(rng) < p)
+                {
+                    // variation widens the velocity range (more dynamic
+                    // hit-to-hit swing) in addition to the bar-thinning
+                    // above - both readings of "how varied" under one knob.
+                    const float velRange = 0.3f + params.variation * 0.3f;
+                    const float vel = std::min(1.0f, 0.4f + uniform01(rng) * velRange);
+                    setHit(steps, base + stepInBar, vel);
+                }
             }
         }
 
