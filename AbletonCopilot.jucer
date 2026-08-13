@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="bSFOuN" name="AbletonCopilot" projectType="audioplug" useAppConfig="0"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildAU,buildStandalone,buildVST3">
+  <MAINGROUP id="j1i0S6" name="AbletonCopilot">
+    <GROUP id="{47A2FEBF-72C0-B600-2670-D6732F401204}" name="Source">
+      <FILE id="jSdvO3" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="MU85JB" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="HmRs8b" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="OZ6Slv" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="Sr1cpp" name="StackRenderer.cpp" compile="1" resource="0"
+            file="Source/StackRenderer.cpp"/>
+      <FILE id="Sr1hdr" name="StackRenderer.h" compile="0" resource="0"
+            file="Source/StackRenderer.h"/>
+      <FILE id="Sb1cpp" name="StackBrowserComponent.cpp" compile="1" resource="0"
+            file="Source/StackBrowserComponent.cpp"/>
+      <FILE id="Sb1hdr" name="StackBrowserComponent.h" compile="0" resource="0"
+            file="Source/StackBrowserComponent.h"/>
+      <FILE id="Rb1cpp" name="RackBrowserComponent.cpp" compile="1" resource="0"
+            file="Source/RackBrowserComponent.cpp"/>
+      <FILE id="Rb1hdr" name="RackBrowserComponent.h" compile="0" resource="0"
+            file="Source/RackBrowserComponent.h"/>
+      <FILE id="Dm1cpp" name="DrumMachineComponent.cpp" compile="1" resource="0"
+            file="Source/DrumMachineComponent.cpp"/>
+      <FILE id="Dm1hdr" name="DrumMachineComponent.h" compile="0" resource="0"
+            file="Source/DrumMachineComponent.h"/>
+      <FILE id="Ui1hdr" name="UIStyle.h" compile="0" resource="0" file="Source/UIStyle.h"/>
+      <FILE id="Mc1hdr" name="MelodyCategory.h" compile="0" resource="0" file="Source/MelodyCategory.h"/>
+      <FILE id="Rh1hdr" name="RowHeaderWidgets.h" compile="0" resource="0" file="Source/RowHeaderWidgets.h"/>
+      <FILE id="Mg1cpp" name="MelodyGridComponent.cpp" compile="1" resource="0"
+            file="Source/MelodyGridComponent.cpp"/>
+      <FILE id="Mg1hdr" name="MelodyGridComponent.h" compile="0" resource="0"
+            file="Source/MelodyGridComponent.h"/>
+      <FILE id="Dp1cpp" name="DrumPatternRenderer.cpp" compile="1" resource="0"
+            file="Source/DrumPatternRenderer.cpp"/>
+      <FILE id="Dp1hdr" name="DrumPatternRenderer.h" compile="0" resource="0"
+            file="Source/DrumPatternRenderer.h"/>
+      <FILE id="Ap1cpp" name="AdvisorPanelComponent.cpp" compile="1" resource="0"
+            file="Source/AdvisorPanelComponent.cpp"/>
+      <FILE id="Ap1hdr" name="AdvisorPanelComponent.h" compile="0" resource="0"
+            file="Source/AdvisorPanelComponent.h"/>
+      <FILE id="Pl1cpp" name="PresetLibraryScanner.cpp" compile="1" resource="0"
+            file="Source/PresetLibraryScanner.cpp"/>
+      <FILE id="Pl1hdr" name="PresetLibraryScanner.h" compile="0" resource="0"
+            file="Source/PresetLibraryScanner.h"/>
+      <GROUP id="{A1B2C3D4-1111-2222-3333-444455556666}" name="Analysis">
+        <FILE id="Fe1cpp" name="FeatureExtractor.cpp" compile="1" resource="0"
+              file="Source/Analysis/FeatureExtractor.cpp"/>
+        <FILE id="Fe1hdr" name="FeatureExtractor.h" compile="0" resource="0"
+              file="Source/Analysis/FeatureExtractor.h"/>
+        <FILE id="Gp1cpp" name="GenreProfiles.cpp" compile="1" resource="0"
+              file="Source/Analysis/GenreProfiles.cpp"/>
+        <FILE id="Gp1hdr" name="GenreProfiles.h" compile="0" resource="0"
+              file="Source/Analysis/GenreProfiles.h"/>
+        <FILE id="Fb1cpp" name="FeedbackEngine.cpp" compile="1" resource="0"
+              file="Source/Analysis/FeedbackEngine.cpp"/>
+        <FILE id="Fb1hdr" name="FeedbackEngine.h" compile="0" resource="0"
+              file="Source/Analysis/FeedbackEngine.h"/>
+        <FILE id="Aa1cpp" name="AudioAnalyzer.cpp" compile="1" resource="0"
+              file="Source/Analysis/AudioAnalyzer.cpp"/>
+        <FILE id="Aa1hdr" name="AudioAnalyzer.h" compile="0" resource="0"
+              file="Source/Analysis/AudioAnalyzer.h"/>
+        <FILE id="Ta1cpp" name="TheoryAdvisor.cpp" compile="1" resource="0"
+              file="Source/Analysis/TheoryAdvisor.cpp"/>
+        <FILE id="Ta1hdr" name="TheoryAdvisor.h" compile="0" resource="0"
+              file="Source/Analysis/TheoryAdvisor.h"/>
+        <FILE id="Aa2cpp" name="ArrangementAdvisor.cpp" compile="1" resource="0"
+              file="Source/Analysis/ArrangementAdvisor.cpp"/>
+        <FILE id="Aa2hdr" name="ArrangementAdvisor.h" compile="0" resource="0"
+              file="Source/Analysis/ArrangementAdvisor.h"/>
+        <FILE id="Rt1cpp" name="ReferenceTrackAnalyzer.cpp" compile="1" resource="0"
+              file="Source/Analysis/ReferenceTrackAnalyzer.cpp"/>
+        <FILE id="Rt1hdr" name="ReferenceTrackAnalyzer.h" compile="0" resource="0"
+              file="Source/Analysis/ReferenceTrackAnalyzer.h"/>
+        <FILE id="Rf1cpp" name="ReferenceFragmentJob.cpp" compile="1" resource="0"
+              file="Source/Analysis/ReferenceFragmentJob.cpp"/>
+        <FILE id="Rf1hdr" name="ReferenceFragmentJob.h" compile="0" resource="0"
+              file="Source/Analysis/ReferenceFragmentJob.h"/>
+      </GROUP>
+      <GROUP id="{B2C3D4E5-2222-3333-4444-555566667777}" name="MusicTheory">
+        <FILE id="Mt1cpp" name="MelodicTechnoTheory.cpp" compile="1" resource="0"
+              file="Source/MusicTheory/MelodicTechnoTheory.cpp"/>
+        <FILE id="Mt1hdr" name="MelodicTechnoTheory.h" compile="0" resource="0"
+              file="Source/MusicTheory/MelodicTechnoTheory.h"/>
+        <FILE id="Mc2cpp" name="MelodyCritic.cpp" compile="1" resource="0"
+              file="Source/MusicTheory/MelodyCritic.cpp"/>
+        <FILE id="Mc2hdr" name="MelodyCritic.h" compile="0" resource="0"
+              file="Source/MusicTheory/MelodyCritic.h"/>
+        <FILE id="Ms1cpp" name="MelodyScorer.cpp" compile="1" resource="0"
+              file="Source/MusicTheory/MelodyScorer.cpp"/>
+        <FILE id="Ms1hdr" name="MelodyScorer.h" compile="0" resource="0"
+              file="Source/MusicTheory/MelodyScorer.h"/>
+      </GROUP>
+      <GROUP id="{C3D4E5F6-3333-4444-5555-666677778888}" name="Engine">
+        <FILE id="Eng1cpp" name="Theory.cpp" compile="1" resource="0"
+              file="Source/Engine/Theory.cpp"/>
+        <FILE id="Eng1hdr" name="Theory.h" compile="0" resource="0"
+              file="Source/Engine/Theory.h"/>
+        <FILE id="Eng2cpp" name="Grid.cpp" compile="1" resource="0"
+              file="Source/Engine/Grid.cpp"/>
+        <FILE id="Eng2hdr" name="Grid.h" compile="0" resource="0"
+              file="Source/Engine/Grid.h"/>
+        <FILE id="Eng3cpp" name="DrumEngine.cpp" compile="1" resource="0"
+              file="Source/Engine/DrumEngine.cpp"/>
+        <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0"
+              file="Source/Engine/DrumEngine.h"/>
+      </GROUP>
+    </GROUP>
+  </MAINGROUP>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors_headless" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"
+               JUCE_PLUGINHOST_VST3="1"/>
+  <EXPORTFORMATS>
+    <XCODE_MAC targetFolder="Builds/MacOSX">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="AbletonCopilot"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="AbletonCopilot"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../JUCE/modules"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+  </EXPORTFORMATS>
+</JUCERPROJECT>
