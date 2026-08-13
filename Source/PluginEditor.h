@@ -64,9 +64,11 @@ private:
     void extractPatternsClicked();
     void applyReferenceDrumsClicked();
 
-    // Phase 1 deterministic engine (Source/Engine/) - real MIDI output
-    // emitted directly by AbletonCopilot itself (see setGeneratedDrumPattern/
-    // processBlock in PluginProcessor.cpp), no companion plugin required.
+    // Phase 1 deterministic engine (Source/Engine/) - synthesizes and plays
+    // real audio directly from AbletonCopilot itself (see
+    // setGeneratedDrumPattern/DrumVoiceSynth rendering in
+    // PluginProcessor.cpp), no Drum Rack or companion plugin required. Also
+    // emits the pattern as MIDI, kept only as an optional secondary output.
     void generateDrumPatternClicked();
 
     // Small local helpers so the reference-track status UI (now Studio-tab
@@ -185,10 +187,10 @@ private:
     // critiquing existing/already-played audio; a reference track is an
     // input to generation, so it lives here). See loadReferenceTrackClicked/
     // onReferenceAnalyzed/clearReferenceTrack/extractPatternsClicked below.
-    // Phase 1 deterministic engine (Source/Engine/) - real MIDI output
-    // emitted directly by AbletonCopilot itself, see generateDrumPatternClicked().
-    // Not gated by kShowExperimentalFeatures - this is the new engine, not
-    // the hidden heuristic/AI layer.
+    // Phase 1 deterministic engine (Source/Engine/) - synthesizes and plays
+    // real audio directly from AbletonCopilot itself, see
+    // generateDrumPatternClicked(). Not gated by kShowExperimentalFeatures -
+    // this is the new engine, not the hidden heuristic/AI layer.
     juce::TextButton  generateDrumPatternButton { "Generate Drum Pattern" };
     juce::Label       drumPatternStatusLabel;
 

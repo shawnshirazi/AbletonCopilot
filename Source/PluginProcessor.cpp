@@ -100,6 +100,14 @@ void AbletonCopilotAudioProcessor::prepareToPlay(double sampleRate, int samplesP
     widthSmoothed = 0.0f;
     wasPlaying    = false;
 
+    // Reset generated-drum synth voices on (re)prepare - their phase/filter
+    // state is tied to a sample rate, so a stale mid-decay voice from a
+    // previous sample rate would render wrong. They just restart cleanly on
+    // next trigger.
+    generatedDrumScratch.setSize(1, samplesPerBlock);
+    for (auto& voice : generatedDrumSynthVoices)
+        voice = Engine::DrumVoiceState {};
+
     const int trackCount = activeMelodyTrackCount.load(std::memory_order_relaxed);
     for (int t = 0; t < trackCount; ++t)
     {
@@ -597,6 +605,24 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                                                   juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // Manual triggering: incoming note-ons at our GM drum-map notes hit the
+    // same synth voices the generated pattern uses below (shared
+    // triggerDrumVoice - see Engine/DrumVoiceSynth.h), on any channel. Read
+    // before we clear/replace midiMessages, since we're a generator, not a
+    // pass-through.
+    for (const auto metadata : midiMessages)
+    {
+        const auto msg = metadata.getMessage();
+        if (!msg.isNoteOn())
+            continue;
+
+        Engine::DrumRole role;
+        if (Engine::drumRoleForGmNote(msg.getNoteNumber(), role))
+            Engine::triggerDrumVoice(generatedDrumSynthVoices[(int) role], role,
+                                      msg.getFloatVelocity(), getSampleRate());
+    }
+
     midiMessages.clear(); // we're a generator, not a pass-through
 
     for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
@@ -738,6 +764,20 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         if (vel <= 0)
                             continue;
 
+                        // Primary output: trigger the internal synth voice
+                        // for this hit - same trigger function, same voice
+                        // array, as the incoming-MIDI path above, keyed by
+                        // GM note so this doesn't depend on localRoles'
+                        // array order.
+                        Engine::DrumRole synthRole;
+                        if (Engine::drumRoleForGmNote(role.midiNote, synthRole))
+                            Engine::triggerDrumVoice(generatedDrumSynthVoices[(int) synthRole], synthRole,
+                                                      (float) vel / 127.0f, getSampleRate());
+
+                        // Optional secondary output: real MIDI note to the
+                        // host, kept for downstream routing but not
+                        // required to hear anything (see the render/mix
+                        // pass below).
                         auto& voice = generatedDrumVoices[r];
                         if (voice.noteOn)
                         {
@@ -773,6 +813,31 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), offset);
                 voice.noteOn = false;
             }
+        }
+    }
+
+    // --- Generated-drum synth rendering: mixes generatedDrumSynthVoices
+    // (Engine::DrumVoiceSynth) into our own output. Deliberately outside
+    // and independent of the pattern/transport gating above - a voice
+    // triggered by incoming MIDI (or still decaying from a step a few
+    // blocks ago) must keep rendering even with no pattern generated yet or
+    // the transport stopped. This is the primary way the generated pattern
+    // is heard; the MIDI events above are optional and not required.
+    {
+        auto*     scratch = generatedDrumScratch.getWritePointer(0);
+        const int n       = buffer.getNumSamples();
+        const int nCh     = std::min(2, buffer.getNumChannels());
+
+        for (auto& voice : generatedDrumSynthVoices)
+        {
+            if (!voice.active)
+                continue;
+
+            Engine::renderDrumVoice(voice, scratch, n);
+
+            if (!suppressOwnPlayback.load(std::memory_order_relaxed))
+                for (int ch = 0; ch < nCh; ++ch)
+                    buffer.addFrom(ch, 0, scratch, n);
         }
     }
 

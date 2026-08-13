@@ -3,6 +3,7 @@
 #include "Analysis/AudioAnalyzer.h"
 #include "Analysis/FeatureExtractor.h"
 #include "MelodyCategory.h"
+#include "Engine/DrumVoiceSynth.h"
 
 // Parameters for the master-bus correction chain.
 // Computed by the editor from analysis results, applied by the processor in processBlock.
@@ -278,6 +279,19 @@ private:
     };
     GeneratedDrumVoiceState generatedDrumVoices[kMaxGeneratedDrumRoles];
     int                     generatedDrumLastStepIndex = -1;
+
+    // Internal audio synthesis (Source/Engine/DrumVoiceSynth.h) - the
+    // primary way to hear the generated pattern; the MIDI-out gate state
+    // above stays available as an optional secondary output, but nothing
+    // downstream is required to hear these. One voice per role, indexed by
+    // Engine::DrumRole (not by generatedDrumRoles' array position), so both
+    // the sequencer below and incoming MIDI note-ons (see processBlock)
+    // trigger the exact same voice for a given GM drum note. Audio-thread
+    // only; sized in prepareToPlay.
+    static_assert(kMaxGeneratedDrumRoles == (int) Engine::DrumRole::Count,
+                  "one synth voice per DrumRole");
+    Engine::DrumVoiceState   generatedDrumSynthVoices[kMaxGeneratedDrumRoles];
+    juce::AudioBuffer<float> generatedDrumScratch; // mono, reused for per-voice rendering before mixing
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AbletonCopilotAudioProcessor)
 };

@@ -231,7 +231,8 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(genreEqToggle);
 
     // Phase 1 deterministic engine - AbletonCopilot outputs real MIDI directly
-    // to the host; route this MIDI track to a Drum Rack / instrument to hear it.
+    // to the host, mixed straight into AbletonCopilot's own audio output -
+    // no Drum Rack or other instrument required to hear it.
     generateDrumPatternButton.setColour(juce::TextButton::buttonColourId,  kPanel);
     generateDrumPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
     generateDrumPatternButton.onClick = [this] { generateDrumPatternClicked(); };
@@ -240,8 +241,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     drumPatternStatusLabel.setFont(body());
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     drumPatternStatusLabel.setText(
-        "Not generated yet - route this MIDI track's output to a Drum Rack / instrument "
-        "to hear it once generated.", juce::dontSendNotification);
+        "Not generated yet.", juce::dontSendNotification);
     addAndMakeVisible(drumPatternStatusLabel);
 
     // Reference-track controls - Studio, not Advisor (see PluginEditor.h).
@@ -1027,8 +1027,8 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     juce::String status;
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
            << " total) over " << grid.numBars << " bars.\n";
-    status << "Playing directly from AbletonCopilot - route this MIDI track's output to a "
-              "Drum Rack / instrument and start Ableton's transport to hear it.";
+    status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
+              "No Drum Rack or other instrument required.";
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 }
 

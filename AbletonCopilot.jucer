@@ -2,8 +2,8 @@
 
 <JUCERPROJECT id="bSFOuN" name="AbletonCopilot" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildAU,buildStandalone,buildVST3"
-              pluginWantsMidiIn="1" pluginProducesMidiOut="1"
-              pluginCharacteristicsValue="pluginWantsMidiIn,pluginProducesMidiOut">
+              pluginWantsMidiIn="1" pluginProducesMidiOut="1" pluginIsSynth="1"
+              pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn,pluginProducesMidiOut">
   <MAINGROUP id="j1i0S6" name="AbletonCopilot">
     <GROUP id="{47A2FEBF-72C0-B600-2670-D6732F401204}" name="Source">
       <FILE id="jSdvO3" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -15,8 +15,7 @@
       <FILE id="OZ6Slv" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
       <FILE id="Sr1cpp" name="StackRenderer.cpp" compile="1" resource="0"
             file="Source/StackRenderer.cpp"/>
-      <FILE id="Sr1hdr" name="StackRenderer.h" compile="0" resource="0"
-            file="Source/StackRenderer.h"/>
+      <FILE id="Sr1hdr" name="StackRenderer.h" compile="0" resource="0" file="Source/StackRenderer.h"/>
       <FILE id="Sb1cpp" name="StackBrowserComponent.cpp" compile="1" resource="0"
             file="Source/StackBrowserComponent.cpp"/>
       <FILE id="Sb1hdr" name="StackBrowserComponent.h" compile="0" resource="0"
@@ -30,8 +29,10 @@
       <FILE id="Dm1hdr" name="DrumMachineComponent.h" compile="0" resource="0"
             file="Source/DrumMachineComponent.h"/>
       <FILE id="Ui1hdr" name="UIStyle.h" compile="0" resource="0" file="Source/UIStyle.h"/>
-      <FILE id="Mc1hdr" name="MelodyCategory.h" compile="0" resource="0" file="Source/MelodyCategory.h"/>
-      <FILE id="Rh1hdr" name="RowHeaderWidgets.h" compile="0" resource="0" file="Source/RowHeaderWidgets.h"/>
+      <FILE id="Mc1hdr" name="MelodyCategory.h" compile="0" resource="0"
+            file="Source/MelodyCategory.h"/>
+      <FILE id="Rh1hdr" name="RowHeaderWidgets.h" compile="0" resource="0"
+            file="Source/RowHeaderWidgets.h"/>
       <FILE id="Mg1cpp" name="MelodyGridComponent.cpp" compile="1" resource="0"
             file="Source/MelodyGridComponent.cpp"/>
       <FILE id="Mg1hdr" name="MelodyGridComponent.h" compile="0" resource="0"
@@ -55,20 +56,17 @@
               file="Source/Analysis/FeatureExtractor.h"/>
         <FILE id="Gp1cpp" name="GenreProfiles.cpp" compile="1" resource="0"
               file="Source/Analysis/GenreProfiles.cpp"/>
-        <FILE id="Gp1hdr" name="GenreProfiles.h" compile="0" resource="0"
-              file="Source/Analysis/GenreProfiles.h"/>
+        <FILE id="Gp1hdr" name="GenreProfiles.h" compile="0" resource="0" file="Source/Analysis/GenreProfiles.h"/>
         <FILE id="Fb1cpp" name="FeedbackEngine.cpp" compile="1" resource="0"
               file="Source/Analysis/FeedbackEngine.cpp"/>
         <FILE id="Fb1hdr" name="FeedbackEngine.h" compile="0" resource="0"
               file="Source/Analysis/FeedbackEngine.h"/>
         <FILE id="Aa1cpp" name="AudioAnalyzer.cpp" compile="1" resource="0"
               file="Source/Analysis/AudioAnalyzer.cpp"/>
-        <FILE id="Aa1hdr" name="AudioAnalyzer.h" compile="0" resource="0"
-              file="Source/Analysis/AudioAnalyzer.h"/>
+        <FILE id="Aa1hdr" name="AudioAnalyzer.h" compile="0" resource="0" file="Source/Analysis/AudioAnalyzer.h"/>
         <FILE id="Ta1cpp" name="TheoryAdvisor.cpp" compile="1" resource="0"
               file="Source/Analysis/TheoryAdvisor.cpp"/>
-        <FILE id="Ta1hdr" name="TheoryAdvisor.h" compile="0" resource="0"
-              file="Source/Analysis/TheoryAdvisor.h"/>
+        <FILE id="Ta1hdr" name="TheoryAdvisor.h" compile="0" resource="0" file="Source/Analysis/TheoryAdvisor.h"/>
         <FILE id="Aa2cpp" name="ArrangementAdvisor.cpp" compile="1" resource="0"
               file="Source/Analysis/ArrangementAdvisor.cpp"/>
         <FILE id="Aa2hdr" name="ArrangementAdvisor.h" compile="0" resource="0"
@@ -89,26 +87,20 @@
               file="Source/MusicTheory/MelodicTechnoTheory.h"/>
         <FILE id="Mc2cpp" name="MelodyCritic.cpp" compile="1" resource="0"
               file="Source/MusicTheory/MelodyCritic.cpp"/>
-        <FILE id="Mc2hdr" name="MelodyCritic.h" compile="0" resource="0"
-              file="Source/MusicTheory/MelodyCritic.h"/>
+        <FILE id="Mc2hdr" name="MelodyCritic.h" compile="0" resource="0" file="Source/MusicTheory/MelodyCritic.h"/>
         <FILE id="Ms1cpp" name="MelodyScorer.cpp" compile="1" resource="0"
               file="Source/MusicTheory/MelodyScorer.cpp"/>
-        <FILE id="Ms1hdr" name="MelodyScorer.h" compile="0" resource="0"
-              file="Source/MusicTheory/MelodyScorer.h"/>
+        <FILE id="Ms1hdr" name="MelodyScorer.h" compile="0" resource="0" file="Source/MusicTheory/MelodyScorer.h"/>
       </GROUP>
       <GROUP id="{C3D4E5F6-3333-4444-5555-666677778888}" name="Engine">
-        <FILE id="Eng1cpp" name="Theory.cpp" compile="1" resource="0"
-              file="Source/Engine/Theory.cpp"/>
-        <FILE id="Eng1hdr" name="Theory.h" compile="0" resource="0"
-              file="Source/Engine/Theory.h"/>
-        <FILE id="Eng2cpp" name="Grid.cpp" compile="1" resource="0"
-              file="Source/Engine/Grid.cpp"/>
-        <FILE id="Eng2hdr" name="Grid.h" compile="0" resource="0"
-              file="Source/Engine/Grid.h"/>
-        <FILE id="Eng3cpp" name="DrumEngine.cpp" compile="1" resource="0"
-              file="Source/Engine/DrumEngine.cpp"/>
-        <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0"
-              file="Source/Engine/DrumEngine.h"/>
+        <FILE id="Eng1cpp" name="Theory.cpp" compile="1" resource="0" file="Source/Engine/Theory.cpp"/>
+        <FILE id="Eng1hdr" name="Theory.h" compile="0" resource="0" file="Source/Engine/Theory.h"/>
+        <FILE id="Eng2cpp" name="Grid.cpp" compile="1" resource="0" file="Source/Engine/Grid.cpp"/>
+        <FILE id="Eng2hdr" name="Grid.h" compile="0" resource="0" file="Source/Engine/Grid.h"/>
+        <FILE id="Eng3cpp" name="DrumEngine.cpp" compile="1" resource="0" file="Source/Engine/DrumEngine.cpp"/>
+        <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0" file="Source/Engine/DrumEngine.h"/>
+        <FILE id="Eng4cpp" name="DrumVoiceSynth.cpp" compile="1" resource="0" file="Source/Engine/DrumVoiceSynth.cpp"/>
+        <FILE id="Eng4hdr" name="DrumVoiceSynth.h" compile="0" resource="0" file="Source/Engine/DrumVoiceSynth.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>
