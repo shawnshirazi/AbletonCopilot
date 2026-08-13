@@ -11,9 +11,9 @@ static bool approxEqual(double a, double b, double eps = 1e-9)
 
 int main()
 {
-    StepGridConfig grid; // 16 steps/bar, 8 bars, no swing
+    StepGridConfig grid; // 16 steps/bar, 16 bars, no swing
 
-    CHECK(totalSteps(grid) == 128);
+    CHECK(totalSteps(grid) == 256);
 
     StepGridConfig small { 4, 2, 0.0f };
     CHECK(totalSteps(small) == 8);

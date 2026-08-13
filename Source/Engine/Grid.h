@@ -11,7 +11,7 @@ namespace Engine
     struct StepGridConfig
     {
         int   stepsPerBar = 16;
-        int   numBars     = 8;
+        int   numBars     = 16; // product default as of the drum-MIDI-output milestone (was 8)
         // 0 = straight, 1 = full triplet feel - Ableton's own swing
         // convention, already sourced/used elsewhere in this plugin
         // (only the off-beat 16th of each 8th-note pair is delayed).

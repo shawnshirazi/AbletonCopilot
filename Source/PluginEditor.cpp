@@ -230,7 +230,8 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     genreEqToggle.onClick = [this] { processor.setGenreEqEnabled(genreEqToggle.getToggleState()); };
     addAndMakeVisible(genreEqToggle);
 
-    // Phase 1 deterministic engine - real MIDI output via AbletonCopilotMIDI.
+    // Phase 1 deterministic engine - AbletonCopilot outputs real MIDI directly
+    // to the host; route this MIDI track to a Drum Rack / instrument to hear it.
     generateDrumPatternButton.setColour(juce::TextButton::buttonColourId,  kPanel);
     generateDrumPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
     generateDrumPatternButton.onClick = [this] { generateDrumPatternClicked(); };
@@ -239,8 +240,8 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     drumPatternStatusLabel.setFont(body());
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     drumPatternStatusLabel.setText(
-        "Not generated yet - needs the AbletonCopilotMIDI companion plugin on a MIDI track "
-        "routed to an instrument to actually play.", juce::dontSendNotification);
+        "Not generated yet - route this MIDI track's output to a Drum Rack / instrument "
+        "to hear it once generated.", juce::dontSendNotification);
     addAndMakeVisible(drumPatternStatusLabel);
 
     // Reference-track controls - Studio, not Advisor (see PluginEditor.h).
@@ -969,7 +970,7 @@ void AbletonCopilotAudioProcessorEditor::applyReferenceDrumsClicked()
 
 void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 {
-    const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 8 bars = 128 steps
+    const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 16 bars = 256 steps
     juce::Random rng;
 
     auto freshParams = [&rng]
@@ -992,70 +993,42 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     roles.push_back({ "HAT",  42, Engine::generateHat (grid, freshParams()) });
     roles.push_back({ "PERC", 37, Engine::generatePerc(grid, freshParams()) });
 
-    auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                   .getChildFile("AbletonCopilot");
-    if (!dir.exists())
-        dir.createDirectory();
-
-    // Handoff file for the AbletonCopilotMIDI companion plugin - same
-    // directory/poll-on-mtime-change pattern already used for
-    // melody_pattern.json (see exportMelodyPattern() above).
-    juce::String j;
-    j << "{\n  \"roles\": [\n";
+    // Hand the pattern straight to the processor - it plays it back as real
+    // MIDI to the host (see setGeneratedDrumPattern/processBlock in
+    // PluginProcessor.cpp). No file handoff, no companion plugin required.
+    std::vector<AbletonCopilotAudioProcessor::GeneratedDrumRole> processorRoles;
     juce::StringArray summaryParts;
-    for (size_t r = 0; r < roles.size(); ++r)
-    {
-        auto& role = roles[r];
-        int activeCount = 0;
+    int totalHits = 0;
 
-        j << "    { \"name\": \"" << role.name << "\", \"midiNote\": " << role.midiNote << ", \"steps\": [";
-        for (int i = 0; i < (int) role.steps.size(); ++i)
+    for (auto& role : roles)
+    {
+        AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
+        pr.midiNote = role.midiNote;
+        pr.velocity.resize(role.steps.size(), 0);
+
+        int activeCount = 0;
+        for (size_t i = 0; i < role.steps.size(); ++i)
         {
-            const auto& hit = role.steps[(size_t) i];
+            const auto& hit = role.steps[i];
             if (hit.active)
             {
-                const int vel = juce::jlimit(1, 127, (int) std::round(hit.velocity * 127.0f));
-                j << vel;
+                pr.velocity[i] = juce::jlimit(1, 127, (int) std::round(hit.velocity * 127.0f));
                 ++activeCount;
             }
-            else
-            {
-                j << "null";
-            }
-            if (i + 1 < (int) role.steps.size())
-                j << ",";
         }
-        j << "] }";
-        if (r + 1 < roles.size())
-            j << ",";
-        j << "\n";
 
+        totalHits += activeCount;
         summaryParts.add(juce::String(activeCount) + " " + juce::String(role.name).toLowerCase());
+        processorRoles.push_back(std::move(pr));
     }
-    j << "  ]\n}\n";
 
-    // Diagnostics (temporary, end-to-end drum path debugging): check the
-    // write actually succeeded and confirm on disk, rather than assuming
-    // replaceWithText() worked.
-    auto outFile = dir.getChildFile("drum_pattern.json");
-    const bool writeOk = outFile.replaceWithText(j);
-    const bool existsAfter = outFile.existsAsFile();
-    const juce::int64 sizeAfter = existsAfter ? outFile.getSize() : -1;
-
-    const int totalHits = std::accumulate(roles.begin(), roles.end(), 0,
-        [](int sum, const RoleExport& r)
-        {
-            return sum + (int) std::count_if(r.steps.begin(), r.steps.end(),
-                                              [](const Engine::Hit& h) { return h.active; });
-        });
+    processor.setGeneratedDrumPattern(processorRoles);
 
     juce::String status;
-    status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits << " total).\n";
-    status << "Wrote to: " << outFile.getFullPathName() << "\n";
-    status << "Write " << (writeOk ? "OK" : "FAILED") << ", file "
-           << (existsAfter ? "exists" : "MISSING") << " (" << sizeAfter << " bytes).\n";
-    status << "Needs AbletonCopilotMIDI on a MIDI track -> an instrument, AND Ableton's transport "
-              "playing, to actually sound.";
+    status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
+           << " total) over " << grid.numBars << " bars.\n";
+    status << "Playing directly from AbletonCopilot - route this MIDI track's output to a "
+              "Drum Rack / instrument and start Ableton's transport to hear it.";
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 }
 

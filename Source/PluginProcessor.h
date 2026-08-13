@@ -136,6 +136,27 @@ public:
     juce::String getMelodyTrackStatus(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
 
+    // --- Deterministic drum-MIDI output (Phase 1 engine, Source/Engine/) ---
+    // Emits real MIDI notes to the host (General MIDI drum map, channel 10)
+    // so a downstream instrument (e.g. a Drum Rack on the same MIDI track)
+    // can play them - independent of the kDrumRows/kDrumSteps sample-based
+    // drum machine above, which stays exactly as it was. Step count comes
+    // from whatever grid the pattern was generated with (Engine::totalSteps),
+    // not tied to the fixed kDrumSteps=128 (8-bar) grid above - this is how
+    // the product default became 16 bars without hardcoding it here too.
+    static constexpr int kMaxGeneratedDrumRoles = 4;
+
+    struct GeneratedDrumRole
+    {
+        int              midiNote = -1;   // -1 = unused slot
+        std::vector<int> velocity;        // sized to the pattern's totalSteps; 0 = no hit, 1-127 = velocity
+    };
+
+    // Replaces the current generated drum pattern (message thread only -
+    // called from PluginEditor's Generate Drum Pattern button). At most
+    // kMaxGeneratedDrumRoles entries are used; extras are ignored.
+    void setGeneratedDrumPattern(const std::vector<GeneratedDrumRole>& roles);
+
 private:
     void loadSerum();
 
@@ -239,6 +260,24 @@ private:
     juce::CriticalSection corrLock;
     std::atomic<bool>     corrActive { false };
     std::atomic<bool>     corrDirty  { false };
+
+    // Deterministic drum-MIDI output state (see setGeneratedDrumPattern
+    // above). generatedDrum* fields guarded by generatedDrumLock (message
+    // thread writes, audio thread reads a local copy each block); the
+    // per-role gate-voice state below is audio-thread-only, same split as
+    // the existing DrumVoice/drumBufferLock pattern above.
+    juce::CriticalSection            generatedDrumLock;
+    std::vector<GeneratedDrumRole>   generatedDrumRoles;      // guarded by generatedDrumLock
+    int                              generatedDrumTotalSteps = 0; // guarded by generatedDrumLock
+
+    struct GeneratedDrumVoiceState
+    {
+        bool noteOn          = false;
+        int  pitch           = -1;
+        int  samplesUntilOff = 0;
+    };
+    GeneratedDrumVoiceState generatedDrumVoices[kMaxGeneratedDrumRoles];
+    int                     generatedDrumLastStepIndex = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AbletonCopilotAudioProcessor)
 };

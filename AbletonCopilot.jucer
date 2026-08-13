@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="bSFOuN" name="AbletonCopilot" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildAU,buildStandalone,buildVST3">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildAU,buildStandalone,buildVST3"
+              pluginWantsMidiIn="1" pluginProducesMidiOut="1"
+              pluginCharacteristicsValue="pluginWantsMidiIn,pluginProducesMidiOut">
   <MAINGROUP id="j1i0S6" name="AbletonCopilot">
     <GROUP id="{47A2FEBF-72C0-B600-2670-D6732F401204}" name="Source">
       <FILE id="jSdvO3" name="PluginProcessor.cpp" compile="1" resource="0"

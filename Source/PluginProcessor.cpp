@@ -355,6 +355,26 @@ bool AbletonCopilotAudioProcessor::isMelodyTrackLoaded(int trackIndex) const
     return melodyVoices[trackIndex].loaded.load(std::memory_order_relaxed);
 }
 
+void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<GeneratedDrumRole>& roles)
+{
+    // Every role's velocity array is sized to the same grid (Engine::totalSteps
+    // of whatever StepGridConfig the caller generated with) - use the first
+    // non-empty one found as the step count the audio thread wraps against.
+    int totalSteps = 0;
+    for (const auto& role : roles)
+    {
+        if (!role.velocity.empty())
+        {
+            totalSteps = (int) role.velocity.size();
+            break;
+        }
+    }
+
+    juce::ScopedLock sl(generatedDrumLock);
+    generatedDrumRoles      = roles;
+    generatedDrumTotalSteps = totalSteps;
+}
+
 int AbletonCopilotAudioProcessor::addMelodyTrack()
 {
     const int index = activeMelodyTrackCount.load(std::memory_order_relaxed);
@@ -577,7 +597,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                                                   juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    juce::ignoreUnused(midiMessages);
+    midiMessages.clear(); // we're a generator, not a pass-through
 
     for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
@@ -671,6 +691,88 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             voice.readPos += n;
             if (voice.readPos >= buf->getNumSamples())
                 voice.readPos = -1;
+        }
+    }
+
+    // --- Deterministic drum-MIDI output (Generate Drum Pattern button, see
+    // Source/Engine/DrumEngine.h) -- emits real MIDI notes to the host,
+    // independent of the sample-based drum machine above. Same step-
+    // trigger-against-host-PPQ approach used there and previously proven in
+    // the AbletonCopilotMIDI companion plugin, now ported in-process so
+    // AbletonCopilot itself can drive a downstream instrument without a
+    // separate plugin. Each role gets its own short-gated voice (~40ms), not
+    // held-until-next-event, since drum hits are strikes, not sustained notes.
+    {
+        std::vector<GeneratedDrumRole> localRoles;
+        int localTotalSteps = 0;
+        {
+            juce::ScopedLock sl(generatedDrumLock);
+            localRoles      = generatedDrumRoles;
+            localTotalSteps = generatedDrumTotalSteps;
+        }
+
+        if (localTotalSteps > 0)
+        {
+            if (isPlayingNow)
+            {
+                double ppq = 0.0;
+                if (auto* head = getPlayHead())
+                    if (auto pos = head->getPosition())
+                        if (auto ppqOpt = pos->getPpqPosition())
+                            ppq = *ppqOpt;
+
+                const int stepFloor   = (int) std::floor(ppq * 4.0);
+                const int wrappedStep = ((stepFloor % localTotalSteps) + localTotalSteps) % localTotalSteps;
+
+                if (wrappedStep != generatedDrumLastStepIndex)
+                {
+                    generatedDrumLastStepIndex = wrappedStep;
+
+                    for (size_t r = 0; r < localRoles.size() && r < (size_t) kMaxGeneratedDrumRoles; ++r)
+                    {
+                        const auto& role = localRoles[r];
+                        if (role.midiNote < 0 || wrappedStep >= (int) role.velocity.size())
+                            continue;
+
+                        const int vel = role.velocity[(size_t) wrappedStep];
+                        if (vel <= 0)
+                            continue;
+
+                        auto& voice = generatedDrumVoices[r];
+                        if (voice.noteOn)
+                        {
+                            midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), 0);
+                            voice.noteOn = false;
+                        }
+
+                        midiMessages.addEvent(juce::MidiMessage::noteOn(10, role.midiNote, (juce::uint8) vel), 0);
+                        voice.noteOn          = true;
+                        voice.pitch           = role.midiNote;
+                        voice.samplesUntilOff = juce::jmax(1, (int) (0.04 * getSampleRate()));
+                    }
+                }
+            }
+            else
+            {
+                generatedDrumLastStepIndex = -1;
+            }
+        }
+
+        const int numSamplesForGate = buffer.getNumSamples();
+        for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+        {
+            auto& voice = generatedDrumVoices[r];
+            if (!voice.noteOn)
+                continue;
+
+            voice.samplesUntilOff -= numSamplesForGate;
+            if (voice.samplesUntilOff <= 0)
+            {
+                const int offset = juce::jlimit(0, juce::jmax(0, numSamplesForGate - 1),
+                                                 numSamplesForGate + voice.samplesUntilOff);
+                midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), offset);
+                voice.noteOn = false;
+            }
         }
     }
 

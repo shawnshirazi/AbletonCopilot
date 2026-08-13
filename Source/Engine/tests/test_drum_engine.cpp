@@ -54,7 +54,7 @@ namespace
 
 int main()
 {
-    const StepGridConfig grid; // default: 16 steps/bar, 8 bars = 128 steps
+    const StepGridConfig grid; // default: 16 steps/bar, 16 bars = 256 steps
 
     // A larger grid for tests that need statistical confidence on a
     // probabilistic effect (no flakiness from a single 8-bar sample) - a
@@ -175,11 +175,15 @@ int main()
                 if (steps[(size_t) (barIndex * grid.stepsPerBar + s)].active) ++n;
             return n;
         };
-        auto clapVar0 = generateClap(grid, pBase); // grid: 8 bars = 2 cycles
+        auto clapVar0 = generateClap(grid, pBase); // grid: 16 bars = 4 cycles
         CHECK(countInBar(clapVar0, 1) == 1);
         CHECK(countInBar(clapVar0, 3) == 2);
         CHECK(countInBar(clapVar0, 5) == 1);
         CHECK(countInBar(clapVar0, 7) == 2);
+        CHECK(countInBar(clapVar0, 9) == 1);
+        CHECK(countInBar(clapVar0, 11) == 2);
+        CHECK(countInBar(clapVar0, 13) == 1);
+        CHECK(countInBar(clapVar0, 15) == 2);
 
         DrumPatternParams pVar1 = pBase; pVar1.variation = 1.0f;
         auto clapVar1 = generateClap(grid, pVar1);
@@ -187,6 +191,10 @@ int main()
         CHECK(countInBar(clapVar1, 3) == 1);
         CHECK(countInBar(clapVar1, 5) == 2);
         CHECK(countInBar(clapVar1, 7) == 1);
+        CHECK(countInBar(clapVar1, 9) == 2);
+        CHECK(countInBar(clapVar1, 11) == 1);
+        CHECK(countInBar(clapVar1, 13) == 2);
+        CHECK(countInBar(clapVar1, 15) == 1);
 
         // Determinism + different-seed variation.
         CHECK(sameArray(generateClap(grid, pBase), generateClap(grid, pBase)));
