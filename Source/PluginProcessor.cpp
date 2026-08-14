@@ -393,6 +393,7 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
     // tells processBlock to fall back to DrumVoiceSynth for that role.
     {
         std::shared_ptr<juce::AudioBuffer<float>> loaded[kMaxGeneratedDrumRoles];
+        juce::File                                loadedFile[kMaxGeneratedDrumRoles]; // stays invalid File() unless the load below actually succeeds
 
         for (const auto& role : roles)
         {
@@ -405,23 +406,33 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
 
             std::unique_ptr<juce::AudioFormatReader> reader(drumFormatManager.createReaderFor(role.sampleFile));
             if (reader == nullptr)
-                continue;
+                continue; // selector suggested a file, but it couldn't actually be decoded - stays a synth fallback, not a silent lie
 
             auto buf = std::make_shared<juce::AudioBuffer<float>>(
                 juce::jmax(1, (int) reader->numChannels), (int) reader->lengthInSamples);
             reader->read(buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
 
-            loaded[(int) resolvedRole] = buf;
+            loaded[(int) resolvedRole]     = buf;
+            loadedFile[(int) resolvedRole] = role.sampleFile; // only set on an actual successful decode - this IS what's now in generatedRoleSampleBuffers
         }
 
         juce::ScopedLock sampleLock(generatedSampleLock);
         for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+        {
             generatedRoleSampleBuffers[r] = loaded[r];
+            generatedRoleLoadedFile[r]    = loadedFile[r];
+        }
     }
 
     juce::ScopedLock sl(generatedDrumLock);
     generatedDrumRoles      = roles;
     generatedDrumTotalSteps = totalSteps;
+}
+
+juce::File AbletonCopilotAudioProcessor::getGeneratedRoleLoadedFile(Engine::DrumRole role) const
+{
+    juce::ScopedLock sl(generatedSampleLock);
+    return generatedRoleLoadedFile[(int) role];
 }
 
 int AbletonCopilotAudioProcessor::addMelodyTrack()

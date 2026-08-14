@@ -168,6 +168,15 @@ public:
     // kMaxGeneratedDrumRoles entries are used; extras are ignored.
     void setGeneratedDrumPattern(const std::vector<GeneratedDrumRole>& roles);
 
+    // The file ACTUALLY loaded into the playback voice for `role` right
+    // now - an invalid File() means that role is currently sounding via
+    // DrumVoiceSynth (no usable sample loaded), not a guess or the sample
+    // selector's original suggestion. Message-thread callers (the editor's
+    // status display) can call this immediately after
+    // setGeneratedDrumPattern() returns - that call is fully synchronous,
+    // so this is always up to date by the time it returns.
+    juce::File getGeneratedRoleLoadedFile(Engine::DrumRole role) const;
+
 private:
     void loadSerum();
 
@@ -322,6 +331,13 @@ private:
     // drumFormatManager - no second sample-loading system.
     juce::CriticalSection                     generatedSampleLock;
     std::shared_ptr<juce::AudioBuffer<float>> generatedRoleSampleBuffers[kMaxGeneratedDrumRoles]; // guarded by generatedSampleLock; nullptr = use DrumVoiceSynth for this role
+    // The file that ACTUALLY produced generatedRoleSampleBuffers[r] above -
+    // set at the exact same time as the buffer, in setGeneratedDrumPattern().
+    // This is deliberately separate from GeneratedDrumRole::sampleFile (the
+    // sample-selection layer's suggestion): if that file fails to decode,
+    // the buffer stays null and this stays an invalid File(), so
+    // getGeneratedRoleLoadedFile() always reflects reality, never intent.
+    juce::File generatedRoleLoadedFile[kMaxGeneratedDrumRoles]; // guarded by generatedSampleLock
 
     struct GeneratedSampleVoiceState
     {

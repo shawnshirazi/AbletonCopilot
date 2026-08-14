@@ -105,11 +105,13 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     StartupTiming::mark("Editor ctor start");
     // Shorter window while the manual drum grid/melody grid/Serum panels
     // are hidden (see kShowFullUI) - no point reserving space for a large
-    // scrollable area with nothing visible in it. 340 fits the header,
-    // Generate Drum Pattern row, status text, and the generated pattern
-    // grid + legend with a little breathing room; flip kShowFullUI back to
-    // restore the full 980x760 layout.
-    setSize(980, kShowFullUI ? 760 : 340);
+    // scrollable area with nothing visible in it. 412 fits the header,
+    // Generate Drum Pattern row, the status block (now tall enough for
+    // one line per role's actual loaded sample path - see
+    // generateDrumPatternClicked), and the generated pattern grid + legend
+    // with a little breathing room; flip kShowFullUI back to restore the
+    // full 980x760 layout.
+    setSize(980, kShowFullUI ? 760 : 412);
 
     // Genre picker
     const auto& profiles = GenreProfiles::getInstance();
@@ -255,7 +257,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     generateDrumPatternButton.onClick = [this] { generateDrumPatternClicked(); };
     addAndMakeVisible(generateDrumPatternButton);
 
-    drumPatternStatusLabel.setFont(body());
+    drumPatternStatusLabel.setFont(small()); // smaller font: room for 4 full sample paths without ballooning the window
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     drumPatternStatusLabel.setText(
         "Not generated yet.", juce::dontSendNotification);
@@ -569,7 +571,7 @@ void AbletonCopilotAudioProcessorEditor::resized()
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
     area.removeFromTop(4);
-    drumPatternStatusLabel.setBounds(area.removeFromTop(78).reduced(12, 0));
+    drumPatternStatusLabel.setBounds(area.removeFromTop(150).reduced(12, 0));
     area.removeFromTop(4);
     generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRequiredHeight).reduced(12, 0));
     area.removeFromTop(8);
@@ -1097,8 +1099,6 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
         return sampleSel.perc;
     };
 
-    juce::StringArray fallbackRoles; // roles with no library samples - report, don't silently substitute
-
     for (auto& role : roles)
     {
         std::vector<int> velocity = Engine::toVelocityArray(role.steps);
@@ -1106,8 +1106,6 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
                                                       [](int v) { return v > 0; });
 
         const DrumSampleChoice& choice = choiceForRole(role.name);
-        if (choice.poolSize == 0)
-            fallbackRoles.add(juce::String(role.name).toLowerCase());
 
         AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
         pr.midiNote   = role.midiNote;
@@ -1133,11 +1131,31 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
            << " total) over " << grid.numBars << " bars.\n";
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
-    if (fallbackRoles.isEmpty())
-        status << "Using samples from your library.";
-    else
-        status << "No library samples found for: " << fallbackRoles.joinIntoString(", ")
-               << " - using the built-in synth for " << (fallbackRoles.size() == 1 ? "it" : "them") << " instead.";
+
+    // Debug/proof block: the ACTUAL file loaded into each role's playback
+    // voice right now, queried straight back from the processor
+    // (getGeneratedRoleLoadedFile) - not the selector's suggestion above
+    // (choiceForRole), which could differ if a file failed to decode. This
+    // call is synchronous with setGeneratedDrumPattern() just above, so
+    // there's no race between "what we just asked for" and "what's
+    // actually playing" - what's printed here is what processBlock will
+    // use on the very next block.
+    for (auto& role : roles)
+    {
+        Engine::DrumRole resolvedRole;
+        if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
+            continue;
+
+        const juce::File loaded = processor.getGeneratedRoleLoadedFile(resolvedRole);
+        status << juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
+               << juce::String(role.name).toLowerCase().substring(1) << ": ";
+        if (loaded.existsAsFile())
+            status << loaded.getFullPathName();
+        else
+            status << "SYNTH FALLBACK";
+        status << "\n";
+    }
+
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 }
 
