@@ -131,4 +131,13 @@ namespace Engine
     //                hit). 0 = uniform density and a narrow velocity range,
     //                1 = uneven bar-to-bar density and a wide velocity range.
     StepArray generatePerc(const StepGridConfig& grid, const DrumPatternParams& params);
+
+    // Converts a generated StepArray into a flat 0-127 integer velocity
+    // array (0 = no hit, matching MIDI velocity range). This is the single
+    // conversion both the audio path (PluginProcessor's
+    // GeneratedDrumRole::velocity, driving DrumVoiceSynth) and the UI grid
+    // display consume - calling this once per role and handing the SAME
+    // result to both is what guarantees the UI always shows exactly the
+    // pattern that's playing, never a second independently-derived one.
+    std::vector<int> toVelocityArray(const StepArray& steps);
 }

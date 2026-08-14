@@ -102,6 +102,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     AbletonCopilotAudioProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
+    StartupTiming::mark("Editor ctor start");
     setSize(980, 760);
 
     // Genre picker
@@ -243,6 +244,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     drumPatternStatusLabel.setText(
         "Not generated yet.", juce::dontSendNotification);
     addAndMakeVisible(drumPatternStatusLabel);
+    addAndMakeVisible(generatedDrumGrid);
 
     // Reference-track controls - Studio, not Advisor (see PluginEditor.h).
     loadReferenceButton.setColour(juce::TextButton::buttonColourId,  kPanel);
@@ -394,13 +396,30 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
         latestPresets = presets;
     };
 
+    // Kick off the (already background-threaded, see RackBrowserComponent::
+    // run()/PresetLibraryScanner::run()) sample-library scans on the next
+    // message-loop iteration rather than inline here - the grid/UI this
+    // constructor is building should be fully constructed and handed back
+    // to the host before we even start the (tiny, but non-zero)
+    // std::thread-creation work each setLibraryDir() call does. Not a
+    // timer - a single deferred call, not a repeating one used to paper
+    // over anything.
     if (libraryDir.isDirectory())
     {
-        rackBrowser.setLibraryDir(libraryDir);
-        presetScanner.setLibraryDir(libraryDir);
+        juce::Component::SafePointer<AbletonCopilotAudioProcessorEditor> safeThis(this);
+        juce::MessageManager::callAsync([safeThis]
+        {
+            if (auto* self = safeThis.getComponent())
+            {
+                StartupTiming::mark("Library scan kickoff (deferred)");
+                self->rackBrowser.setLibraryDir(self->libraryDir);
+                self->presetScanner.setLibraryDir(self->libraryDir);
+            }
+        });
     }
 
     startTimerHz(30);
+    StartupTiming::mark("Editor ctor end");
 }
 
 AbletonCopilotAudioProcessorEditor::~AbletonCopilotAudioProcessorEditor()
@@ -427,6 +446,13 @@ AbletonCopilotAudioProcessorEditor::~AbletonCopilotAudioProcessorEditor()
 
 void AbletonCopilotAudioProcessorEditor::resized()
 {
+    static bool loggedFirstResized = false;
+    if (!loggedFirstResized)
+    {
+        loggedFirstResized = true;
+        StartupTiming::mark("Editor first resized()");
+    }
+
     auto area = getLocalBounds();
 
     // Header: title on the left, a compact sample-library path on the right.
@@ -502,6 +528,8 @@ void AbletonCopilotAudioProcessorEditor::resized()
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
     area.removeFromTop(4);
     drumPatternStatusLabel.setBounds(area.removeFromTop(78).reduced(12, 0));
+    area.removeFromTop(4);
+    generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRowHeight * 4).reduced(12, 0));
     area.removeFromTop(8);
 
     // Reference-track row(s) - hidden while kShowExperimentalFeatures is
@@ -983,46 +1011,50 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
         return p;
     };
 
-    struct RoleExport { const char* name; int midiNote; Engine::StepArray steps; };
+    struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
     // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Side Stick) so this lines up
     // with most drum racks/instruments by default.
     std::vector<RoleExport> roles;
-    roles.push_back({ "KICK", 36, Engine::generateKick(grid, freshParams()) });
-    roles.push_back({ "CLAP", 39, Engine::generateClap(grid, freshParams()) });
-    roles.push_back({ "HAT",  42, Engine::generateHat (grid, freshParams()) });
-    roles.push_back({ "PERC", 37, Engine::generatePerc(grid, freshParams()) });
+    roles.push_back({ "KICK", 36, UIStyle::kKick,  Engine::generateKick(grid, freshParams()) });
+    roles.push_back({ "CLAP", 39, UIStyle::kClap,  Engine::generateClap(grid, freshParams()) });
+    roles.push_back({ "HAT",  42, UIStyle::kHihat, Engine::generateHat (grid, freshParams()) });
+    roles.push_back({ "PERC", 37, UIStyle::kPerc,  Engine::generatePerc(grid, freshParams()) });
 
     // Hand the pattern straight to the processor - it plays it back as real
-    // MIDI to the host (see setGeneratedDrumPattern/processBlock in
-    // PluginProcessor.cpp). No file handoff, no companion plugin required.
+    // audio (DrumVoiceSynth, see PluginProcessor.cpp) and, secondarily, as
+    // MIDI. Also feed generatedDrumGrid so the UI shows exactly the same
+    // pattern - both consumers are built from the SAME toVelocityArray()
+    // result per role (Engine::toVelocityArray, DrumEngine.h), never two
+    // independently-derived patterns.
     std::vector<AbletonCopilotAudioProcessor::GeneratedDrumRole> processorRoles;
+    std::vector<GeneratedDrumGridComponent::RowDisplay> displayRows;
     juce::StringArray summaryParts;
     int totalHits = 0;
 
     for (auto& role : roles)
     {
+        std::vector<int> velocity = Engine::toVelocityArray(role.steps);
+        const int activeCount = (int) std::count_if(velocity.begin(), velocity.end(),
+                                                      [](int v) { return v > 0; });
+
         AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
         pr.midiNote = role.midiNote;
-        pr.velocity.resize(role.steps.size(), 0);
+        pr.velocity = velocity;
+        processorRoles.push_back(std::move(pr));
 
-        int activeCount = 0;
-        for (size_t i = 0; i < role.steps.size(); ++i)
-        {
-            const auto& hit = role.steps[i];
-            if (hit.active)
-            {
-                pr.velocity[i] = juce::jlimit(1, 127, (int) std::round(hit.velocity * 127.0f));
-                ++activeCount;
-            }
-        }
+        GeneratedDrumGridComponent::RowDisplay dr;
+        dr.name     = role.name;
+        dr.colour   = role.colour;
+        dr.velocity = std::move(velocity);
+        displayRows.push_back(std::move(dr));
 
         totalHits += activeCount;
         summaryParts.add(juce::String(activeCount) + " " + juce::String(role.name).toLowerCase());
-        processorRoles.push_back(std::move(pr));
     }
 
     processor.setGeneratedDrumPattern(processorRoles);
+    generatedDrumGrid.setPattern(std::move(displayRows), grid.stepsPerBar, grid.numBars);
 
     juce::String status;
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
@@ -1218,6 +1250,13 @@ void AbletonCopilotAudioProcessorEditor::buildArrangementSuggestions()
 
 void AbletonCopilotAudioProcessorEditor::paint(juce::Graphics& g)
 {
+    static bool loggedFirstPaint = false;
+    if (!loggedFirstPaint)
+    {
+        loggedFirstPaint = true;
+        StartupTiming::mark("Editor first paint()");
+    }
+
     g.fillAll(kBg);
 
     auto full = getLocalBounds();

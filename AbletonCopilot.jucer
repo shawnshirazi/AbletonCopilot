@@ -33,6 +33,8 @@
             file="Source/MelodyCategory.h"/>
       <FILE id="Rh1hdr" name="RowHeaderWidgets.h" compile="0" resource="0"
             file="Source/RowHeaderWidgets.h"/>
+      <FILE id="St1hdr" name="StartupTiming.h" compile="0" resource="0"
+            file="Source/StartupTiming.h"/>
       <FILE id="Mg1cpp" name="MelodyGridComponent.cpp" compile="1" resource="0"
             file="Source/MelodyGridComponent.cpp"/>
       <FILE id="Mg1hdr" name="MelodyGridComponent.h" compile="0" resource="0"
@@ -41,6 +43,10 @@
             file="Source/DrumPatternRenderer.cpp"/>
       <FILE id="Dp1hdr" name="DrumPatternRenderer.h" compile="0" resource="0"
             file="Source/DrumPatternRenderer.h"/>
+      <FILE id="Gdg1cpp" name="GeneratedDrumGridComponent.cpp" compile="1" resource="0"
+            file="Source/GeneratedDrumGridComponent.cpp"/>
+      <FILE id="Gdg1hdr" name="GeneratedDrumGridComponent.h" compile="0" resource="0"
+            file="Source/GeneratedDrumGridComponent.h"/>
       <FILE id="Ap1cpp" name="AdvisorPanelComponent.cpp" compile="1" resource="0"
             file="Source/AdvisorPanelComponent.cpp"/>
       <FILE id="Ap1hdr" name="AdvisorPanelComponent.h" compile="0" resource="0"

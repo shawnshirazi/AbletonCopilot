@@ -4,6 +4,7 @@
 #include "Analysis/FeatureExtractor.h"
 #include "MelodyCategory.h"
 #include "Engine/DrumVoiceSynth.h"
+#include "StartupTiming.h"
 
 // Parameters for the master-bus correction chain.
 // Computed by the editor from analysis results, applied by the processor in processBlock.

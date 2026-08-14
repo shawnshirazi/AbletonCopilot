@@ -1,5 +1,6 @@
 #include "DrumEngine.h"
 #include <algorithm>
+#include <cmath>
 #include <random>
 
 namespace Engine
@@ -247,5 +248,21 @@ namespace Engine
         }
 
         return steps;
+    }
+
+    std::vector<int> toVelocityArray(const StepArray& steps)
+    {
+        std::vector<int> out(steps.size(), 0);
+        for (size_t i = 0; i < steps.size(); ++i)
+        {
+            if (!steps[i].active)
+                continue;
+
+            int vel = (int) std::lround(steps[i].velocity * 127.0f);
+            if (vel < 1)   vel = 1;
+            if (vel > 127) vel = 127;
+            out[i] = vel;
+        }
+        return out;
     }
 }

@@ -8,6 +8,7 @@
 #include "RackBrowserComponent.h"
 #include "DrumMachineComponent.h"
 #include "DrumPatternRenderer.h"
+#include "GeneratedDrumGridComponent.h"
 #include "MelodyCategory.h"
 #include "MelodyGridComponent.h"
 #include "AdvisorPanelComponent.h"
@@ -193,6 +194,9 @@ private:
     // this is the new engine, not the hidden heuristic/AI layer.
     juce::TextButton  generateDrumPatternButton { "Generate Drum Pattern" };
     juce::Label       drumPatternStatusLabel;
+    // Read-only display of the generated pattern, fed the exact same data
+    // as processor.setGeneratedDrumPattern() - see generateDrumPatternClicked().
+    GeneratedDrumGridComponent generatedDrumGrid;
 
     juce::TextButton  loadReferenceButton  { "Load Reference Track..." };
     juce::TextButton  clearReferenceButton { "Clear" };

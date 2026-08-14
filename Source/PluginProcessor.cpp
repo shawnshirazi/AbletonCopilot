@@ -36,6 +36,9 @@ AbletonCopilotAudioProcessor::AbletonCopilotAudioProcessor()
                      )
 #endif
 {
+    StartupTiming::reset(); // earliest point in a load cycle - fresh log for this load
+    StartupTiming::mark("AudioProcessor ctor start");
+
     drumFormatManager.registerBasicFormats();
 
     for (int r = 0; r < kDrumRows; ++r)
@@ -47,7 +50,9 @@ AbletonCopilotAudioProcessor::AbletonCopilotAudioProcessor()
     }
 
     juce::addDefaultFormatsToManager(pluginFormatManager);
-    addMelodyTrack(); // track 0 — always present by default (the "Bass" voice)
+    addMelodyTrack(); // track 0 — always present by default (the "Bass" voice) - starts loadSerum() on a background thread, does not block here
+
+    StartupTiming::mark("AudioProcessor ctor end");
 }
 
 AbletonCopilotAudioProcessor::~AbletonCopilotAudioProcessor()

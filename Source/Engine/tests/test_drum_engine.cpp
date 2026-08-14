@@ -357,5 +357,51 @@ int main()
         printPattern("PERC (default params)", generatePerc(grid, DrumPatternParams{}), grid);
     }
 
+    // =====================================================================
+    // toVelocityArray - the single conversion both the audio path
+    // (PluginProcessor's GeneratedDrumRole/DrumVoiceSynth) and the UI grid
+    // display consume. This is what guarantees "the UI shows exactly what's
+    // playing" - both call this once on the SAME StepArray, so testing the
+    // conversion itself is testing the actual guarantee.
+    // =====================================================================
+    {
+        StepArray steps(8);
+        steps[0] = { true,  1.0f };   // -> 127
+        steps[1] = { false, 1.0f };   // inactive - velocity ignored -> 0
+        steps[2] = { true,  0.0f };   // active but velocity 0 -> clamped up to 1, not 0 (active must stay audible/visible)
+        steps[3] = { true,  0.5f };   // -> round(63.5) = 64
+        steps[4] = { true,  -1.0f };  // out-of-range low -> clamped to 1
+        steps[5] = { true,  2.0f };   // out-of-range high -> clamped to 127
+        // steps[6], steps[7] default-constructed: inactive -> 0
+
+        auto vel = toVelocityArray(steps);
+        CHECK(vel.size() == steps.size());
+        CHECK(vel[0] == 127);
+        CHECK(vel[1] == 0);
+        CHECK(vel[2] == 1);
+        CHECK(vel[3] == 64);
+        CHECK(vel[4] == 1);
+        CHECK(vel[5] == 127);
+        CHECK(vel[6] == 0);
+        CHECK(vel[7] == 0);
+
+        // Every active step maps to a non-zero velocity and vice versa -
+        // the on/off shape is preserved exactly, not just approximately.
+        for (size_t i = 0; i < steps.size(); ++i)
+            CHECK(steps[i].active == (vel[i] > 0));
+
+        // Same input -> identical output (deterministic, pure function -
+        // no hidden state/randomness that could make two calls on the same
+        // generated pattern disagree).
+        CHECK(toVelocityArray(steps) == vel);
+
+        // A real generated pattern round-trips consistently too.
+        auto kick = generateKick(grid, DrumPatternParams{});
+        auto kickVel = toVelocityArray(kick);
+        CHECK(kickVel.size() == kick.size());
+        for (size_t i = 0; i < kick.size(); ++i)
+            CHECK(kick[i].active == (kickVel[i] > 0));
+    }
+
     TEST_SUMMARY_AND_EXIT();
 }
