@@ -258,6 +258,15 @@ private:
     PresetLibraryScanner    presetScanner;
     std::vector<PresetEntry> latestPresets;
 
+    // Analyzed+cached drum-role samples (see Source/DrumSampleIndex.h) -
+    // rebuilt in the background whenever rackBrowser rescans, off the
+    // audio thread. generateDrumPatternClicked() ranks/selects from
+    // whatever's here at click time (see Source/DrumSampleSelector.h);
+    // an empty/stale vector just means every role falls back to
+    // DrumVoiceSynth until the first scan completes, not a hang.
+    DrumSampleIndex            sampleIndex;
+    std::vector<IndexedSample> latestSampleIndex;
+
     bool   wasPlayheadRunning = false;
     double playheadStartTime  = 0.0;
 

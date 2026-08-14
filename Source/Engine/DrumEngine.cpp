@@ -68,31 +68,74 @@ namespace Engine
             return std::max(0.0f, std::min(1.0f, v));
         }
 
-        // Phrase-aware intensity curve, applied to variation/syncopation-
-        // driven probabilities so the 16-bar loop builds across itself
-        // instead of every bar being independently random:
-        //   bars  1-4  (phrase 0) = establish      - calmest
-        //   bars  5-8  (phrase 1) = subtle variation
-        //   bars  9-12 (phrase 2) = development
-        //   bars 13-16 (phrase 3) = variation / phrase ending - busiest
-        // Pure function of (bar, numBars) - no RNG, fully deterministic,
-        // and at any probability that's already 0 (a knob left at its
-        // baseline) this multiplies 0 by a number and stays 0, so it never
-        // changes the flat/baseline behaviour of any role, only how
-        // strongly the already-present optional effects lean in as the
-        // pattern progresses. Degrades gracefully for numBars < 4 (still
-        // divides into 4 phrases, just shorter ones).
-        float phraseIntensity(int bar, int numBars)
+        // Structural positions kick/hat/clap already claim - their FIXED
+        // idiom positions (four-on-the-floor beats, the offbeat-8th hat
+        // pulse, the clap backbeat), not the rare/random push/drop/ghost
+        // variants. Perc uses this to answer the groove from the gaps
+        // rather than piling on top of what's already sounding there - a
+        // real "negative space" arrangement technique, not a literal
+        // cross-role coupling (DrumEngine's roles stay independently
+        // generated functions; this only encodes the KNOWN fixed idiom
+        // shape each one always starts from).
+        bool isStructurallyClaimed(int stepInBar, int stepsPerBar)
+        {
+            const int stepsPerBeat = std::max(1, stepsPerBar / 4);
+            if (stepInBar % stepsPerBeat == 0)                    return true; // kick's four-on-the-floor beats
+            if (stepInBar % stepsPerBeat == stepsPerBeat / 2)      return true; // hat's primary offbeat pulse
+            if (stepInBar == (stepsPerBar * 3) / 4)                return true; // clap's backbeat
+            return false;
+        }
+
+        // A 16-bar phrase isn't 4 equal quarters - it's five distinct
+        // musical moments, matched here to actual bar proportions (not
+        // literal bar counts, so this degrades sensibly for numBars !=
+        // 16 too):
+        //   0%   - 25%  bars  1-4  establish groove       - calmest
+        //   25%  - 50%  bars  5-8  introduce subtle variation
+        //   50%  - 75%  bars  9-12 develop groove
+        //   75%  - 93.75% bars 13-15 build tension          - busiest
+        //   93.75% - 100%  bar 16   restrained phrase-ending fill - NOT
+        //                            the busiest section; a focused,
+        //                            deliberate gesture rather than the
+        //                            loudest bar in the loop.
+        enum class PhraseSection { Establish, SubtleVariation, Development, BuildTension, PhraseEnding };
+
+        PhraseSection phraseSectionFor(int bar, int numBars)
         {
             if (numBars <= 0)
-                return 1.0f;
+                return PhraseSection::Establish;
 
-            constexpr int phraseCount = 4;
-            const int barsPerPhrase   = std::max(1, numBars / phraseCount);
-            const int phrase          = std::min(phraseCount - 1, bar / barsPerPhrase);
+            const double t = (double) bar / (double) numBars;
+            if (t < 4.0  / 16.0) return PhraseSection::Establish;
+            if (t < 8.0  / 16.0) return PhraseSection::SubtleVariation;
+            if (t < 12.0 / 16.0) return PhraseSection::Development;
+            if (t < 15.0 / 16.0) return PhraseSection::BuildTension;
+            return PhraseSection::PhraseEnding;
+        }
 
-            static const float kPhraseScale[phraseCount] = { 0.6f, 0.85f, 1.1f, 1.4f };
-            return kPhraseScale[phrase];
+        // Phrase-aware intensity curve, applied to variation/syncopation-
+        // driven probabilities so the 16-bar loop builds across itself
+        // instead of every bar being independently random. Pure function
+        // of (bar, numBars) - no RNG, fully deterministic, and at any
+        // probability that's already 0 (a knob left at its baseline) this
+        // multiplies 0 by a number and stays 0, so it never changes the
+        // flat/baseline behaviour of any role, only how strongly the
+        // already-present optional effects lean in as the pattern
+        // progresses. PhraseEnding is deliberately NOT the highest value -
+        // "restrained... fill", not the busiest bar in the loop; the
+        // per-role phrase-ending gestures (see generatePerc) are what
+        // actually mark it, not raw density.
+        float phraseIntensity(int bar, int numBars)
+        {
+            switch (phraseSectionFor(bar, numBars))
+            {
+                case PhraseSection::Establish:       return 0.55f;
+                case PhraseSection::SubtleVariation: return 0.8f;
+                case PhraseSection::Development:     return 1.1f;
+                case PhraseSection::BuildTension:    return 1.35f;
+                case PhraseSection::PhraseEnding:    return 1.0f;
+            }
+            return 1.0f;
         }
     }
 
@@ -217,33 +260,54 @@ namespace Engine
 
         for (int bar = 0; bar < grid.numBars; ++bar)
         {
-            const int base = bar * grid.stepsPerBar;
+            const int base    = bar * grid.stepsPerBar;
+            const float phrase = phraseIntensity(bar, grid.numBars);
+            // Start of each 4-bar segment - a musically useful accent
+            // position (the phrase's own downbeat), not an arbitrary one.
+            const bool isPhraseDownbeat = (bar % 4 == 0);
 
-            // Primary pulse: off-beat 8ths (the "and" of each beat) - the
-            // genre-defining baseline, always present, not parameterized
-            // (same reasoning as kick's four-on-the-floor). Controlled
-            // velocity accent, not flat: the offbeats leading into beats 1
-            // and 3 sit slightly hotter than the ones leading into 2 and 4
-            // - a fixed, deterministic groove shape (not RNG-driven), the
-            // same every time for a given grid, giving the foundation some
-            // shape instead of a uniform pulse.
+            // Layer 1 - primary offbeat pulse: off-beat 8ths (the "and" of
+            // each beat), the genre-defining foundation, always present in
+            // principle (same reasoning as kick's four-on-the-floor) - but
+            // "always present" doesn't mean "never varies": variation can
+            // occasionally REMOVE one of the four, a real groove technique
+            // (the hat that's conspicuously not there), phrase-scaled so
+            // it's essentially never in the establishing bars and more
+            // likely by the tension-building ones. At variation=0 this
+            // never fires (0 * anything = 0), so the foundation is exactly
+            // as reliable as before whenever variation is left off.
+            bool primaryHit[4] = { true, true, true, true };
+            for (auto&& hit : primaryHit)
+                if (uniform01(rng) < params.variation * 0.08f * phrase)
+                    hit = false;
+
             for (int k = 0; k < 4; ++k)
             {
+                if (!primaryHit[k])
+                    continue;
                 const int step = base + eighthStep * (2 * k + 1);
                 if (step < base + grid.stepsPerBar)
                 {
-                    const float accentVel = (k % 2 == 0) ? 0.95f : 0.8f;
+                    // Controlled velocity accent, not flat: the offbeats
+                    // leading into beats 1 and 3 sit slightly hotter than
+                    // those leading into 2 and 4, and phrase-downbeat bars
+                    // (the start of each 4-bar segment) sit hotter still -
+                    // a fixed, deterministic groove shape, not RNG-driven.
+                    float accentVel = (k % 2 == 0) ? 0.95f : 0.8f;
+                    if (isPhraseDownbeat)
+                        accentVel = std::min(1.0f, accentVel + 0.05f);
                     setHit(steps, step, accentVel);
                 }
             }
 
-            // Second layer: density controls fill amount, syncopation
-            // biases WHICH remaining positions get filled (toward the
-            // weakest 16ths), variation thins even-indexed bars, and the
-            // phrase curve leans the whole layer in more as the pattern
-            // develops toward the phrase-ending bars.
+            // Layer 2 - supporting 16ths: selective, syncopation-biased
+            // fills on top of the primary pulse. Density controls how
+            // much, but kept deliberately restrained (a lower base rate
+            // than a "second full pulse" would need) - this is
+            // "selective 16th-note activity", not a wall of hats, and the
+            // phrase curve leans it in gradually rather than flooding
+            // every bar equally.
             const float barDensity = clamp01(params.density * barThinningFactor(bar, params.variation));
-            const float phrase     = phraseIntensity(bar, grid.numBars);
 
             for (int stepInBar = 0; stepInBar < grid.stepsPerBar; ++stepInBar)
             {
@@ -252,11 +316,23 @@ namespace Engine
                     continue;
 
                 const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
-                const float p    = clamp01(barDensity * 0.5f * bias * phrase);
+                const float supportP = clamp01(barDensity * 0.35f * bias * phrase);
 
-                if (uniform01(rng) < p)
+                if (uniform01(rng) < supportP)
                 {
-                    const float vel = 0.3f + uniform01(rng) * 0.25f; // 0.3-0.55, clearly under the primary pulse
+                    const float vel = 0.35f + uniform01(rng) * 0.2f; // 0.35-0.55, clearly under the primary pulse
+                    setHit(steps, step, vel);
+                    continue;
+                }
+
+                // Layer 3 - ghost hats: much quieter, much rarer,
+                // independently rolled - a low-level textural presence
+                // rather than a rhythmic statement, filling in some of the
+                // negative space the supporting layer leaves behind.
+                const float ghostP = clamp01(barDensity * 0.08f * phrase);
+                if (uniform01(rng) < ghostP)
+                {
+                    const float vel = 0.12f + uniform01(rng) * 0.1f; // 0.12-0.22
                     setHit(steps, step, vel);
                 }
             }
@@ -283,19 +359,26 @@ namespace Engine
                 // so this role stays an accent, not a second full pattern,
                 // even at density=1. syncopation: biases placement toward
                 // the weakest 16th positions (same mechanism as HAT's
-                // second layer) - this used to only affect velocity range,
-                // which didn't match its name; fixed. Restrained by design:
-                // the phrase curve leans density in gradually rather than
-                // flooding every bar equally, keeping this an accent role
-                // even as the pattern develops.
-                const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
-                const float p    = clamp01(barDensity * 0.15f * bias * phrase);
+                // second layer). Restrained by design: the phrase curve
+                // leans density in gradually rather than flooding every
+                // bar equally, keeping this an accent role even as the
+                // pattern develops. claimedPenalty pushes perc away from
+                // kick's beats/hat's offbeat pulse/clap's backbeat - the
+                // fixed idiom positions those roles already occupy - so
+                // perc answers the groove from the gaps (negative space)
+                // instead of piling onto what's already sounding, rather
+                // than just being "more percussion" everywhere.
+                const float bias           = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
+                const float claimedPenalty = isStructurallyClaimed(stepInBar, grid.stepsPerBar) ? 0.15f : 1.0f;
+                const float p = clamp01(barDensity * 0.15f * bias * phrase * claimedPenalty);
 
                 if (uniform01(rng) < p)
                 {
                     // variation widens the velocity range (more dynamic
                     // hit-to-hit swing) in addition to the bar-thinning
-                    // above - both readings of "how varied" under one knob.
+                    // above - both readings of "how varied" under one
+                    // knob, giving movement across the 16 bars rather
+                    // than a flat, static accent every time.
                     const float velRange = 0.3f + params.variation * 0.3f;
                     const float vel = std::min(1.0f, 0.4f + uniform01(rng) * velRange);
                     setHit(steps, base + stepInBar, vel);
@@ -304,17 +387,34 @@ namespace Engine
         }
 
         // Occasional phrase-ending fill: the very last bar of the pattern
-        // gets a small chance of one extra accent hit, driven by variation
-        // - an explicit "the loop is about to restart" cue (a real
-        // arrangement technique) rather than uniform per-bar randomness.
-        // Never fires at variation=0, same as every other variation-gated
-        // effect in this file.
+        // gets a small chance of one extra accent hit at an unclaimed
+        // (negative-space) position, driven by variation - an explicit
+        // "the loop is about to restart" cue (a real arrangement
+        // technique), restrained to at most one hit rather than a busy
+        // roll, and never fires at variation=0, same as every other
+        // variation-gated effect in this file.
         if (grid.numBars > 0 && uniform01(rng) < params.variation * 0.35f)
         {
             const int lastBar = grid.numBars - 1;
             const int base    = lastBar * grid.stepsPerBar;
-            const int step    = base + (int) (uniform01(rng) * (float) grid.stepsPerBar);
-            const float vel   = 0.7f + uniform01(rng) * 0.3f;
+
+            // A handful of attempts to land on an unclaimed step rather
+            // than accepting whatever the first roll gives - keeps the
+            // fill consistent with the negative-space placement used
+            // everywhere else in this role, without a hard guarantee
+            // (falls back to whatever step the last attempt lands on).
+            int step = base + (int) (uniform01(rng) * (float) grid.stepsPerBar);
+            for (int attempt = 0; attempt < 4; ++attempt)
+            {
+                const int candidate = base + (int) (uniform01(rng) * (float) grid.stepsPerBar);
+                if (!isStructurallyClaimed(candidate - base, grid.stepsPerBar))
+                {
+                    step = candidate;
+                    break;
+                }
+            }
+
+            const float vel = 0.7f + uniform01(rng) * 0.3f;
             setHit(steps, step, vel);
         }
 

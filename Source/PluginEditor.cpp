@@ -389,6 +389,18 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
         pushAllDrumRowsToProcessor();
         exportMelodyPattern();
         resized();
+
+        // Re-analyze the drum-role samples in the background whenever the
+        // library rescans (a fresh library path, or samples added/removed/
+        // changed on disk) - never on the message/audio thread, and the
+        // disk cache (Source/DrumSampleIndex.h) means unchanged files
+        // aren't re-decoded.
+        sampleIndex.analyzeRacks(racks);
+    };
+
+    sampleIndex.onIndexReady = [this](const std::vector<IndexedSample>& indexed)
+    {
+        latestSampleIndex = indexed;
     };
 
     // Studio / Advisor tab strip
@@ -1074,7 +1086,8 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     // samples; a fresh Generate click still explores new choices, same as
     // it already explores new patterns.
     const uint32_t sampleSeed = (uint32_t) rng.nextInt();
-    const DrumSampleSelection sampleSel = selectDrumSamples(latestRacks, sampleSeed);
+    const double   bpmForSelection = (double) processor.currentBpm.load(std::memory_order_relaxed);
+    const DrumSampleSelection sampleSel = selectDrumSamples(latestSampleIndex, sampleSeed, bpmForSelection);
 
     auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
     {

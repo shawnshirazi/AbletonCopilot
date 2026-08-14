@@ -51,6 +51,14 @@
             file="Source/DrumSampleSelector.cpp"/>
       <FILE id="Dss1hdr" name="DrumSampleSelector.h" compile="0" resource="0"
             file="Source/DrumSampleSelector.h"/>
+      <FILE id="Dsa1cpp" name="DrumSampleAnalysis.cpp" compile="1" resource="0"
+            file="Source/DrumSampleAnalysis.cpp"/>
+      <FILE id="Dsa1hdr" name="DrumSampleAnalysis.h" compile="0" resource="0"
+            file="Source/DrumSampleAnalysis.h"/>
+      <FILE id="Dsi1cpp" name="DrumSampleIndex.cpp" compile="1" resource="0"
+            file="Source/DrumSampleIndex.cpp"/>
+      <FILE id="Dsi1hdr" name="DrumSampleIndex.h" compile="0" resource="0"
+            file="Source/DrumSampleIndex.h"/>
       <FILE id="Ap1cpp" name="AdvisorPanelComponent.cpp" compile="1" resource="0"
             file="Source/AdvisorPanelComponent.cpp"/>
       <FILE id="Ap1hdr" name="AdvisorPanelComponent.h" compile="0" resource="0"
@@ -113,6 +121,9 @@
         <FILE id="Eng4hdr" name="DrumVoiceSynth.h" compile="0" resource="0" file="Source/Engine/DrumVoiceSynth.h"/>
         <FILE id="Eng5cpp" name="DrumSampleSelection.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleSelection.cpp"/>
         <FILE id="Eng5hdr" name="DrumSampleSelection.h" compile="0" resource="0" file="Source/Engine/DrumSampleSelection.h"/>
+        <FILE id="Eng6hdr" name="DrumSampleFeatures.h" compile="0" resource="0" file="Source/Engine/DrumSampleFeatures.h"/>
+        <FILE id="Eng7cpp" name="DrumSampleScoring.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleScoring.cpp"/>
+        <FILE id="Eng7hdr" name="DrumSampleScoring.h" compile="0" resource="0" file="Source/Engine/DrumSampleScoring.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

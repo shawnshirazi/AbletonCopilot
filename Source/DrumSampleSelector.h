@@ -1,22 +1,21 @@
 #pragma once
 #include <JuceHeader.h>
-#include "RackBrowserComponent.h" // Rack, RackEntry - the same scanned-library data already feeding the manual drum grid
-#include "Engine/DrumSampleSelection.h" // Engine::selectSampleIndex, DrumRole
+#include "DrumSampleIndex.h" // IndexedSample
+#include "Engine/DrumSampleScoring.h" // Engine::scoreForRole
 #include <vector>
 
-// Thin JUCE-side wrapper around Engine::selectSampleIndex - resolves the
-// pure index it returns into an actual sample file from the user's own
-// scanned library. No new sample-discovery mechanism: this reuses exactly
-// the Rack/RackEntry data RackBrowserComponent already produces (the same
-// background scan that feeds DrumMachineComponent's rows).
-//
-// Deliberately dumb on purpose - it has no idea what a step, a bar, or a
-// velocity is. DrumEngine decides WHEN/WHERE/how loud; this decides WHICH
-// FILE. See Engine/DrumSampleSelection.h for why that split matters.
+// JUCE-side ranking/selection wrapper around Engine::scoreForRole and
+// Engine::selectSampleIndex. Deliberately dumb about musical timing (no
+// idea what a step, a bar, or a pattern is) and about sound analysis (no
+// idea how a sample got measured) - it only combines "how good is this
+// candidate for this role" (Engine::scoreForRole) with "which of the
+// good ones, deterministically" (Engine::selectSampleIndex).
 struct DrumSampleChoice
 {
-    juce::File file;         // invalid (File()) if no candidates existed for this role
-    int        poolSize = 0; // candidate count actually considered - 0 means the library has none for this role
+    juce::File file;            // invalid (File()) if no candidates existed for this role
+    int        poolSize     = 0; // candidates considered for this role (post role-filter, pre-ranking)
+    int        shortlistSize = 0; // size of the top-ranked shortlist actually sampled from
+    float      score        = 0.0f; // the chosen sample's own score, for diagnostics/reporting
 };
 
 struct DrumSampleSelection
@@ -24,10 +23,11 @@ struct DrumSampleSelection
     DrumSampleChoice kick, clap, hat, perc;
 };
 
-// racks = whatever RackBrowserComponent last scanned (PluginEditor's
-// latestRacks). Clap draws from the CLAP and SNARE racks combined -
+// indexed = whatever DrumSampleIndex last analyzed (PluginEditor's
+// latestSampleIndex). Clap draws from the CLAP and SNARE racks combined -
 // melodic techno productions use them close to interchangeably for this
-// role, and the manual grid's own kRowTemplates already treats clap/snare
-// as adjacent categories. Kick/Hat/Perc each draw from their own single
-// rack only, never borrowing from an unrelated category.
-DrumSampleSelection selectDrumSamples(const std::vector<Rack>& racks, uint32_t seed);
+// role. Kick/Hat/Perc each draw from their own single rack only, never
+// borrowing from an unrelated category. bpm is passed straight to
+// Engine::scoreForRole (Kick only actually uses it - see
+// Engine/DrumSampleScoring.h).
+DrumSampleSelection selectDrumSamples(const std::vector<IndexedSample>& indexed, uint32_t seed, double bpm);
