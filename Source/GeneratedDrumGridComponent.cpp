@@ -23,6 +23,8 @@ void GeneratedDrumGridComponent::setPattern(std::vector<RowDisplay> newRows, int
 void GeneratedDrumGridComponent::resized()
 {
     auto area = getLocalBounds();
+    area.removeFromBottom(kLegendHeight); // reserved for the legend, painted directly (see paint())
+
     headerColumn.setBounds(area.removeFromLeft(kHeaderWidth));
     gridViewport.setBounds(area);
 
@@ -30,6 +32,34 @@ void GeneratedDrumGridComponent::resized()
     const int totalSteps = stepsPerBar * numBars;
     gridContent.setSize(juce::jmax(1, totalSteps * kStepWidth), kRowHeight * rowCount);
     headerColumn.setSize(kHeaderWidth, kRowHeight * rowCount);
+}
+
+void GeneratedDrumGridComponent::paint(juce::Graphics& g)
+{
+    // Velocity legend: same brighter()-based mapping GridContent::paint
+    // uses per cell (darker = stronger, lighter = softer), shown as a
+    // small gradient swatch so the shading isn't left unexplained.
+    auto legend = getLocalBounds().removeFromBottom(kLegendHeight);
+    legend.removeFromLeft(kHeaderWidth);
+    legend = legend.reduced(4, 3);
+
+    g.setColour(UIStyle::kTextDim);
+    g.setFont(UIStyle::small());
+
+    auto softLabel = legend.removeFromLeft(30);
+    g.drawText("Soft", softLabel, juce::Justification::centredLeft);
+
+    auto strongLabel = legend.removeFromRight(42);
+    g.drawText("Strong", strongLabel, juce::Justification::centredRight);
+
+    auto bar = legend.reduced(6, 6).toFloat();
+    if (bar.getWidth() > 0.0f)
+    {
+        juce::ColourGradient grad(UIStyle::kAccent.brighter(1.0f), bar.getX(), bar.getY(),
+                                   UIStyle::kAccent,                bar.getRight(), bar.getY(), false);
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle(bar, 3.0f);
+    }
 }
 
 void GeneratedDrumGridComponent::HeaderColumn::paint(juce::Graphics& g)
@@ -80,8 +110,15 @@ void GeneratedDrumGridComponent::GridContent::paint(juce::Graphics& g)
             const int vel = row.velocity[(size_t) s];
             if (vel > 0)
             {
-                const float alpha = juce::jlimit(0.25f, 1.0f, (float) vel / 127.0f);
-                g.setColour(row.colour.withAlpha(alpha));
+                // Darker = stronger, lighter = softer: brighter(0) at max
+                // velocity leaves the base (darker/saturated) row colour
+                // unchanged; brighter(~1) at minimum velocity shifts it
+                // most of the way toward white. Opaque, not alpha-blended
+                // against the panel background - a soft hit stays a
+                // visibly light colour rather than fading into the
+                // background.
+                const float t = juce::jlimit(0.0f, 1.0f, (float) vel / 127.0f);
+                g.setColour(row.colour.brighter(1.0f - t));
                 g.fillRect(cell);
             }
             else

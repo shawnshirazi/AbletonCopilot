@@ -15,7 +15,9 @@
 //
 // Four fixed rows (Kick/Clap/Hat/Perc, matching Engine::DrumRole /
 // DrumVoiceSynth 1:1) are always shown regardless of the user's sample
-// library. Velocity is shown as cell opacity.
+// library. Velocity is shown as cell shade: darker = stronger, lighter =
+// softer (see GridContent::paint) - a small legend along the bottom
+// explains the scale.
 class GeneratedDrumGridComponent : public juce::Component
 {
 public:
@@ -34,10 +36,17 @@ public:
     // PluginEditor::generateDrumPatternClicked().
     void setPattern(std::vector<RowDisplay> newRows, int stepsPerBarIn, int numBarsIn);
 
+    void paint(juce::Graphics&) override; // legend strip along the bottom
     void resized() override;
 
-    static constexpr int kRowHeight   = 26;
-    static constexpr int kHeaderWidth = 62;
+    static constexpr int kRowHeight    = 26;
+    static constexpr int kHeaderWidth  = 62;
+    static constexpr int kLegendHeight = 22;
+
+    // Total height needed for a fixed number of rows (4 - Kick/Clap/Hat/
+    // Perc) plus the legend, for the owner's layout code.
+    static constexpr int kFixedRowCount     = 4;
+    static constexpr int kRequiredHeight    = kRowHeight * kFixedRowCount + kLegendHeight;
 
 private:
     class GridContent : public juce::Component

@@ -177,6 +177,17 @@ private:
     // the experimental generation/critique layer.
     static constexpr bool kShowExperimentalFeatures = false;
 
+    // Drum-generation milestone UI cleanup: the manual/sample-based drum
+    // grid, melody grid, Serum 2 track panels, and the genre/key/EQ row
+    // (all melody/manual-grid controls, not part of the deterministic
+    // drum-generation focus) are hidden so the visible editor is just
+    // Generate Drum Pattern + status + the generated pattern grid. Nothing
+    // is deleted or disconnected - drumMachine/melodyGrid/melodyPanels and
+    // their processor wiring, and the background library/preset scans,
+    // all keep running exactly as before; only setVisible()/layout are
+    // gated by this flag. Flip back to true to restore the full editor.
+    static constexpr bool kShowFullUI = false;
+
     // rackBrowser now runs headless — just the background scanner feeding
     // drumMachine's rows. Its own browsing UI (sidebar + sample list) is no
     // longer shown; the Drum Machine is the only view.

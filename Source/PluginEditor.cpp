@@ -103,7 +103,13 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     : AudioProcessorEditor(&p), processor(p)
 {
     StartupTiming::mark("Editor ctor start");
-    setSize(980, 760);
+    // Shorter window while the manual drum grid/melody grid/Serum panels
+    // are hidden (see kShowFullUI) - no point reserving space for a large
+    // scrollable area with nothing visible in it. 340 fits the header,
+    // Generate Drum Pattern row, status text, and the generated pattern
+    // grid + legend with a little breathing room; flip kShowFullUI back to
+    // restore the full 980x760 layout.
+    setSize(980, kShowFullUI ? 760 : 340);
 
     // Genre picker
     const auto& profiles = GenreProfiles::getInstance();
@@ -166,12 +172,19 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     libraryPathLabel.setFont(body());
     libraryPathLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(libraryPathLabel);
+    // Sample-library path is only relevant to the manual drum grid/Serum
+    // presets, both hidden for the drum-generation milestone - see
+    // kShowFullUI. The background library scan itself still runs
+    // regardless (see the deferred setLibraryDir call near the end of this
+    // constructor), just with no UI to change it while hidden.
+    libraryPathLabel.setVisible(kShowFullUI);
 
     chooseLibraryButton.setButtonText("Change...");
     chooseLibraryButton.setColour(juce::TextButton::buttonColourId,  juce::Colours::transparentBlack);
     chooseLibraryButton.setColour(juce::TextButton::textColourOffId, kAccent);
     chooseLibraryButton.onClick = [this] { chooseLibrary(); };
     addAndMakeVisible(chooseLibraryButton);
+    chooseLibraryButton.setVisible(kShowFullUI);
 
     // Render/drag-out flow is hidden for now — the two focus areas are the
     // drum grid and the melody/Serum 2 tracks below it. The rendering code
@@ -206,6 +219,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     drumGenrePicker.setColour(juce::ComboBox::textColourId,       kTextPrimary);
     drumGenrePicker.setColour(juce::ComboBox::outlineColourId,    kBorder);
     addAndMakeVisible(drumGenrePicker);
+    drumGenrePicker.setVisible(kShowFullUI); // melody/manual-grid genre selector, not part of the drum-generation focus (see kShowFullUI)
 
     // Key selector — shared by every melody track (they play together, so
     // they stay in the same key); each Generate re-reads whatever's selected.
@@ -225,11 +239,13 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     keyPicker.setColour(juce::ComboBox::outlineColourId,    kBorder);
     keyPicker.onChange = [this] { exportMelodyPattern(); };
     addAndMakeVisible(keyPicker);
+    keyPicker.setVisible(kShowFullUI); // melody-track key selector, hidden alongside the melody grid
 
     genreEqToggle.setToggleState(processor.isGenreEqEnabled(), juce::dontSendNotification);
     genreEqToggle.setColour(juce::ToggleButton::textColourId, kTextDim);
     genreEqToggle.onClick = [this] { processor.setGenreEqEnabled(genreEqToggle.getToggleState()); };
     addAndMakeVisible(genreEqToggle);
+    genreEqToggle.setVisible(kShowFullUI); // melody-track EQ toggle, hidden alongside the melody grid
 
     // Phase 1 deterministic engine - AbletonCopilot outputs real MIDI directly
     // to the host, mixed straight into AbletonCopilot's own audio output -
@@ -293,6 +309,14 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     mainViewport.setViewedComponent(&mainContent, false);
     mainViewport.setScrollBarsShown(true, false); // vertical only
     addAndMakeVisible(mainViewport);
+    // Manual drum grid, melody grid, and Serum 2 track panels all live
+    // inside mainContent/mainViewport - hidden together for the
+    // drum-generation milestone (see kShowFullUI). Nothing underneath is
+    // disconnected: onStepToggled/onSampleCycled/etc. still push to the
+    // processor exactly as before, and the background library/preset
+    // scans below still populate drumMachine's rows - there's just no
+    // visible surface to see or interact with them on right now.
+    mainViewport.setVisible(kShowFullUI);
 
     mainContent.addAndMakeVisible(drumMachine);
 
@@ -510,26 +534,32 @@ void AbletonCopilotAudioProcessorEditor::resized()
     if (showingAdvisor)
         return;
 
-    // Genre + key selector (shared across every melody track) — fixed at
-    // the top, not part of the scrollable content below.
-    auto genreRow = area.removeFromTop(26).reduced(12, 0);
-    drumGenrePicker.setBounds(genreRow.removeFromLeft(160));
-    genreRow.removeFromLeft(8);
-    keyPicker.setBounds(genreRow.removeFromLeft(160));
-    genreRow.removeFromLeft(8);
-    genreEqToggle.setBounds(genreRow.removeFromLeft(110));
-    area.removeFromTop(12);
+    // Genre + key selector (shared across every melody track) - melody/
+    // manual-grid infrastructure, not part of the drum-generation focus,
+    // hidden alongside mainViewport below (see kShowFullUI).
+    if (kShowFullUI)
+    {
+        auto genreRow = area.removeFromTop(26).reduced(12, 0);
+        drumGenrePicker.setBounds(genreRow.removeFromLeft(160));
+        genreRow.removeFromLeft(8);
+        keyPicker.setBounds(genreRow.removeFromLeft(160));
+        genreRow.removeFromLeft(8);
+        genreEqToggle.setBounds(genreRow.removeFromLeft(110));
+        area.removeFromTop(12);
+    }
 
     // Phase 1 deterministic engine row(s) - always visible (not gated by
     // kShowExperimentalFeatures). Status label gets its own multi-line
     // block below the button (temporary end-to-end diagnostics - several
-    // lines of text, doesn't fit next to the button).
+    // lines of text, doesn't fit next to the button). This is the focus
+    // of the drum-generation milestone, so it's the one section never
+    // hidden by kShowFullUI.
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
     area.removeFromTop(4);
     drumPatternStatusLabel.setBounds(area.removeFromTop(78).reduced(12, 0));
     area.removeFromTop(4);
-    generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRowHeight * 4).reduced(12, 0));
+    generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRequiredHeight).reduced(12, 0));
     area.removeFromTop(8);
 
     // Reference-track row(s) - hidden while kShowExperimentalFeatures is
@@ -569,35 +599,40 @@ void AbletonCopilotAudioProcessorEditor::resized()
 
     // Everything else — drum grid, melody grid, Serum 2 track panels —
     // scrolls as a single unit, sized to however much content actually
-    // exists rather than growing the window itself.
-    mainViewport.setBounds(area);
-
-    const int contentWidth = juce::jmax(200, area.getWidth() - 16); // room for the vertical scrollbar
-    const int innerWidth   = contentWidth - 24;
-    int y = 12;
-
-    const int drumGridHeight = DrumMachineComponent::kRowHeight * drumMachine.getNumRows();
-    drumMachine.setBounds(12, y, innerWidth, drumGridHeight);
-    y += drumGridHeight + 16;
-
-    const int melodyGridHeight = MelodyGridComponent::kRowHeight * melodyGrid.getNumTracks();
-    melodyGrid.setBounds(12, y, innerWidth, melodyGridHeight);
-    y += melodyGridHeight + 16;
-
-    serumTracksHeadingLabel.setBounds(12, y, innerWidth, 22);
-    y += 22 + 6;
-
-    for (auto* panel : melodyPanels)
+    // exists rather than growing the window itself. Hidden for the
+    // drum-generation milestone (see kShowFullUI) - skip laying it out
+    // entirely rather than just leaving it invisible with stale bounds.
+    if (kShowFullUI)
     {
-        panel->setBounds(12, y, innerWidth, MelodyTrackPanel::kHeight);
-        y += MelodyTrackPanel::kHeight + 8;
+        mainViewport.setBounds(area);
+
+        const int contentWidth = juce::jmax(200, area.getWidth() - 16); // room for the vertical scrollbar
+        const int innerWidth   = contentWidth - 24;
+        int y = 12;
+
+        const int drumGridHeight = DrumMachineComponent::kRowHeight * drumMachine.getNumRows();
+        drumMachine.setBounds(12, y, innerWidth, drumGridHeight);
+        y += drumGridHeight + 16;
+
+        const int melodyGridHeight = MelodyGridComponent::kRowHeight * melodyGrid.getNumTracks();
+        melodyGrid.setBounds(12, y, innerWidth, melodyGridHeight);
+        y += melodyGridHeight + 16;
+
+        serumTracksHeadingLabel.setBounds(12, y, innerWidth, 22);
+        y += 22 + 6;
+
+        for (auto* panel : melodyPanels)
+        {
+            panel->setBounds(12, y, innerWidth, MelodyTrackPanel::kHeight);
+            y += MelodyTrackPanel::kHeight + 8;
+        }
+        y += 8;
+
+        addMelodyTrackButton.setBounds(12, y, 220, 26);
+        y += 26 + 20;
+
+        mainContent.setSize(contentWidth, y);
     }
-    y += 8;
-
-    addMelodyTrackButton.setBounds(12, y, 220, 26);
-    y += 26 + 20;
-
-    mainContent.setSize(contentWidth, y);
 }
 
 //==============================================================================
