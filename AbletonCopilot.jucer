@@ -47,6 +47,10 @@
             file="Source/GeneratedDrumGridComponent.cpp"/>
       <FILE id="Gdg1hdr" name="GeneratedDrumGridComponent.h" compile="0" resource="0"
             file="Source/GeneratedDrumGridComponent.h"/>
+      <FILE id="Dss1cpp" name="DrumSampleSelector.cpp" compile="1" resource="0"
+            file="Source/DrumSampleSelector.cpp"/>
+      <FILE id="Dss1hdr" name="DrumSampleSelector.h" compile="0" resource="0"
+            file="Source/DrumSampleSelector.h"/>
       <FILE id="Ap1cpp" name="AdvisorPanelComponent.cpp" compile="1" resource="0"
             file="Source/AdvisorPanelComponent.cpp"/>
       <FILE id="Ap1hdr" name="AdvisorPanelComponent.h" compile="0" resource="0"
@@ -107,6 +111,8 @@
         <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0" file="Source/Engine/DrumEngine.h"/>
         <FILE id="Eng4cpp" name="DrumVoiceSynth.cpp" compile="1" resource="0" file="Source/Engine/DrumVoiceSynth.cpp"/>
         <FILE id="Eng4hdr" name="DrumVoiceSynth.h" compile="0" resource="0" file="Source/Engine/DrumVoiceSynth.h"/>
+        <FILE id="Eng5cpp" name="DrumSampleSelection.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleSelection.cpp"/>
+        <FILE id="Eng5hdr" name="DrumSampleSelection.h" compile="0" resource="0" file="Source/Engine/DrumSampleSelection.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

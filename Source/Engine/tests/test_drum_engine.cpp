@@ -403,5 +403,60 @@ int main()
             CHECK(kick[i].active == (kickVel[i] > 0));
     }
 
+    // =====================================================================
+    // Phrase-aware variation (Melodic Techno improvements): bars 1-4
+    // establish, 13-16 are the busiest (phrase-ending/variation) - not
+    // every bar independently random. Checked on a grid with an exact
+    // 4-phrase split (16 bars = 4 bars/phrase) so "phrase 0" and "phrase 3"
+    // map to bars 0-3 and 12-15 exactly. Uses nonzero syncopation/variation
+    // (phrase scaling only affects optional/variation-driven hits, not the
+    // fixed four-on-the-floor/offbeat-pulse foundations) and a fixed seed
+    // for reproducibility - this is about the deterministic shape of the
+    // curve, not a statistical average.
+    // =====================================================================
+    {
+        auto countInBars = [](const StepArray& steps, const StepGridConfig& g, int fromBar, int toBarExclusive)
+        {
+            int n = 0;
+            for (int bar = fromBar; bar < toBarExclusive; ++bar)
+                for (int s = 0; s < g.stepsPerBar; ++s)
+                    if (steps[(size_t) (bar * g.stepsPerBar + s)].active) ++n;
+            return n;
+        };
+
+        DrumPatternParams p;
+        p.density = 0.8f; p.syncopation = 0.8f; p.variation = 0.8f; p.seed = 7;
+
+        // Run several seeds and require the phrase-3-busier trend to hold
+        // on average, not for every single seed (a single seed's sample of
+        // rare probabilistic events can go either way) - this is checking
+        // the deterministic intensity CURVE actually biases the outcome,
+        // not asserting on one potentially-unlucky draw.
+        int kickPhrase0Total = 0, kickPhrase3Total = 0;
+        int percPhrase0Total = 0, percPhrase3Total = 0;
+        for (uint32_t seed = 0; seed < 12; ++seed)
+        {
+            p.seed = seed;
+            auto kickP = generateKick(grid, p);
+            kickPhrase0Total += countInBars(kickP, grid, 0, 4);
+            kickPhrase3Total += countInBars(kickP, grid, 12, 16);
+
+            auto percP = generatePerc(grid, p);
+            percPhrase0Total += countInBars(percP, grid, 0, 4);
+            percPhrase3Total += countInBars(percP, grid, 12, 16);
+        }
+        CHECK(kickPhrase3Total > kickPhrase0Total);
+        CHECK(percPhrase3Total > percPhrase0Total);
+
+        // phraseIntensity itself is deterministic - same grid, same bar,
+        // always the same curve position, provable via the generator
+        // output alone since it's not directly exposed: two identical
+        // calls must produce byte-identical patterns (already covered by
+        // the determinism checks above, reconfirmed here specifically
+        // with the phrase-heavy params used in this block).
+        CHECK(sameArray(generateKick(grid, p), generateKick(grid, p)));
+        CHECK(sameArray(generatePerc(grid, p), generatePerc(grid, p)));
+    }
+
     TEST_SUMMARY_AND_EXIT();
 }

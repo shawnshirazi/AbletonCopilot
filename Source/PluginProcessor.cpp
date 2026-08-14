@@ -112,6 +112,8 @@ void AbletonCopilotAudioProcessor::prepareToPlay(double sampleRate, int samplesP
     generatedDrumScratch.setSize(1, samplesPerBlock);
     for (auto& voice : generatedDrumSynthVoices)
         voice = Engine::DrumVoiceState {};
+    for (auto& voice : generatedSampleVoices)
+        voice = GeneratedSampleVoiceState {};
 
     const int trackCount = activeMelodyTrackCount.load(std::memory_order_relaxed);
     for (int t = 0; t < trackCount; ++t)
@@ -383,6 +385,40 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
         }
     }
 
+    // Load (or clear) each role's chosen sample, same
+    // read-file-into-a-shared-buffer approach as setDrumRowSample() below
+    // - reusing drumFormatManager, no second sample-loading system. A role
+    // with no sample (empty/nonexistent File, i.e. the sample-selection
+    // layer found nothing suitable) gets its buffer cleared, which is what
+    // tells processBlock to fall back to DrumVoiceSynth for that role.
+    {
+        std::shared_ptr<juce::AudioBuffer<float>> loaded[kMaxGeneratedDrumRoles];
+
+        for (const auto& role : roles)
+        {
+            Engine::DrumRole resolvedRole;
+            if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
+                continue;
+
+            if (!role.sampleFile.existsAsFile())
+                continue;
+
+            std::unique_ptr<juce::AudioFormatReader> reader(drumFormatManager.createReaderFor(role.sampleFile));
+            if (reader == nullptr)
+                continue;
+
+            auto buf = std::make_shared<juce::AudioBuffer<float>>(
+                juce::jmax(1, (int) reader->numChannels), (int) reader->lengthInSamples);
+            reader->read(buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
+
+            loaded[(int) resolvedRole] = buf;
+        }
+
+        juce::ScopedLock sampleLock(generatedSampleLock);
+        for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+            generatedRoleSampleBuffers[r] = loaded[r];
+    }
+
     juce::ScopedLock sl(generatedDrumLock);
     generatedDrumRoles      = roles;
     generatedDrumTotalSteps = totalSteps;
@@ -606,6 +642,28 @@ void AbletonCopilotAudioProcessor::SerumLoaderThread::run()
 
 //==============================================================================
 
+void AbletonCopilotAudioProcessor::triggerGeneratedRole(Engine::DrumRole role, float velocity01)
+{
+    std::shared_ptr<juce::AudioBuffer<float>> buf;
+    {
+        juce::ScopedLock sl(generatedSampleLock);
+        buf = generatedRoleSampleBuffers[(int) role];
+    }
+
+    if (buf != nullptr && buf->getNumSamples() > 0)
+    {
+        auto& voice   = generatedSampleVoices[(int) role];
+        voice.readPos = 0;
+        voice.gain    = juce::jlimit(0.0f, 1.0f, velocity01);
+    }
+    else
+    {
+        Engine::triggerDrumVoice(generatedDrumSynthVoices[(int) role], role, velocity01, getSampleRate());
+    }
+}
+
+//==============================================================================
+
 void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                                   juce::MidiBuffer& midiMessages)
 {
@@ -624,8 +682,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
         Engine::DrumRole role;
         if (Engine::drumRoleForGmNote(msg.getNoteNumber(), role))
-            Engine::triggerDrumVoice(generatedDrumSynthVoices[(int) role], role,
-                                      msg.getFloatVelocity(), getSampleRate());
+            triggerGeneratedRole(role, msg.getFloatVelocity());
     }
 
     midiMessages.clear(); // we're a generator, not a pass-through
@@ -769,15 +826,15 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         if (vel <= 0)
                             continue;
 
-                        // Primary output: trigger the internal synth voice
-                        // for this hit - same trigger function, same voice
-                        // array, as the incoming-MIDI path above, keyed by
-                        // GM note so this doesn't depend on localRoles'
-                        // array order.
+                        // Primary output: trigger this role's real sample
+                        // if one was selected/loaded, otherwise
+                        // DrumVoiceSynth (see triggerGeneratedRole) - same
+                        // shared function, same fallback rule, as the
+                        // incoming-MIDI path above, keyed by GM note so
+                        // this doesn't depend on localRoles' array order.
                         Engine::DrumRole synthRole;
                         if (Engine::drumRoleForGmNote(role.midiNote, synthRole))
-                            Engine::triggerDrumVoice(generatedDrumSynthVoices[(int) synthRole], synthRole,
-                                                      (float) vel / 127.0f, getSampleRate());
+                            triggerGeneratedRole(synthRole, (float) vel / 127.0f);
 
                         // Optional secondary output: real MIDI note to the
                         // host, kept for downstream routing but not
@@ -843,6 +900,47 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             if (!suppressOwnPlayback.load(std::memory_order_relaxed))
                 for (int ch = 0; ch < nCh; ++ch)
                     buffer.addFrom(ch, 0, scratch, n);
+        }
+    }
+
+    // --- Generated-drum SAMPLE rendering: mixes generatedRoleSampleBuffers
+    // (Source/DrumSampleSelector.h) into our own output, for whichever
+    // roles triggerGeneratedRole chose real samples for. Same
+    // deliberately-unconditional placement as the synth block above - a
+    // triggered voice keeps playing out its sample regardless of pattern/
+    // transport state.
+    {
+        const int nSamplesGen = buffer.getNumSamples();
+        const int nChGen      = std::min(2, buffer.getNumChannels());
+
+        for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+        {
+            auto& voice = generatedSampleVoices[r];
+            if (voice.readPos < 0)
+                continue;
+
+            std::shared_ptr<juce::AudioBuffer<float>> buf;
+            {
+                juce::ScopedLock sl(generatedSampleLock);
+                buf = generatedRoleSampleBuffers[r];
+            }
+            if (buf == nullptr || buf->getNumSamples() == 0)
+            {
+                voice.readPos = -1;
+                continue;
+            }
+
+            const int remaining = buf->getNumSamples() - voice.readPos;
+            const int n         = std::min(nSamplesGen, remaining);
+            const int srcCh     = buf->getNumChannels();
+
+            if (!suppressOwnPlayback.load(std::memory_order_relaxed))
+                for (int ch = 0; ch < nChGen; ++ch)
+                    buffer.addFrom(ch, 0, *buf, std::min(ch, srcCh - 1), voice.readPos, n, voice.gain);
+
+            voice.readPos += n;
+            if (voice.readPos >= buf->getNumSamples())
+                voice.readPos = -1;
         }
     }
 

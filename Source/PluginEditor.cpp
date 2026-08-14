@@ -1067,15 +1067,39 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     juce::StringArray summaryParts;
     int totalHits = 0;
 
+    // Sample-selection layer (Source/DrumSampleSelector.h): decides WHICH
+    // FILE, never WHEN/WHERE/how loud - that stays entirely DrumEngine's
+    // job above. One seed drawn here (same pattern as each role's own
+    // DrumPatternParams::seed) so the same seed always picks the same
+    // samples; a fresh Generate click still explores new choices, same as
+    // it already explores new patterns.
+    const uint32_t sampleSeed = (uint32_t) rng.nextInt();
+    const DrumSampleSelection sampleSel = selectDrumSamples(latestRacks, sampleSeed);
+
+    auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
+    {
+        if (juce::String(name) == "KICK") return sampleSel.kick;
+        if (juce::String(name) == "CLAP") return sampleSel.clap;
+        if (juce::String(name) == "HAT")  return sampleSel.hat;
+        return sampleSel.perc;
+    };
+
+    juce::StringArray fallbackRoles; // roles with no library samples - report, don't silently substitute
+
     for (auto& role : roles)
     {
         std::vector<int> velocity = Engine::toVelocityArray(role.steps);
         const int activeCount = (int) std::count_if(velocity.begin(), velocity.end(),
                                                       [](int v) { return v > 0; });
 
+        const DrumSampleChoice& choice = choiceForRole(role.name);
+        if (choice.poolSize == 0)
+            fallbackRoles.add(juce::String(role.name).toLowerCase());
+
         AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
-        pr.midiNote = role.midiNote;
-        pr.velocity = velocity;
+        pr.midiNote   = role.midiNote;
+        pr.velocity   = velocity;
+        pr.sampleFile = choice.file; // invalid File() -> PluginProcessor falls back to DrumVoiceSynth for this role
         processorRoles.push_back(std::move(pr));
 
         GeneratedDrumGridComponent::RowDisplay dr;
@@ -1095,7 +1119,12 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
            << " total) over " << grid.numBars << " bars.\n";
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
-              "No Drum Rack or other instrument required.";
+              "No Drum Rack or other instrument required.\n";
+    if (fallbackRoles.isEmpty())
+        status << "Using samples from your library.";
+    else
+        status << "No library samples found for: " << fallbackRoles.joinIntoString(", ")
+               << " - using the built-in synth for " << (fallbackRoles.size() == 1 ? "it" : "them") << " instead.";
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 }
 
@@ -1508,6 +1537,42 @@ void AbletonCopilotAudioProcessorEditor::timerCallback()
 
         if (showingAdvisor)
             advisorPanel.setListeningStatus(playing, processor.getAnalyzer().bufferedSeconds());
+    }
+
+    {
+        // Generated-pattern playhead: reads the host's actual PPQ position
+        // (juce::AudioPlayHead::getPosition() is a plain snapshot, safe to
+        // read from any thread - the same interface processBlock's own
+        // step-trigger logic already uses on the audio thread) rather than
+        // approximating from wall-clock time like the block above. Same
+        // stepFloor/wrap math as the generated-drum trigger logic in
+        // PluginProcessor::processBlock, just reading, never driving
+        // anything - this is visualization only, not a second clock.
+        const int totalSteps = generatedDrumGrid.getTotalSteps();
+        bool      playing    = false;
+        int       step       = -1;
+
+        if (totalSteps > 0)
+        {
+            if (auto* head = processor.getPlayHead())
+            {
+                if (auto pos = head->getPosition())
+                {
+                    playing = pos->getIsPlaying();
+                    if (playing)
+                    {
+                        if (auto ppqOpt = pos->getPpqPosition())
+                        {
+                            const double ppq       = *ppqOpt;
+                            const int    stepFloor  = (int) std::floor(ppq * 4.0);
+                            step = ((stepFloor % totalSteps) + totalSteps) % totalSteps;
+                        }
+                    }
+                }
+            }
+        }
+
+        generatedDrumGrid.setPlayheadStep(step, playing && step >= 0);
     }
 
     for (auto* panel : melodyPanels)

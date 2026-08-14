@@ -20,6 +20,28 @@ void GeneratedDrumGridComponent::setPattern(std::vector<RowDisplay> newRows, int
     gridContent.repaint();
 }
 
+void GeneratedDrumGridComponent::setPlayheadStep(int step, bool visible)
+{
+    if (playheadStep == step && playheadVisible == visible)
+        return;
+
+    playheadStep    = step;
+    playheadVisible = visible;
+    gridContent.repaint();
+
+    // Auto-scroll so the moving playhead stays on screen - the pattern is
+    // 256 steps wide at 8px/step (2048px), well past the visible viewport
+    // width, so without this the playhead would scroll off-screen on
+    // every loop.
+    if (visible && step >= 0)
+    {
+        const int x = step * kStepWidth;
+        auto visibleArea = gridViewport.getViewArea();
+        if (x < visibleArea.getX() || x >= visibleArea.getRight())
+            gridViewport.setViewPosition(juce::jmax(0, x - visibleArea.getWidth() / 2), 0);
+    }
+}
+
 void GeneratedDrumGridComponent::resized()
 {
     auto area = getLocalBounds();
@@ -134,4 +156,15 @@ void GeneratedDrumGridComponent::GridContent::paint(juce::Graphics& g)
     for (int bar = 1; bar < owner.numBars; ++bar)
         g.drawVerticalLine(bar * owner.stepsPerBar * GeneratedDrumGridComponent::kStepWidth,
                            0.0f, (float) getHeight());
+
+    // Playhead - visualization only, position comes from the owner
+    // reading the host's real PPQ each timer tick (see
+    // PluginEditor::timerCallback), not from any clock owned by this
+    // component.
+    if (owner.playheadVisible && owner.playheadStep >= 0)
+    {
+        const float x = (float) (owner.playheadStep * GeneratedDrumGridComponent::kStepWidth);
+        g.setColour(UIStyle::kAccent.withAlpha(0.55f));
+        g.fillRect(juce::Rectangle<float>(x, 0.0f, (float) GeneratedDrumGridComponent::kStepWidth, (float) getHeight()));
+    }
 }

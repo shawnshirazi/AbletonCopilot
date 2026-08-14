@@ -9,6 +9,7 @@
 #include "DrumMachineComponent.h"
 #include "DrumPatternRenderer.h"
 #include "GeneratedDrumGridComponent.h"
+#include "DrumSampleSelector.h"
 #include "MelodyCategory.h"
 #include "MelodyGridComponent.h"
 #include "AdvisorPanelComponent.h"

@@ -67,6 +67,33 @@ namespace Engine
         {
             return std::max(0.0f, std::min(1.0f, v));
         }
+
+        // Phrase-aware intensity curve, applied to variation/syncopation-
+        // driven probabilities so the 16-bar loop builds across itself
+        // instead of every bar being independently random:
+        //   bars  1-4  (phrase 0) = establish      - calmest
+        //   bars  5-8  (phrase 1) = subtle variation
+        //   bars  9-12 (phrase 2) = development
+        //   bars 13-16 (phrase 3) = variation / phrase ending - busiest
+        // Pure function of (bar, numBars) - no RNG, fully deterministic,
+        // and at any probability that's already 0 (a knob left at its
+        // baseline) this multiplies 0 by a number and stays 0, so it never
+        // changes the flat/baseline behaviour of any role, only how
+        // strongly the already-present optional effects lean in as the
+        // pattern progresses. Degrades gracefully for numBars < 4 (still
+        // divides into 4 phrases, just shorter ones).
+        float phraseIntensity(int bar, int numBars)
+        {
+            if (numBars <= 0)
+                return 1.0f;
+
+            constexpr int phraseCount = 4;
+            const int barsPerPhrase   = std::max(1, numBars / phraseCount);
+            const int phrase          = std::min(phraseCount - 1, bar / barsPerPhrase);
+
+            static const float kPhraseScale[phraseCount] = { 0.6f, 0.85f, 1.1f, 1.4f };
+            return kPhraseScale[phrase];
+        }
     }
 
     StepArray generateKick(const StepGridConfig& grid, const DrumPatternParams& params)
@@ -84,8 +111,12 @@ namespace Engine
             // variation: rare per-bar fill (drop one beat). Kept genuinely
             // rare (scaled well below variation's raw value) since a
             // steady, reliable kick is the point, not the exception - see
-            // the density=NOT-USED note in DrumEngine.h.
-            bool dropABeat  = uniform01(rng) < params.variation * 0.15f;
+            // the density=NOT-USED note in DrumEngine.h. Phrase-scaled so
+            // drops stay rarer in the establishing bars and become more
+            // likely toward the phrase-ending bars - four-on-the-floor
+            // itself never changes, only how often the rare drop fires.
+            const float phrase = phraseIntensity(bar, grid.numBars);
+            bool dropABeat  = uniform01(rng) < params.variation * 0.15f * phrase;
             int  droppedBeat = dropABeat ? (int) (uniform01(rng) * 4.0f) : -1;
             droppedBeat = std::min(droppedBeat, 3);
 
@@ -97,8 +128,9 @@ namespace Engine
             }
 
             // syncopation: rare pushed hit on the weakest position (the
-            // "and" of the last beat), driving into the next bar.
-            if (uniform01(rng) < params.syncopation * 0.2f)
+            // "and" of the last beat), driving into the next bar - same
+            // phrase scaling as the drop above.
+            if (uniform01(rng) < params.syncopation * 0.2f * phrase)
                 setHit(steps, base + grid.stepsPerBar - 2, 0.7f);
         }
 
@@ -117,10 +149,13 @@ namespace Engine
         const int backbeatStep   = (grid.stepsPerBar * 3) / 4;
         const int doubletGapStep = std::max(1, grid.stepsPerBar / 8); // one 8th-note later
 
-        // syncopation: occasional +/-1 step nudge off the canonical position.
-        auto jitter = [&](int step) -> int
+        // syncopation: occasional +/-1 step nudge off the canonical
+        // position. Phrase-scaled (controlled clap variation - jitter
+        // leans in more as the pattern develops) by the bar the hit
+        // actually lands on.
+        auto jitter = [&](int step, int bar) -> int
         {
-            if (uniform01(rng) < params.syncopation * 0.3f)
+            if (uniform01(rng) < params.syncopation * 0.3f * phraseIntensity(bar, grid.numBars))
                 return step + (uniform01(rng) < 0.5f ? -1 : 1);
             return step;
         };
@@ -133,30 +168,36 @@ namespace Engine
             // never true (uniform01 never returns a negative number, so
             // "< 0.0f" never fires); at variation=1 it's always true
             // (uniform01's [0,1) range means "< 1.0f" always fires) - both
-            // boundaries are exact, not just statistically likely.
+            // boundaries are exact, not just statistically likely. Not
+            // phrase-scaled - this one stays a pure function of variation
+            // alone so the boundary guarantee holds regardless of phrase.
             const bool swapped = uniform01(rng) < params.variation;
             const int  singleBarOffset  = swapped ? 3 : 1;
             const int  doubletBarOffset = swapped ? 1 : 3;
 
-            if (cycleStart + singleBarOffset < grid.numBars)
+            const int singleBar  = cycleStart + singleBarOffset;
+            const int doubletBar = cycleStart + doubletBarOffset;
+
+            if (singleBar < grid.numBars)
             {
-                const int base = (cycleStart + singleBarOffset) * grid.stepsPerBar;
-                setHit(steps, jitter(base + backbeatStep), 1.0f);
+                const int base = singleBar * grid.stepsPerBar;
+                setHit(steps, jitter(base + backbeatStep, singleBar), 1.0f);
             }
-            if (cycleStart + doubletBarOffset < grid.numBars)
+            if (doubletBar < grid.numBars)
             {
-                const int base = (cycleStart + doubletBarOffset) * grid.stepsPerBar;
-                setHit(steps, jitter(base + backbeatStep), 1.0f);
-                setHit(steps, jitter(base + backbeatStep + doubletGapStep), 0.8f);
+                const int base = doubletBar * grid.stepsPerBar;
+                setHit(steps, jitter(base + backbeatStep, doubletBar), 1.0f);
+                setHit(steps, jitter(base + backbeatStep + doubletGapStep, doubletBar), 0.8f);
             }
         }
 
         // density: rare extra ghost clap somewhere a bar would otherwise
         // leave silent - kept low-probability, this role stays sparse even
-        // at density=1.
+        // at density=1. Phrase-scaled: ghosts lean in more in the
+        // development/ending phrases than the establishing bars.
         for (int bar = 0; bar < grid.numBars; ++bar)
         {
-            if (uniform01(rng) >= params.density * 0.1f)
+            if (uniform01(rng) >= params.density * 0.1f * phraseIntensity(bar, grid.numBars))
                 continue;
             const int base = bar * grid.stepsPerBar;
             const int step = base + (int) (uniform01(rng) * (float) grid.stepsPerBar);
@@ -180,18 +221,29 @@ namespace Engine
 
             // Primary pulse: off-beat 8ths (the "and" of each beat) - the
             // genre-defining baseline, always present, not parameterized
-            // (same reasoning as kick's four-on-the-floor).
+            // (same reasoning as kick's four-on-the-floor). Controlled
+            // velocity accent, not flat: the offbeats leading into beats 1
+            // and 3 sit slightly hotter than the ones leading into 2 and 4
+            // - a fixed, deterministic groove shape (not RNG-driven), the
+            // same every time for a given grid, giving the foundation some
+            // shape instead of a uniform pulse.
             for (int k = 0; k < 4; ++k)
             {
                 const int step = base + eighthStep * (2 * k + 1);
                 if (step < base + grid.stepsPerBar)
-                    setHit(steps, step, 0.9f);
+                {
+                    const float accentVel = (k % 2 == 0) ? 0.95f : 0.8f;
+                    setHit(steps, step, accentVel);
+                }
             }
 
             // Second layer: density controls fill amount, syncopation
             // biases WHICH remaining positions get filled (toward the
-            // weakest 16ths), variation thins even-indexed bars.
+            // weakest 16ths), variation thins even-indexed bars, and the
+            // phrase curve leans the whole layer in more as the pattern
+            // develops toward the phrase-ending bars.
             const float barDensity = clamp01(params.density * barThinningFactor(bar, params.variation));
+            const float phrase     = phraseIntensity(bar, grid.numBars);
 
             for (int stepInBar = 0; stepInBar < grid.stepsPerBar; ++stepInBar)
             {
@@ -200,7 +252,7 @@ namespace Engine
                     continue;
 
                 const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
-                const float p    = clamp01(barDensity * 0.5f * bias);
+                const float p    = clamp01(barDensity * 0.5f * bias * phrase);
 
                 if (uniform01(rng) < p)
                 {
@@ -223,6 +275,7 @@ namespace Engine
         {
             const int base = bar * grid.stepsPerBar;
             const float barDensity = clamp01(params.density * barThinningFactor(bar, params.variation));
+            const float phrase     = phraseIntensity(bar, grid.numBars);
 
             for (int stepInBar = 0; stepInBar < grid.stepsPerBar; ++stepInBar)
             {
@@ -231,9 +284,12 @@ namespace Engine
                 // even at density=1. syncopation: biases placement toward
                 // the weakest 16th positions (same mechanism as HAT's
                 // second layer) - this used to only affect velocity range,
-                // which didn't match its name; fixed.
+                // which didn't match its name; fixed. Restrained by design:
+                // the phrase curve leans density in gradually rather than
+                // flooding every bar equally, keeping this an accent role
+                // even as the pattern develops.
                 const float bias = weakPositionBias(stepInBar, grid.stepsPerBar, params.syncopation);
-                const float p    = clamp01(barDensity * 0.15f * bias);
+                const float p    = clamp01(barDensity * 0.15f * bias * phrase);
 
                 if (uniform01(rng) < p)
                 {
@@ -245,6 +301,21 @@ namespace Engine
                     setHit(steps, base + stepInBar, vel);
                 }
             }
+        }
+
+        // Occasional phrase-ending fill: the very last bar of the pattern
+        // gets a small chance of one extra accent hit, driven by variation
+        // - an explicit "the loop is about to restart" cue (a real
+        // arrangement technique) rather than uniform per-bar randomness.
+        // Never fires at variation=0, same as every other variation-gated
+        // effect in this file.
+        if (grid.numBars > 0 && uniform01(rng) < params.variation * 0.35f)
+        {
+            const int lastBar = grid.numBars - 1;
+            const int base    = lastBar * grid.stepsPerBar;
+            const int step    = base + (int) (uniform01(rng) * (float) grid.stepsPerBar);
+            const float vel   = 0.7f + uniform01(rng) * 0.3f;
+            setHit(steps, step, vel);
         }
 
         return steps;

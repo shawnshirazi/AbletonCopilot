@@ -152,6 +152,15 @@ public:
     {
         int              midiNote = -1;   // -1 = unused slot
         std::vector<int> velocity;        // sized to the pattern's totalSteps; 0 = no hit, 1-127 = velocity
+        // Sample chosen for this role by the sample-selection layer (see
+        // Source/DrumSampleSelector.h) - an invalid/empty File means no
+        // suitable sample was found in the user's library for this role,
+        // in which case this role falls back to DrumVoiceSynth (see
+        // processBlock). DrumEngine itself never sets this - it stays
+        // default (empty) unless PluginEditor's sample-selection step
+        // fills it in, keeping WHEN/WHERE/velocity (DrumEngine) separate
+        // from WHAT SOUND (this).
+        juce::File       sampleFile;
     };
 
     // Replaces the current generated drum pattern (message thread only -
@@ -175,6 +184,16 @@ private:
 
 
     void rebuildCorrFilters(double sampleRate, const CorrectionParams& p);
+
+    // Triggers whichever voice actually plays `role` right now: a real
+    // sample if the sample-selection layer found and loaded one (see
+    // setGeneratedDrumPattern/Source/DrumSampleSelector.h), otherwise
+    // DrumVoiceSynth - the fallback stays fully available, not bypassed
+    // when samples exist elsewhere in the pattern. Shared by both trigger
+    // sites in processBlock (the generated-pattern sequencer and incoming
+    // MIDI note-ons) so they always agree on which voice a given role
+    // uses. Audio-thread only.
+    void triggerGeneratedRole(Engine::DrumRole role, float velocity01);
 
     AudioAnalyzer analyzer;
 
@@ -293,6 +312,23 @@ private:
                   "one synth voice per DrumRole");
     Engine::DrumVoiceState   generatedDrumSynthVoices[kMaxGeneratedDrumRoles];
     juce::AudioBuffer<float> generatedDrumScratch; // mono, reused for per-voice rendering before mixing
+
+    // Sample-based playback for the generated pattern (see
+    // Source/DrumSampleSelector.h) - preferred over DrumVoiceSynth
+    // per-role whenever a real sample was found/loaded for that role;
+    // DrumVoiceSynth stays the fallback for any role without one, not
+    // deleted or bypassed. Same guarded-by-lock / audio-thread-only split
+    // as drumRowBuffers/DrumVoice above, and loaded through the same
+    // drumFormatManager - no second sample-loading system.
+    juce::CriticalSection                     generatedSampleLock;
+    std::shared_ptr<juce::AudioBuffer<float>> generatedRoleSampleBuffers[kMaxGeneratedDrumRoles]; // guarded by generatedSampleLock; nullptr = use DrumVoiceSynth for this role
+
+    struct GeneratedSampleVoiceState
+    {
+        int   readPos = -1; // -1 = silent
+        float gain    = 1.0f; // velocity/127, applied on trigger
+    };
+    GeneratedSampleVoiceState generatedSampleVoices[kMaxGeneratedDrumRoles];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AbletonCopilotAudioProcessor)
 };

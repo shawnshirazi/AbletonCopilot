@@ -36,6 +36,20 @@ public:
     // PluginEditor::generateDrumPatternClicked().
     void setPattern(std::vector<RowDisplay> newRows, int stepsPerBarIn, int numBarsIn);
 
+    // Total steps in the currently displayed pattern (stepsPerBar *
+    // numBars from the last setPattern call) - the owner uses this to wrap
+    // a real host-PPQ-derived step index before calling setPlayheadStep,
+    // so the playhead always matches whatever pattern is actually showing.
+    int getTotalSteps() const noexcept { return stepsPerBar * numBars; }
+
+    // Moves the playhead to `step` (0-based, wrapped to getTotalSteps() by
+    // the caller) or hides it when `visible` is false. Pure visualization -
+    // the caller (PluginEditor's existing timer) is expected to derive
+    // `step` from the host's actual PPQ position each call, not from an
+    // independent clock; this method just draws whatever it's told and
+    // auto-scrolls the viewport to keep it visible.
+    void setPlayheadStep(int step, bool visible);
+
     void paint(juce::Graphics&) override; // legend strip along the bottom
     void resized() override;
 
@@ -72,6 +86,9 @@ private:
     std::vector<RowDisplay> rows;
     int stepsPerBar = 16;
     int numBars     = 16;
+
+    int  playheadStep    = -1;
+    bool playheadVisible = false;
 
     HeaderColumn   headerColumn{ *this };
     GridContent    gridContent{ *this };
