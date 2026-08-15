@@ -1151,25 +1151,28 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 16 bars = 256 steps
     juce::Random rng;
 
-    auto freshParams = [&rng]
-    {
-        Engine::DrumPatternParams p;
-        p.density     = 0.5f;
-        p.syncopation = 0.3f;
-        p.variation   = 0.2f;
-        p.seed        = (uint32_t) rng.nextInt();
-        return p;
-    };
+    // ONE shared seed for the WHOLE coordinated composition - kick, clap,
+    // hat, and perc are generated together in a single generateDrop()
+    // call (Source/Engine/DrumEngine.cpp), not from four independent
+    // per-role calls/seeds like before, so there is only one params to
+    // build here.
+    Engine::DrumPatternParams params;
+    params.density     = 0.5f;
+    params.syncopation = 0.3f;
+    params.variation   = 0.2f;
+    params.seed        = (uint32_t) rng.nextInt();
+
+    const Engine::DropPattern drop = Engine::generateDrop(grid, params);
 
     struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
     // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Side Stick) so this lines up
     // with most drum racks/instruments by default.
     std::vector<RoleExport> roles;
-    roles.push_back({ "KICK", 36, UIStyle::kKick,  Engine::generateKick(grid, freshParams()) });
-    roles.push_back({ "CLAP", 39, UIStyle::kClap,  Engine::generateClap(grid, freshParams()) });
-    roles.push_back({ "HAT",  42, UIStyle::kHihat, Engine::generateHat (grid, freshParams()) });
-    roles.push_back({ "PERC", 37, UIStyle::kPerc,  Engine::generatePerc(grid, freshParams()) });
+    roles.push_back({ "KICK", 36, UIStyle::kKick,  drop.kick });
+    roles.push_back({ "CLAP", 39, UIStyle::kClap,  drop.clap });
+    roles.push_back({ "HAT",  42, UIStyle::kHihat, drop.hat  });
+    roles.push_back({ "PERC", 37, UIStyle::kPerc,  drop.perc });
 
     // Hand the pattern straight to the processor - it plays it back as real
     // audio (DrumVoiceSynth, see PluginProcessor.cpp) and, secondarily, as

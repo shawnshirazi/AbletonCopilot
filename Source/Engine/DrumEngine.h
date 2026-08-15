@@ -4,15 +4,12 @@
 #include <cstdint>
 #include <vector>
 
-// Phase 1 deterministic engine: Melodic Techno drum-pattern generation.
-//
-// A real generator, not a lookup table - default/prior shapes come from
-// sourced melodic-techno production research already gathered earlier this
-// session (Attack Magazine's drum breakdown of an actual deep/melodic
-// progressive techno track, Native Instruments' production guide, and a
-// documented set of modern melodic-techno "drop" rhythmic principles - see
-// the comment above generateKick below). Zero JUCE dependency (see
-// Theory.h for why).
+// Phase 6 deterministic engine: Melodic Techno DROP drum-pattern
+// generation, driven by MEASURED data (Source/Engine/DrumRhythmGrammar.h,
+// generated from MLPipeline/drum_grammar/output/drum_grammar.json - real
+// onset-detected statistics from Melodic-Techno-branded sample packs
+// already in the user's library), not hand-authored heuristic ranges.
+// Zero JUCE dependency (see Theory.h for why).
 
 namespace Engine
 {
@@ -28,8 +25,8 @@ namespace Engine
     // exists so far - this milestone is deliberately scoped to producing
     // one convincing 16-bar Melodic Techno drop, not every section type.
     // The other sections are real future work, not stubs pretending to be
-    // finished: adding one means giving generateKick/Clap/Hat/Perc a new
-    // switch case with its own rules, not touching this enum's shape.
+    // finished: adding one means giving generateDrop a new switch case,
+    // not touching this enum's shape.
     enum class DrumSection
     {
         Drop
@@ -38,26 +35,26 @@ namespace Engine
     // ------------------------------------------------------------------
     // Parameter contract
     //
-    // Drop generation is MOTIF-based, not per-step independent
-    // probability: each role builds a small, fixed 4-bar (or narrower)
-    // idea once, then repeats/develops that same idea across the 16-bar
-    // phrase (see the phrase structure comment above generateKick). These
-    // four knobs still mean the same general thing everywhere (how busy /
-    // how off-grid / how much the idea develops across the phrase / how
-    // reproducible), but now they shape MOTIF CONSTRUCTION and
-    // phrase-to-phrase DEVELOPMENT, not a fresh independent roll on every
-    // single step of every single bar - that's precisely the "256
-    // independent random decisions" outcome this design intentionally
-    // avoids.
+    // Drop generation is MOTIF-based and COORDINATED, not per-role
+    // independent probability: kick and clap establish the groove
+    // together first, hat is built with awareness of where they already
+    // sound, and percussion is placed by explicitly weighing the real
+    // measured correlation between percussion and each other role's
+    // occupied positions (Source/Engine/DrumRhythmGrammar.h's
+    // CrossRoleCorrelation) - never independently. One shared seed drives
+    // the whole composition (a single RNG stream), not one seed per role.
     //
-    //   density     - how many hits the role's motif contains. 0 = as few
-    //                 as the idiom allows, 1 = as many as it allows before
-    //                 stopping being that role (a hi-hat motif doesn't
-    //                 become a wall of noise; kick's four-on-the-floor
-    //                 doesn't have a "denser" state).
+    //   density     - how filled-in each role's motif is, scaled from
+    //                 that role's OWN measured baseline (see
+    //                 DrumRhythmGrammar.h) - 0.5 tracks the measured
+    //                 corpus average, not an arbitrary midpoint. Kick
+    //                 doesn't use this (four-on-the-floor IS its density
+    //                 - the corpus measured 100% on-beat placement, there
+    //                 is no denser/sparser state for this role in a drop).
     //   syncopation - WHERE motif hits land: bias toward the rhythmically
     //                 weakest 16th-note positions (the "a" just before
-    //                 each beat) rather than strong beat-aligned ones.
+    //                 each beat), layered on top of (not replacing) each
+    //                 role's measured position distribution.
     //   variation   - how much the motif is allowed to develop across the
     //                 phrase sections (establish -> subtle variation ->
     //                 development -> build tension -> phrase-ending fill)
@@ -69,9 +66,10 @@ namespace Engine
     //                 4-bar group is still one idea repeated within that
     //                 group.
     //   seed        - reproducibility only: same seed + same params
-    //                 always produces the same motif and the same
-    //                 pattern; a different seed explores a different
-    //                 (but equally valid, same-params-shaped) motif.
+    //                 always produces the same 16-bar composition; a
+    //                 different seed explores a different (but equally
+    //                 valid, same-params-shaped, same-measured-grammar)
+    //                 composition.
     struct DrumPatternParams
     {
         float    density     = 0.5f;
@@ -80,108 +78,35 @@ namespace Engine
         uint32_t seed        = 0;
     };
 
-    // Drop phrase structure (all four generate*() functions below share
-    // this, matched to actual bar proportions so it degrades sensibly for
-    // numBars != 16):
-    //   bars  1-4    establish groove       - the motif is built here
-    //   bars  5-8    repeat with subtle variation
-    //   bars  9-12   develop the groove
-    //   bars 13-15   maintain driving energy, subtle variation
+    // The full coordinated 16-bar drop: all four roles, generated
+    // together in one pass (kick -> clap -> hat -> perc, each role aware
+    // of every role generated before it - see generateDrop's own doc
+    // comment in DrumEngine.cpp for exactly how). This is the ONLY public
+    // entry point for Drop generation - there is deliberately no
+    // per-role generateKick/generateClap/generateHat/generatePerc
+    // anymore, because generating them independently is exactly the
+    // architectural problem this milestone replaces (see the commit this
+    // shipped in for the full rationale).
+    struct DropPattern
+    {
+        StepArray kick, clap, hat, perc;
+    };
+
+    // Drop phrase structure (matched to actual bar proportions so it
+    // degrades sensibly for numBars != 16):
+    //   bars  1-4    establish groove       - the coordinated block is built here
+    //   bars  5-8    repeat that block literally
+    //   bars  9-12   develop the block (controlled, seed-driven variation)
+    //   bars 13-15   repeat the developed block
     //   bar  16      restrained phrase-ending fill
-    // Sourced Melodic Techno drop principles this engine encodes as
-    // explicit rules (not arbitrary randomness) - general rhythmic
-    // characteristics of the genre, not any single copyrighted track:
-    //   - kick: uncompromising four-on-the-floor, the dominant and most
-    //     reliable element in the pattern, consistent velocity with only
-    //     subtle phrase accenting.
-    //   - hat: a strong, always-present offbeat-8th pulse locked to the
-    //     kick, with a restrained, motif-repeated 16th-note layer on top
-    //     (not constant 16th activity) plus occasional ghost hits and
-    //     occasional deliberate omissions from the offbeat pulse itself -
-    //     both real groove techniques, not just "more" or "less" density.
-    //   - clap/snare: on the backbeat, sparse and asymmetric (a single hit
-    //     and a doublet across a 4-bar cycle, not every-bar 2-and-4),
-    //     restrained so it complements rather than competes with the kick.
-    //   - percussion: sparse, syncopated, placed in the negative space the
-    //     other three roles leave behind (never on their fixed idiom
-    //     positions), built as a small repeated motif with small
-    //     per-repeat variations rather than continuous per-step chance.
-    //   - phrase variation happens at the level of WHICH 4-bar group
-    //     you're in, not bar-to-bar or step-to-step.
-
-    // KICK - see the phrase-structure comment above. In Drop mode this
-    // role is deliberately the least "generated": four-on-the-floor every
-    // beat, every bar, is the whole idiom, not a probability outcome.
-    //   density:     NOT USED. Four-on-the-floor IS the density; there is
-    //                no denser or sparser state for this role in a drop.
-    //   syncopation: NOT USED in Drop mode - a drop's kick doesn't push/
-    //                pull against the grid, it anchors it.
-    //   variation:   gates the single bar-16 phrase-ending push (see
-    //                above) - 0 = kick stays perfectly steady even through
-    //                the last bar, >0 = the restrained fill is present.
-    StepArray generateKick(const StepGridConfig& grid, const DrumPatternParams& params,
-                            DrumSection section = DrumSection::Drop);
-
-    // CLAP - sparse, asymmetric per the sourced breakdown: a single hit at
-    // the "2-bar mark" and a doublet flourish at the "4-bar mark" of each
-    // 4-bar cycle - not a steady 2-and-4 backbeat. This fixed shape IS the
-    // motif; by default (variation=0) every 4-bar cycle in the drop uses
-    // the identical canonical layout, which is what makes bars 1-4 and
-    // 5-8 recognizably the same idea.
-    //   density:     probability of an extra ghost hit somewhere a cycle
-    //                would otherwise leave silent. Kept low so this role
-    //                stays restrained/complementary even at density=1.
-    //   syncopation: probability of nudging a sourced hit +/-1 step off
-    //                its canonical position - phrase-scaled, so the
-    //                backbeat sits rock-solid in the establishing bars and
-    //                only loosens slightly by the tension-building ones.
-    //   variation:   probability a given 4-bar cycle swaps which bar gets
-    //                the single hit vs. the doublet, instead of the
-    //                canonical layout - "occasional phrase variation" from
-    //                the brief, kept low by default so the drop stays
-    //                stable. 0 = every cycle identical (exact boundary);
-    //                1 = every cycle swapped (exact boundary).
-    StepArray generateClap(const StepGridConfig& grid, const DrumPatternParams& params,
-                            DrumSection section = DrumSection::Drop);
-
-    // HAT - primary offbeat-8th pulse (always present, locked to kick) +
-    // a restrained, MOTIF-based supporting 16th layer + a quieter ghost
-    // layer. The supporting/ghost motif is built once from bars 1-4 and
-    // repeated literally into bars 5-8 (same positions, same shape) -
-    // bars 9-12 develop a related but distinct variant, 13-15 keep that
-    // variant with a small tweak, bar 16 gets its own fill. The offbeat
-    // pulse can occasionally omit a hit for groove (real technique, not
-    // random noise) - phrase-scaled, rarest in the establishing bars.
-    //   density:     how filled-in the supporting motif is when it's
-    //                first built (bars 1-4). Kept restrained - "selective
-    //                16th-note movement", never constant.
-    //   syncopation: biases the motif's hit positions toward the weakest
-    //                16ths rather than spread evenly.
-    //   variation:   how much bars 9-12/13-15 are allowed to depart from
-    //                the bars-1-4 motif (0 = they repeat it exactly too;
-    //                1 = clearly different, still restrained).
-    StepArray generateHat(const StepGridConfig& grid, const DrumPatternParams& params,
-                          DrumSection section = DrumSection::Drop);
-
-    // PERC - this is where the groove comes alive, per the brief: sparse,
-    // syncopated accents placed only in the negative space kick/hat/clap
-    // don't already occupy, built as a small repeated MOTIF (2-3 fixed
-    // hit positions within a 4-bar unit, chosen once) rather than
-    // continuous per-step chance - "avoid placing percussion simply
-    // because a step is empty". Bars 1-4 and 5-8 repeat the identical
-    // motif; 9-12 develop it (may add one position); 13-15 keep that
-    // development; bar 16 gets a single restrained accent, not a fill
-    // roll.
-    //   density:     how many motif positions get chosen (kept low - an
-    //                accent role, not a second pattern, even at 1).
-    //   syncopation: biases motif position choice toward the weakest
-    //                16ths.
-    //   variation:   probability the development sections (9-12/13-15)
-    //                actually add a position on top of the base motif,
-    //                and widens per-hit velocity range for movement
-    //                across the 16 bars.
-    StepArray generatePerc(const StepGridConfig& grid, const DrumPatternParams& params,
-                           DrumSection section = DrumSection::Drop);
+    // Every role's base shape (which positions it favors, how loud each
+    // position is, how dense it is, how it relates to the other three
+    // roles) comes from DrumRhythmGrammar.h's measured statistics - see
+    // that file's own header comment for the exact corpus (four
+    // Melodic-Techno-branded sample packs, real onset-detected audio, not
+    // hand-picked genre lore).
+    DropPattern generateDrop(const StepGridConfig& grid, const DrumPatternParams& params,
+                              DrumSection section = DrumSection::Drop);
 
     // Converts a generated StepArray into a flat 0-127 integer velocity
     // array (0 = no hit, matching MIDI velocity range). This is the single
