@@ -57,7 +57,7 @@ DrumSampleSelection selectDrumSamples(const std::vector<IndexedSample>& indexed,
     DrumSampleSelection sel;
     sel.kick = pick(Engine::DrumRole::Kick, candidatesForRackIds(indexed, { "KICK" }), seed, bpm);
     sel.clap = pick(Engine::DrumRole::Clap, candidatesForRackIds(indexed, { "CLAP", "SNARE" }), seed, bpm);
-    sel.hat  = pick(Engine::DrumRole::Hat,  candidatesForRackIds(indexed, { "HIHAT" }), seed, bpm);
+    sel.hat  = pick(Engine::DrumRole::Hat,  candidatesForRackIds(indexed, { "HIHAT", "OPEN_HAT" }), seed, bpm);
     sel.perc = pick(Engine::DrumRole::Perc, candidatesForRackIds(indexed, { "PERC" }), seed, bpm);
     return sel;
 }

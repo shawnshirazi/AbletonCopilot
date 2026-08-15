@@ -436,7 +436,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
                 continue;
             if (s.rackId == "KICK")                        ++kickCandidateCount;
             if (s.rackId == "CLAP" || s.rackId == "SNARE")  ++clapCandidateCount;
-            if (s.rackId == "HIHAT")                        ++hatCandidateCount;
+            if (s.rackId == "HIHAT" || s.rackId == "OPEN_HAT") ++hatCandidateCount;
             if (s.rackId == "PERC")                         ++percCandidateCount;
         }
 

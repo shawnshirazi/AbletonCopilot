@@ -7,77 +7,20 @@ namespace
     struct RackDef { const char* id; const char* display; };
 
     static const RackDef kRackDefs[] = {
-        { "KICK",   "Kicks" },
-        { "SNARE",  "Snares" },
-        { "CLAP",   "Claps" },
-        { "HIHAT",  "Hi-Hats" },
-        { "CYMBAL", "Cymbals" },
-        { "PERC",   "Percussion" },
-        { "BASS",   "Bass" },
-        { "LOOP",   "Loops" },
-        { "FX",     "FX" },
-        { "VOCAL",  "Vocals" },
-        { "MISC",   "Other" },
+        { "KICK",     "Kicks" },
+        { "SNARE",    "Snares" },
+        { "CLAP",     "Claps" },
+        { "HIHAT",    "Hi-Hats" },
+        { "OPEN_HAT", "Open Hats" },
+        { "TOM",      "Toms" },
+        { "CYMBAL",   "Cymbals" },
+        { "PERC",     "Percussion" },
+        { "BASS",     "Bass" },
+        { "LOOP",     "Loops" },
+        { "FX",       "FX" },
+        { "VOCAL",    "Vocals" },
+        { "MISC",     "Other" },
     };
-
-    // Loops run several seconds or more; real one-shots are brief. Duration
-    // wins over filename every time — a "Kick_Loop.wav" that's actually 4
-    // bars long cannot be a kick one-shot no matter what it's called, and
-    // triggering it as one on every kick step is exactly what sounded "off".
-    constexpr double kLoopDurationThresholdSecs = 2.0;
-
-    juce::StringArray tokenize(const juce::String& stem)
-    {
-        auto normalised = stem.toLowerCase()
-                               .replaceCharacter('_', ' ')
-                               .replaceCharacter('-', ' ')
-                               .replaceCharacter('.', ' ');
-        juce::StringArray tokens;
-        tokens.addTokens(normalised, " ", "");
-        tokens.removeEmptyStrings();
-        return tokens;
-    }
-
-    // Classify by *whole-word* filename token, not substring-anywhere — the
-    // old "contains" check matched "hh" inside "Ahh_Vocal.wav" and "hat"
-    // inside "Whatever.wav", which is how a vocal chop ended up in Hi-Hats.
-    // Anything that doesn't hit an exact token falls through to MISC rather
-    // than risk a false positive.
-    juce::String classifyByTokens(const juce::StringArray& tokens)
-    {
-        auto has = [&](std::initializer_list<const char*> kws)
-        {
-            for (auto* kw : kws)
-                if (tokens.contains(kw))
-                    return true;
-            return false;
-        };
-
-        if (has({ "loop", "loops", "break", "breaks" }))                          return "LOOP";
-        if (has({ "kick", "kck" }))                                               return "KICK";
-        if (has({ "snare", "snr" }))                                              return "SNARE";
-        if (has({ "clap", "clp" }))                                               return "CLAP";
-        if (has({ "hihat", "hihats", "hat", "hats", "hh", "chh", "ohh" }))        return "HIHAT";
-        if (has({ "cymbal", "crash", "ride" }))                                   return "CYMBAL";
-        if (has({ "perc", "percussion", "shaker", "tom", "conga", "bongo" }))     return "PERC";
-        if (has({ "bass", "sub", "808" }))                                        return "BASS";
-        if (has({ "fx", "riser", "impact", "sweep", "noise" }))                   return "FX";
-        if (has({ "vocal", "vocals", "vox", "adlib", "acapella" }))               return "VOCAL";
-        return "MISC";
-    }
-
-    // Duration (when readable) overrides the name — see kLoopDurationThresholdSecs.
-    juce::String classifySample(const juce::File& file, juce::AudioFormatManager& formatManager)
-    {
-        if (auto reader = std::unique_ptr<juce::AudioFormatReader>(formatManager.createReaderFor(file)))
-        {
-            if (reader->sampleRate > 0.0
-                && (double) reader->lengthInSamples / reader->sampleRate >= kLoopDurationThresholdSecs)
-                return "LOOP";
-        }
-
-        return classifyByTokens(tokenize(file.getFileNameWithoutExtension()));
-    }
 }
 
 //==============================================================================
@@ -260,7 +203,7 @@ void RackBrowserComponent::run()
             if (threadShouldExit())
                 return;
 
-            auto id = classifySample(f, formatManager);
+            auto id = RackClassification::classifySample(f, formatManager);
             byId[id].samples.push_back({ f.getFileNameWithoutExtension(), f });
         }
 

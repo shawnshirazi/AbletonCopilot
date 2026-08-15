@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "RackClassification.h"
 #include "StackBrowserComponent.h"
 #include <vector>
 
