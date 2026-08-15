@@ -53,12 +53,19 @@ namespace Engine
         DropPattern drumMotif;
 
         // 16-bar/256-step, from Engine::generateBassLoop16(drumMotif, ...)
-        // - a native 4-block generator that develops across the full loop
-        // and is really aware of this identity's own drumMotif occupancy
-        // (see BassEngine.h). generateBassPattern (the plain 8-bar
-        // generator this replaced here) is untouched and still used
+        // - a native 4-block generator that develops across the full loop,
+        // is really aware of this identity's own drumMotif occupancy, and
+        // commits to ONE real corpus-transcribed rhythmic archetype (see
+        // BassEngine.h/BassArchetype.h). generateBassPattern (the plain
+        // 8-bar generator this replaced here) is untouched and still used
         // as-is by the manual-editing/arrangement paths.
         std::vector<int8_t> bassMotif;
+
+        // Parallel to bassMotif - each onset's real intended hold duration
+        // in steps (0 = no explicit gate). Only meaningful at a step where
+        // bassMotif has an onset. See PluginProcessor's gate-length note-
+        // off scheduling for what actually makes this audible.
+        std::vector<int8_t> bassGateLengthSteps;
     };
 
     // seed/bpm/rootNote/isMinor drive BOTH generators consistently (same
@@ -93,6 +100,7 @@ namespace Engine
     {
         DropPattern          drum;
         std::vector<int8_t>  bass;
+        std::vector<int8_t>  bassGateLengthSteps; // ALWAYS byte-identical to identity.bassGateLengthSteps, same guarantee as .bass
 
         RoleMix kick, clap, hatClosed, hatOpen, percA, percB;
         bool    bassMuted = false;

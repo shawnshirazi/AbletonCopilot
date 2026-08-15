@@ -1,5 +1,6 @@
 #include "BassEngine.h"
 #include "BassRhythmGrammar.h"
+#include "BassArchetype.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -125,39 +126,49 @@ namespace Engine
             return uniform01(rng) < activation;
         }
 
-        // Builds the 4-bar motif from scratch: bar 0 is the canonical shape
-        // (fresh weighted decision + pitch choice per position, real
-        // kick-avoidance against the synthetic four-on-the-floor
-        // reference); bars 1-3 either literally repeat bar 0 or apply 1-2
-        // small touches - the exact same "controlled bar-to-bar movement
-        // inside one motif" mechanism as DrumEngine.cpp's buildRoleBlock,
-        // matching the real evidence that groove basslines split between
-        // clean 1-bar loops and longer, lightly-varying 4-bar phrases (see
-        // analyze_bass_grammar.py's motif-length inspection).
-        Block buildBassBlock(std::mt19937& rng, float densityScale,
-                              const std::vector<BassCorrelationRef>& refs)
+        // Touches (see developBarsFromCanonical/deriveBassBlock below) are
+        // minor bar-to-bar embellishments, never the archetype's own
+        // canonical shape - a position they add gets a short, neutral gate
+        // length rather than an invented "correct" one, since the corpus
+        // template itself doesn't specify a length for a position it
+        // never used.
+        constexpr int8_t kDefaultTouchGateLength = 1;
+
+        // Repeats bar 0 into bars 1-3, either as a literal copy or with
+        // 1-2 small touches (a position toggled on/off) - the exact same
+        // "controlled bar-to-bar movement inside one motif" mechanism as
+        // DrumEngine.cpp's buildRoleBlock, matching the real evidence that
+        // groove basslines split between clean 1-bar loops and longer,
+        // lightly-varying 4-bar phrases (see analyze_bass_grammar.py's
+        // motif-length inspection). Shared by buildBassBlock (fresh
+        // probability-built bar 0) and buildBassBlockFromArchetype
+        // (fresh archetype-template bar 0) - one development mechanism,
+        // not two. `gate` is optional (nullptr for the two callers that
+        // don't track gate-length data - generateBassPattern/
+        // generateArrangementBassPattern - completely unchanged codepath
+        // for them); when non-null, gate lengths are mirrored through the
+        // exact same repeat/add/remove decisions as the pitch block.
+        void developBarsFromCanonical(std::mt19937& rng, Block& block, float densityScale,
+                                       const std::vector<BassCorrelationRef>& refs, Block* gate = nullptr)
         {
-            Block block;
-            block.fill(kBassOffValue);
-
-            for (int s = 0; s < kStepsPerBar; ++s)
-                if (decideBassPosition(rng, s, 0, densityScale, refs))
-                    block[(size_t) s] = (int8_t) pickPitchOffset(rng);
-
             // Real measured adjacent-bar identity isn't available for bass
             // the way it is for drum roles (no per-file multi-bar-pairs
             // stat computed - see BassRhythmGrammar.h's own comment on what
             // it does and doesn't measure), so this reuses the same
             // fallback DrumEngine.cpp's buildRoleBlock uses for roles
             // without one: a disclosed 0.7 default, not a fabricated
-          // measurement.
+            // measurement.
             constexpr float kIdenticalFraction = 0.7f;
 
             for (int bar = 1; bar < kBlockBars; ++bar)
             {
                 const int base = bar * kStepsPerBar;
                 for (int s = 0; s < kStepsPerBar; ++s)
+                {
                     block[(size_t) (base + s)] = block[(size_t) s];
+                    if (gate != nullptr)
+                        (*gate)[(size_t) (base + s)] = (*gate)[(size_t) s];
+                }
 
                 if (densityScale <= 0.0f)
                     continue; // genuinely silent at this scale - no touch can introduce content from nothing (see DrumEngine.cpp's own fix for the same issue)
@@ -171,13 +182,64 @@ namespace Engine
                     const int s = (int) (uniform01(rng) * (float) kStepsPerBar);
                     const size_t idx = (size_t) (base + s);
                     if (block[idx] != kBassOffValue)
+                    {
                         block[idx] = kBassOffValue;
+                        if (gate != nullptr) (*gate)[idx] = 0;
+                    }
                     else if (decideBassPosition(rng, s, bar, densityScale, refs))
+                    {
                         block[idx] = (int8_t) pickPitchOffset(rng);
+                        if (gate != nullptr) (*gate)[idx] = kDefaultTouchGateLength;
+                    }
                 }
             }
+        }
 
+        // Builds the 4-bar motif from scratch via independent per-position
+        // probability (see decideBassPosition) - bar 0 is a fresh weighted
+        // decision + pitch choice per position, real kick-avoidance
+        // against the synthetic four-on-the-floor reference; bars 1-3
+        // develop from it via developBarsFromCanonical above. Used by
+        // generateBassPattern/generateArrangementBassPattern only -
+        // generateBassLoop16 uses buildBassBlockFromArchetype below
+        // instead (a real corpus-transcribed shape, not independent
+        // per-step coin flips - see BassArchetype.h for why that
+        // distinction matters).
+        Block buildBassBlock(std::mt19937& rng, float densityScale,
+                              const std::vector<BassCorrelationRef>& refs)
+        {
+            Block block;
+            block.fill(kBassOffValue);
+
+            for (int s = 0; s < kStepsPerBar; ++s)
+                if (decideBassPosition(rng, s, 0, densityScale, refs))
+                    block[(size_t) s] = (int8_t) pickPitchOffset(rng);
+
+            developBarsFromCanonical(rng, block, densityScale, refs);
             return block;
+        }
+
+        struct BlockWithGate { Block pitch; Block gate; };
+
+        // Bar 0 is the archetype's own real, corpus-transcribed canonical
+        // shape (Engine::instantiateArchetypeBar) instead of independent
+        // per-step probability - this is what actually makes the result
+        // read as ONE recognizable rhythmic idea rather than a plausible
+        // blend of many. Bars 1-3 still develop via the exact same
+        // mechanism as the probability-built path (developBarsFromCanonical),
+        // gate-length-aware.
+        BlockWithGate buildBassBlockFromArchetype(std::mt19937& rng, BassArchetype archetype, float densityScale,
+                                                    const std::vector<BassCorrelationRef>& refs)
+        {
+            const ArchetypeBar archBar = instantiateArchetypeBar(archetype);
+            BlockWithGate result;
+            for (int s = 0; s < kStepsPerBar; ++s)
+            {
+                result.pitch[(size_t) s] = archBar.pitchOffsets[(size_t) s];
+                result.gate[(size_t) s]  = archBar.gateLengthSteps[(size_t) s];
+            }
+            developBarsFromCanonical(rng, result.pitch, densityScale, refs, &result.gate);
+            return result;
         }
 
         // Derives bars 4-7's motif from bars 0-3's (development, not
@@ -186,11 +248,17 @@ namespace Engine
         // avoidance before committing (same "no impossible/overlapping
         // role behaviour" guarantee as DrumEngine.cpp's deriveStageBlock:
         // try a few candidates, skip the touch entirely rather than force
-        // one onto a bad position).
+        // one onto a bad position). `previousGate`/`outGate` mirror
+        // developBarsFromCanonical's optional gate tracking - nullptr for
+        // the two probability-only callers, unchanged codepath for them.
         Block deriveBassBlock(std::mt19937& rng, const Block& previous, float variation,
-                               const std::vector<BassCorrelationRef>& refs)
+                               const std::vector<BassCorrelationRef>& refs,
+                               const Block* previousGate = nullptr, Block* outGate = nullptr)
         {
             Block block = previous;
+            if (outGate != nullptr)
+                *outGate = (previousGate != nullptr) ? *previousGate : Block { };
+
             const int touches = std::max(1, (int) std::lround(variation * 6.0f));
             for (int t = 0; t < touches; ++t)
             {
@@ -217,9 +285,15 @@ namespace Engine
 
                 const size_t idx = (size_t) (bar * kStepsPerBar + chosenStep);
                 if (block[idx] != kBassOffValue)
+                {
                     block[idx] = kBassOffValue;
+                    if (outGate != nullptr) (*outGate)[idx] = 0;
+                }
                 else
+                {
                     block[idx] = (int8_t) pickPitchOffset(rng);
+                    if (outGate != nullptr) (*outGate)[idx] = kDefaultTouchGateLength;
+                }
             }
             return block;
         }
@@ -270,6 +344,30 @@ namespace Engine
             if (std::abs(scaleDelta) > kBigDeltaRebuildThreshold)
                 return buildBassBlock(rng, newScale, refs);
             return deriveBassBlock(rng, previousBlock, variation, refs);
+        }
+
+        // Gate-length-aware sibling of deriveOrRebuildBassBlock above, used
+        // only by generateBassLoop16's archetype path. The "big delta"
+        // rebuild branch falls back to the plain probability-built
+        // buildBassBlock (no archetype, no gate data) - in practice
+        // generateBassLoop16's own fixed 4-stage density ramp (0.7/0.85/
+        // 1.0/1.0, deltas of 0.15/0.15/0.0) never crosses
+        // kBigDeltaRebuildThreshold (0.3), so this fallback is a safety
+        // net for a case that doesn't currently occur, not a silent gap in
+        // the normal path - disclosed here rather than left implicit.
+        BlockWithGate deriveOrRebuildBassBlockGated(std::mt19937& rng, const BlockWithGate& previous,
+                                                      float scaleDelta, float newScale, float variation,
+                                                      const std::vector<BassCorrelationRef>& refs)
+        {
+            BlockWithGate result;
+            if (std::abs(scaleDelta) > kBigDeltaRebuildThreshold)
+            {
+                result.pitch = buildBassBlock(rng, newScale, refs);
+                result.gate.fill(0);
+                return result;
+            }
+            result.pitch = deriveBassBlock(rng, previous.pitch, variation, refs, &previous.gate, &result.gate);
+            return result;
         }
 
         // Builds the single-element refs vector both generateBassPattern
@@ -358,7 +456,7 @@ namespace Engine
         return out;
     }
 
-    std::vector<int8_t> generateBassLoop16(const DropPattern& drums, const BassPatternParams& params)
+    BassLoop16 generateBassLoop16(const DropPattern& drums, const BassPatternParams& params)
     {
         constexpr int kNumLoopBlocks = 4; // 4 blocks x 4 bars = 16 bars, one block per DrumEngine's own 4-stage arc
         // Establish/develop/increase/full - the same 4-stage language
@@ -371,13 +469,22 @@ namespace Engine
         // one.
         constexpr float kBlockDensityScale[kNumLoopBlocks] = { 0.7f, 0.85f, 1.0f, 1.0f };
 
-        std::vector<int8_t> out((size_t) kBassSteps * 2, kBassOffValue); // 128*2 = 256 steps = 16 bars
+        BassLoop16 out;
+        out.pitchOffsets.assign((size_t) kBassSteps * 2, kBassOffValue); // 128*2 = 256 steps = 16 bars
+        out.gateLengthSteps.assign((size_t) kBassSteps * 2, 0);
 
         std::mt19937 rng = makeRng(params.seed);
         const float densityScale = 0.7f + params.density * 0.6f; // matches generateBassPattern's own scale
 
-        Block previousBlock {};
-        previousBlock.fill(kBassOffValue);
+        // ONE archetype for the entire 16-bar loop - a real, recognizable
+        // rhythmic idea, not a fresh independent shape per block (see
+        // BassArchetype.h). Selected once, up front, from the identity's
+        // own seed - not re-drawn per block.
+        const BassArchetype archetype = selectBassArchetype(params.seed);
+
+        BlockWithGate previousBlock;
+        previousBlock.pitch.fill(kBassOffValue);
+        previousBlock.gate.fill(0);
         float previousScale = 0.0f;
 
         for (int blockIdx = 0; blockIdx < kNumLoopBlocks; ++blockIdx)
@@ -402,11 +509,12 @@ namespace Engine
 
             const float thisScale = densityScale * kBlockDensityScale[blockIdx];
 
-            const Block thisBlock = (blockIdx == 0)
-                ? buildBassBlock(rng, thisScale, refs)
-                : deriveOrRebuildBassBlock(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, refs);
+            const BlockWithGate thisBlock = (blockIdx == 0)
+                ? buildBassBlockFromArchetype(rng, archetype, thisScale, refs)
+                : deriveOrRebuildBassBlockGated(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, refs);
 
-            copyBlockDynamic(out, barOffset, kBlockBars, kNumLoopBlocks * kBlockBars, thisBlock);
+            copyBlockDynamic(out.pitchOffsets, barOffset, kBlockBars, kNumLoopBlocks * kBlockBars, thisBlock.pitch);
+            copyBlockDynamic(out.gateLengthSteps, barOffset, kBlockBars, kNumLoopBlocks * kBlockBars, thisBlock.gate);
 
             previousBlock = thisBlock;
             previousScale = thisScale;

@@ -128,8 +128,13 @@ public:
     // melody-voice trigger path changes for a track that never calls this.
     // Used for BOTH track 0 (Bass) and track 1 (Melody) - one mechanism,
     // not two independent ones, per the "don't build separate generation
-    // systems" rule.
-    void setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot);
+    // systems" rule. gateLengthSteps is optional (default empty - the
+    // melody call site never passes one, so its playback is completely
+    // unaffected) - see MelodyVoice::generatedGateLengthSteps/
+    // gateSamplesRemaining for what actually makes a non-empty one
+    // audible (Source/Engine/BassArchetype.h's archetype note lengths).
+    void setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot,
+                                    const std::vector<int8_t>& gateLengthSteps = {});
     void setMelodyTrackMuted(int trackIndex, bool muted);
     void setMelodyTrackSolo(int trackIndex, bool solo);
     juce::AudioPluginInstance* getHostedSerumInstance(int trackIndex) const noexcept;
@@ -169,6 +174,7 @@ public:
         int64_t noteOnEventsSent       = 0;     // cumulative count of real noteOn events queued into this voice's Serum2 instance
         float   lastBlockPeakOut       = 0.0f;  // peak |sample| in this voice's own scratch buffer AFTER serum->processBlock(), BEFORE any downstream suppression/mixing gate - proves whether Serum's own output is silent independent of whether it reaches the main mix
         bool    suppressOwnPlayback    = false; // the shared gate that silences ALL melody-voice (and drum) output when true - see setSuppressOwnPlayback
+        int     generatedGateLengthCount = 0;   // number of non-zero entries in generatedGateLengthSteps - proves setGeneratedMelodyPattern's optional gate array actually reached this voice (0 for every track that never passed one, e.g. Melody)
     };
     MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
@@ -327,6 +333,17 @@ private:
         // (see processBlock's melody-voice trigger loop) until cleared.
         std::vector<int8_t>                        generatedOffsets;
         int                                         generatedTotalSteps = 0;
+
+        // Real gate-length data (Source/Engine/BassArchetype.h's archetype
+        // note lengths) - empty = no explicit gate anywhere, exactly the
+        // previous behaviour (a note rings until the next onset
+        // unconditionally retriggers it). Non-empty and non-zero at a
+        // given onset step means "cut this note short after N steps if
+        // the next onset hasn't already done so" - see processBlock's
+        // gateSamplesRemaining countdown, the same decrement-to-zero idiom
+        // already used for generated-drum note-off/swing scheduling.
+        std::vector<int8_t>                        generatedGateLengthSteps;
+        int                                         gateSamplesRemaining = -1; // audio-thread only; -1 = no gate armed for the currently-sounding note
 
         // Runtime proof for getMelodyVoiceDiagnostics() - written from the
         // audio thread in processBlock, read from the message thread.

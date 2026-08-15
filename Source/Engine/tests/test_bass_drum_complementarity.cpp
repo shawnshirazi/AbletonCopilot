@@ -96,20 +96,30 @@ int main()
     std::printf("bass-on-hatClosed fraction: on=%.3f off=%.3f (%d seeds)\n", meanHatOn, meanHatOff, seedsWithHatData);
     std::printf("bass-on-percA fraction:     on=%.3f off=%.3f (%d seeds)\n", meanPercOn, meanPercOff, seedsWithPercData);
 
-    // The real, measured effect: bass is genuinely less likely to land on
-    // a step the real kick/hatClosed/percA already occupies than on a
-    // step they don't - this is what "designed together" actually means
-    // as a checkable property, not just correlation code existing
-    // somewhere in the source.
+    // Kick avoidance: real, measured, and now STRONGER than before the
+    // archetype pass - every one of the 5 real corpus archetypes
+    // (BassArchetype.h) independently keeps clear of the beat grid by its
+    // own construction (that's what "avoids the kick" idiomatically means
+    // in a real bassline), on top of the existing touches-only kick
+    // correlation - so this remains a checked property, not just
+    // correlation code existing somewhere in the source.
     CHECK(meanKickOn < meanKickOff);
-    CHECK(meanHatOn  < meanHatOff);
-    CHECK(meanPercOn < meanPercOff);
+    CHECK((meanKickOff - meanKickOn) > 0.05);
 
-    // Kick is the measured, higher-confidence correlation (real corpus
-    // ratio, see BassEngine.cpp's kBassKickCorrelation) - its effect
-    // should be at least as pronounced as the disclosed-design-decision
-    // hat/perc correlations, not smaller than noise would produce anyway.
-    CHECK((meanKickOff - meanKickOn) > 0.01);
+    // hatClosed/percA correlation is DELIBERATELY no longer guaranteed to
+    // point the same direction as before this pass. Per this session's
+    // explicit instruction ("the goal is not to maximize statistical
+    // similarity... first make the bass itself sound like an intentional
+    // phrase... once that is correct, we can redesign the drum pattern
+    // around that bass phrase"), the archetype's own onsets (the real,
+    // corpus-transcribed shape - most of a bar's content) are NOT
+    // probability-gated against hatClosed/percA at all; only the bars 1-3
+    // "touches" still consult that correlation, a much weaker effect
+    // averaged across a whole archetype-dominated bar. This is a real,
+    // measured, and DISCLOSED tradeoff, not a regression to silently
+    // tolerate - printed above for visibility, not asserted on, until a
+    // future pass explicitly redesigns drum placement around the bass
+    // phrase (the user's own stated next step).
 
     TEST_SUMMARY_AND_EXIT();
 }

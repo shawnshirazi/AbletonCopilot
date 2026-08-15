@@ -110,5 +110,19 @@ namespace Engine
     //     data (no real simultaneous bass+hat corpus exists - see the
     //     research doc), also leans away from hatClosed/percA's busiest
     //     positions.
-    std::vector<int8_t> generateBassLoop16(const DropPattern& drums, const BassPatternParams& params);
+    //  3. bar 0 comes from a real, corpus-transcribed rhythmic ARCHETYPE
+    //     (Source/Engine/BassArchetype.h - one of 5 recurring shapes found
+    //     by analyzing the groove-subset corpus file-by-file, not the
+    //     pooled per-step average generateBassPattern's bar 0 draws from)
+    //     instead of independent per-step probability, so the whole loop
+    //     commits to ONE recognizable rhythmic idea. gateLengthSteps
+    //     carries each onset's real intended hold duration (0 = no
+    //     explicit gate) - see PluginProcessor's gate-length note-off
+    //     scheduling, which is what actually makes duration audible.
+    struct BassLoop16
+    {
+        std::vector<int8_t> pitchOffsets;    // 256 steps, kBassOffValue = silence
+        std::vector<int8_t> gateLengthSteps; // 256 steps, 0 = no explicit gate (default playback behaviour)
+    };
+    BassLoop16 generateBassLoop16(const DropPattern& drums, const BassPatternParams& params);
 }

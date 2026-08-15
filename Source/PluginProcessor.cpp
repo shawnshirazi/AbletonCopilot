@@ -346,16 +346,18 @@ void AbletonCopilotAudioProcessor::setMelodyPattern(int trackIndex,
     voice.keyRoot = keyRoot;
 }
 
-void AbletonCopilotAudioProcessor::setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot)
+void AbletonCopilotAudioProcessor::setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets,
+                                                                int keyRoot, const std::vector<int8_t>& gateLengthSteps)
 {
     if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
         return;
 
     auto& voice = melodyVoices[trackIndex];
     juce::ScopedLock sl(voice.lock);
-    voice.generatedOffsets    = offsets;
-    voice.generatedTotalSteps = (int) offsets.size();
-    voice.keyRoot             = keyRoot;
+    voice.generatedOffsets         = offsets;
+    voice.generatedTotalSteps      = (int) offsets.size();
+    voice.keyRoot                  = keyRoot;
+    voice.generatedGateLengthSteps = gateLengthSteps; // empty for every existing caller except the new bass path - zero behaviour change for them
 }
 
 void AbletonCopilotAudioProcessor::setGeneratedDrumRoleMuted(int role, bool muted)
@@ -454,6 +456,9 @@ AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
         juce::ScopedLock sl(voice.lock);
         d.generatedTotalSteps    = voice.generatedTotalSteps;
         d.generatedPatternActive = !voice.generatedOffsets.empty() && voice.generatedTotalSteps > 0;
+        d.generatedGateLengthCount = (int) std::count_if(voice.generatedGateLengthSteps.begin(),
+                                                            voice.generatedGateLengthSteps.end(),
+                                                            [](int8_t v) { return v != 0; });
     }
     return d;
 }
@@ -1169,12 +1174,14 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             std::array<int8_t, kMelodySteps> localMelody;
             int localMelodyRoot;
             std::vector<int8_t> localGeneratedOffsets; // empty unless setGeneratedMelodyPattern is active for this track
+            std::vector<int8_t> localGeneratedGateLengthSteps; // empty unless a gate-length array was passed to setGeneratedMelodyPattern
             int localGeneratedTotalSteps = 0;
             {
                 juce::ScopedLock sl(voice.lock);
                 localMelody             = voice.offsets;
                 localMelodyRoot         = voice.keyRoot;
                 localGeneratedOffsets   = voice.generatedOffsets;
+                localGeneratedGateLengthSteps = voice.generatedGateLengthSteps;
                 localGeneratedTotalSteps = voice.generatedTotalSteps;
             }
             const bool useGeneratedPattern = !localGeneratedOffsets.empty() && localGeneratedTotalSteps > 0;
@@ -1211,6 +1218,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         serumMidi.addEvent(juce::MidiMessage::noteOff(1, voice.soundingPitch), 0);
                         voice.noteOn = false;
                     }
+                    voice.gateSamplesRemaining = -1; // a new step always cancels any still-armed gate from the previous note
 
                     const int8_t offset = useGeneratedPattern ? localGeneratedOffsets[(size_t) wrappedStep]
                                                                : localMelody[(size_t) wrappedStep];
@@ -1221,6 +1229,25 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         voice.noteOn        = true;
                         voice.soundingPitch = pitch;
                         voice.noteOnEventsSent.fetch_add(1, std::memory_order_relaxed);
+
+                        // Real gate-length (Source/Engine/BassArchetype.h) -
+                        // arms an early note-off countdown if this onset has
+                        // an explicit hold duration shorter than however long
+                        // it ends up ringing until the next onset. Empty
+                        // array or a 0 entry (every existing melody/manual-
+                        // editing call site) leaves this at -1, i.e.
+                        // unchanged "ring until the next onset" behaviour.
+                        const int8_t gateSteps = (wrappedStep < (int) localGeneratedGateLengthSteps.size())
+                                                      ? localGeneratedGateLengthSteps[(size_t) wrappedStep] : 0;
+                        if (gateSteps > 0)
+                        {
+                            const double bpmForGate = (double) currentBpm.load(std::memory_order_relaxed);
+                            if (bpmForGate > 0.0 && getSampleRate() > 0.0)
+                            {
+                                const double secPerStep = (60.0 / bpmForGate) / 4.0;
+                                voice.gateSamplesRemaining = juce::jmax(1, (int) std::lround(gateSteps * secPerStep * getSampleRate()));
+                            }
+                        }
                     }
                 }
             }
@@ -1229,6 +1256,29 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 serumMidi.addEvent(juce::MidiMessage::noteOff(1, voice.soundingPitch), 0);
                 voice.noteOn        = false;
                 voice.lastStepIndex = -1;
+                voice.gateSamplesRemaining = -1;
+            }
+
+            // Early gate-off: if a gate is armed and its countdown reaches
+            // zero before the next onset naturally retriggers the voice,
+            // cut the note short here - the same decrement-to-zero idiom
+            // already used for generated-drum note-off/swing scheduling
+            // (PluginProcessor.cpp's other trigger blocks), applied to a
+            // melody voice for the first time. Never touches
+            // generatedOffsets/the stored pattern - purely a playback-time
+            // gate.
+            if (voice.noteOn && voice.gateSamplesRemaining > 0)
+            {
+                const int numSamplesForGate = buffer.getNumSamples();
+                voice.gateSamplesRemaining -= numSamplesForGate;
+                if (voice.gateSamplesRemaining <= 0)
+                {
+                    const int offset = juce::jlimit(0, juce::jmax(0, numSamplesForGate - 1),
+                                                     numSamplesForGate + voice.gateSamplesRemaining);
+                    serumMidi.addEvent(juce::MidiMessage::noteOff(1, voice.soundingPitch), offset);
+                    voice.noteOn = false;
+                    voice.gateSamplesRemaining = -1;
+                }
             }
 
             const int numSamples = buffer.getNumSamples();

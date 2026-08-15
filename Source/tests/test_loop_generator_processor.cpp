@@ -110,6 +110,36 @@ int main()
         CHECK(processor.getMelodyVoiceDiagnostics(1).generatedPatternActive);
     }
 
+    // ---- Real gate-length data (Part 3 of the archetype-groove pass:
+    // Engine::BassArchetype's note lengths) reaches the voice when passed,
+    // and does NOT appear on a track that never received one - proves the
+    // optional parameter actually plumbs through to MelodyVoice, and that
+    // melody's existing (no-gate) call path is unaffected by the new
+    // mechanism existing at all. ----
+    {
+        std::vector<int8_t> bassWithGates(256, -128);
+        std::vector<int8_t> gates(256, 0);
+        bassWithGates[2] = 0;  gates[2] = 3; // matches SteadyOffbeat's own shape
+        bassWithGates[6] = 0;  gates[6] = 3;
+        processor.setGeneratedMelodyPattern(0, bassWithGates, 9, gates);
+        const auto diagBassGated = processor.getMelodyVoiceDiagnostics(0);
+        CHECK(diagBassGated.generatedGateLengthCount == 2);
+
+        // Melody (track 1) was set earlier in this test with NO gate
+        // array (the existing 3-argument call, matching every real
+        // melody call site) - must show zero gate entries.
+        const auto diagMelodyNoGate = processor.getMelodyVoiceDiagnostics(1);
+        CHECK(diagMelodyNoGate.generatedGateLengthCount == 0);
+
+        // Re-setting bass with the ORIGINAL 3-argument call (no gate
+        // array) must clear any previously-stored gate data - the
+        // parameter is a real replacement, not an additive merge.
+        std::vector<int8_t> bassNoGate(256, -128);
+        bassNoGate[0] = 0;
+        processor.setGeneratedMelodyPattern(0, bassNoGate, 9);
+        CHECK(processor.getMelodyVoiceDiagnostics(0).generatedGateLengthCount == 0);
+    }
+
     // ---- Melody motif generator: deterministic for the same seed, and
     // active within bar 0 (steps 0-15) - "melody active from bar 1." ----
     {

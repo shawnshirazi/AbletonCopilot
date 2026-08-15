@@ -51,7 +51,9 @@ namespace Engine
         bassParams.density   = 0.5f;
         bassParams.variation = 0.2f;
         bassParams.seed      = params.seed;
-        id.bassMotif = generateBassLoop16(id.drumMotif, bassParams);
+        const BassLoop16 bassLoop = generateBassLoop16(id.drumMotif, bassParams);
+        id.bassMotif           = bassLoop.pitchOffsets;
+        id.bassGateLengthSteps = bassLoop.gateLengthSteps;
 
         return id;
     }
@@ -72,6 +74,7 @@ namespace Engine
         RenderedLoop out;
         out.drum = identity.drumMotif; // always byte-identical to the identity - see header comment
         out.bass = identity.bassMotif; // always byte-identical to the identity - see header comment
+        out.bassGateLengthSteps = identity.bassGateLengthSteps; // ditto
 
         if (mode == RenderMode::Drop)
         {
