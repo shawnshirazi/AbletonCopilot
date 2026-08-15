@@ -98,7 +98,7 @@ void GeneratedDrumGridComponent::HeaderColumn::paint(juce::Graphics& g)
         g.drawHorizontalLine(rowTop, 0.0f, (float) getWidth());
 
         g.setColour(row.colour);
-        g.fillEllipse(rowArea.reduced(0, 8).removeFromLeft(10).toFloat());
+        g.fillEllipse(rowArea.reduced(0, 6).removeFromLeft(10).toFloat());
 
         g.setColour(UIStyle::kTextDim);
         g.setFont(UIStyle::small());

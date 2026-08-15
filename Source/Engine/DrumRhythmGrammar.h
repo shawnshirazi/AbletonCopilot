@@ -17,7 +17,7 @@
 // Generated: 2026-08-14
 // KICK: n=17 loop files, 68 onsets, 17 bars analyzed, packs: PML Mirage, PML Mystique
 // CLAP: n=26 loop files, 176 onsets, 73 bars analyzed, packs: PML Mirage, PML Mystique
-// HAT: n=94 loop files, 3058 onsets, 240 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique
+// HAT: n=33 loop files, 602 onsets, 83 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique
 // PERC: n=56 loop files, 1590 onsets, 163 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique
 // RIDE: n=19 loop files, 352 onsets, 47 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage
 
@@ -69,9 +69,9 @@ namespace Engine
     };
 
     constexpr RoleRhythmStats kHatRhythm {
-        { 0.060800f, 0.055900f, 0.076500f, 0.055300f, 0.065700f, 0.055600f, 0.076500f, 0.051300f, 0.063400f, 0.058200f, 0.075500f, 0.055900f, 0.064700f, 0.056600f, 0.076500f, 0.051300f },
-        { 0.408300f, 0.368200f, 0.742000f, 0.366400f, 0.300400f, 0.354000f, 0.776400f, 0.352700f, 0.304700f, 0.369200f, 0.756000f, 0.373600f, 0.330500f, 0.365100f, 0.766700f, 0.396100f },
-        0.254700f, 0.305100f, 0.440200f, 0.650700f, 12.609043f
+        { 0.064800f, 0.029900f, 0.127900f, 0.026600f, 0.073100f, 0.026600f, 0.124600f, 0.018300f, 0.061500f, 0.034900f, 0.122900f, 0.034900f, 0.071400f, 0.029900f, 0.126200f, 0.026600f },
+        { 0.505900f, 0.350000f, 0.720800f, 0.426500f, 0.402400f, 0.263800f, 0.803000f, 0.384700f, 0.406200f, 0.350000f, 0.746900f, 0.401500f, 0.419900f, 0.277300f, 0.788600f, 0.421600f },
+        0.270800f, 0.501700f, 0.227600f, 0.660000f, 6.856061f
     };
 
     constexpr RoleRhythmStats kPercRhythm {
@@ -87,8 +87,8 @@ namespace Engine
     };
 
     constexpr CrossRoleCorrelation kCrossRoleCorrelation {
-        0.639100f, 0.075800f, -0.448800f, 0.150900f, -0.425000f, 0.475800f,
-        -0.062000f, 0.001800f, 0.929000f, 0.337900f
+        0.639100f, 0.075100f, -0.448800f, 0.129000f, -0.425000f, 0.507600f,
+        -0.062000f, 0.001800f, 0.906400f, 0.337900f
     };
 
     // RIDE (kRideRhythm above) is real measured data but not one of

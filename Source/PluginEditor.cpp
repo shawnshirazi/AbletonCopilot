@@ -272,6 +272,22 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(drumPatternStatusLabel);
     addAndMakeVisible(generatedDrumGrid);
 
+    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - plays
+    // through the existing track-0 "Bass" Serum2 voice (see its setup
+    // below), same trigger/audio path every other melody track already
+    // uses, so this button needs no availability gating like the drum one
+    // does (no sample-library scan dependency).
+    generateBassPatternButton.setColour(juce::TextButton::buttonColourId,  kPanel);
+    generateBassPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    generateBassPatternButton.onClick = [this] { generateBassPatternClicked(); };
+    addAndMakeVisible(generateBassPatternButton);
+
+    bassPatternStatusLabel.setFont(small());
+    bassPatternStatusLabel.setJustificationType(juce::Justification::topLeft);
+    bassPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    bassPatternStatusLabel.setText("Not generated yet.", juce::dontSendNotification);
+    addAndMakeVisible(bassPatternStatusLabel);
+
     // Reference-track controls - Studio, not Advisor (see PluginEditor.h).
     loadReferenceButton.setColour(juce::TextButton::buttonColourId,  kPanel);
     loadReferenceButton.setColour(juce::TextButton::textColourOffId, kAccent);
@@ -613,21 +629,27 @@ void AbletonCopilotAudioProcessorEditor::resized()
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
     area.removeFromTop(4);
-    // Temporary (110px): library-scan pipeline diagnostics (see
-    // updateLibraryScanStatusLabel) - always visible, not gated behind a
-    // Generate click, since the whole point is showing why Generate can't
-    // be clicked yet. Shrink/remove once the scan-pipeline milestone
-    // is done.
-    libraryScanStatusLabel.setBounds(area.removeFromTop(110).reduced(12, 0));
+    // Library-scan pipeline diagnostics (see updateLibraryScanStatusLabel)
+    // - always visible, not gated behind a Generate click, since the whole
+    // point is showing why Generate can't be clicked yet. 6 short lines.
+    libraryScanStatusLabel.setBounds(area.removeFromTop(90).reduced(12, 0));
     area.removeFromTop(4);
-    // Temporarily tall (320px, up from 150px): the bug-hunting diagnostic
-    // block below prints ~4 lines per role (pool size, candidate path,
-    // exists/extension/format/decoder/length, final loaded-or-fallback) -
-    // shrink this back once the SYNTH FALLBACK root cause is fixed and
-    // the status returns to a short summary.
-    drumPatternStatusLabel.setBounds(area.removeFromTop(320).reduced(12, 0));
+    // Sample-load diagnostic block - one compact line per role (see
+    // generateDrumPatternClicked) instead of the earlier 4-lines-per-role
+    // layout, so 6 roles' worth of diagnostics plus everything below it
+    // (drum grid, bass controls) fits in the fixed-height window without
+    // clipping (see the UI-compactness milestone).
+    drumPatternStatusLabel.setBounds(area.removeFromTop(150).reduced(12, 0));
     area.removeFromTop(4);
     generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRequiredHeight).reduced(12, 0));
+    area.removeFromTop(8);
+
+    // Bass row - same "always visible, own status block below the button"
+    // convention as the drum engine row above.
+    auto bassEngineRow = area.removeFromTop(26).reduced(12, 0);
+    generateBassPatternButton.setBounds(bassEngineRow.removeFromLeft(180));
+    area.removeFromTop(4);
+    bassPatternStatusLabel.setBounds(area.removeFromTop(80).reduced(12, 0));
     area.removeFromTop(8);
 
     // Reference-track row(s) - hidden while kShowExperimentalFeatures is
@@ -1242,16 +1264,14 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
 
-    // Bug-hunting diagnostic block (temporary, "trace the runtime audio
-    // path" milestone): for each role, show every step actually checked -
-    // the selector's pool size (0 here means the sample index had no
-    // candidates for this role AT ALL, which is a completely different
-    // failure than "a candidate was chosen but wouldn't decode" below),
-    // then the exact file/extension/format/decoder/length checks
-    // PluginProcessor::setGeneratedDrumPattern() performed, queried back
-    // via getGeneratedRoleLoadDiagnostics() - not reconstructed here, so
-    // this can't drift from what setGeneratedDrumPattern() actually did.
-    // This call is synchronous with setGeneratedDrumPattern() just above.
+    // Sample-load diagnostic block: one compact line per role (pool/
+    // shortlist size, candidate filename + exists/format/reader checks,
+    // final loaded file or fallback) - the same information the earlier,
+    // much taller 4-lines-per-role block showed (see
+    // getGeneratedRoleLoadDiagnostics(), queried fresh here so this can't
+    // drift from what setGeneratedDrumPattern() actually did), condensed
+    // so 6 roles' worth fits without pushing the rest of the Studio view
+    // off the fixed-height window (see the UI-compactness milestone).
     status << "Sample index: " << (int) latestSampleIndex.size() << " analyzed samples total.\n";
     for (auto& role : roles)
     {
@@ -1264,22 +1284,57 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 
         const juce::String label = juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
                                   + juce::String(role.name).toLowerCase().substring(1);
-        status << label << ": pool=" << choice.poolSize << " shortlist=" << choice.shortlistSize << "\n";
-        status << "  candidate: " << (d.candidateFile.getFullPathName().isEmpty() ? "(none)" : d.candidateFile.getFullPathName()) << "\n";
-        status << "  exists=" << (d.candidateExists ? "yes" : "no")
-               << " ext=" << (d.extension.isEmpty() ? "(none)" : d.extension)
-               << " formatRecognized=" << (d.formatRecognized ? d.recognizedFormatName : juce::String("no"))
-               << " readerCreated=" << (d.readerCreated ? "yes" : "no")
-               << " decodedLength=" << (juce::int64) d.decodedLengthSamples << " samples\n";
-        status << "  " << label << ": ";
-        if (d.finalLoadedFile.existsAsFile())
-            status << d.finalLoadedFile.getFullPathName();
-        else
-            status << "SYNTH FALLBACK";
-        status << "\n";
+        status << label << ": pool=" << choice.poolSize << "/" << choice.shortlistSize
+               << "  cand=" << (d.candidateFile.getFileName().isEmpty() ? juce::String("(none)") : d.candidateFile.getFileName())
+               << " [" << (d.candidateExists ? juce::String("found") : juce::String("MISSING"))
+               << (d.formatRecognized ? (", " + d.recognizedFormatName) : juce::String(", unrecognized"))
+               << (d.readerCreated ? (", " + juce::String((juce::int64) d.decodedLengthSamples) + "smp") : juce::String(", no-reader"))
+               << "]  -> " << (d.finalLoadedFile.existsAsFile() ? d.finalLoadedFile.getFileName() : juce::String("SYNTH FALLBACK"))
+               << "\n";
     }
 
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
+}
+
+void AbletonCopilotAudioProcessorEditor::generateBassPatternClicked()
+{
+    juce::Random rng;
+
+    Engine::BassPatternParams params;
+    params.density   = 0.5f;
+    params.variation = 0.2f;
+    params.seed      = (uint32_t) rng.nextInt();
+
+    const auto pattern = Engine::generateBassPattern(params);
+
+    // Same key context every other melody track already uses (see
+    // exportMelodyPattern) - the bass isn't a separately-keyed voice.
+    const auto [keyRoot, isMinor] = getSelectedKey();
+
+    // Track 0 is always the "Bass" voice (see its setup in the
+    // constructor) with its own hosted Serum2 instance already loading/
+    // loaded - this hands the generated pattern straight to the SAME
+    // trigger path setMelodyPattern always uses (PluginProcessor.cpp's
+    // melody-voice block), no new Serum-loading or MIDI-triggering code.
+    processor.setMelodyPattern(0, pattern, keyRoot);
+    for (int step = 0; step < (int) pattern.size(); ++step)
+        melodyGrid.setStepOffset(0, step, pattern[(size_t) step]); // keeps the (currently hidden - see kShowFullUI) melody grid in sync, same convention as every other melody-pattern write
+
+    int activeCount = 0;
+    for (auto v : pattern)
+        if (v != Engine::kBassOffValue)
+            ++activeCount;
+
+    juce::String status;
+    status << "Generated - " << activeCount << " notes over 8 bars.\n";
+    status << "Playing through the \"Bass\" Serum 2 voice (track 1 below) - "
+              "start Ableton's transport to hear it.\n";
+    status << processor.getMelodyTrackStatus(0) << "\n";
+    status << "To use one of your own melodic-techno Serum 2 bass presets: open Serum 2 on the "
+              "Bass track, browse to a preset by ear, then click that track's Capture button - "
+              "captured sounds can be cycled with the </> buttons. (Serum 2's own preset files "
+              "can't be loaded automatically - see the investigation notes for why.)";
+    bassPatternStatusLabel.setText(status, juce::dontSendNotification);
 }
 
 void AbletonCopilotAudioProcessorEditor::buildMelodyEditSuggestions()

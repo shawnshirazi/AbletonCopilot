@@ -53,9 +53,9 @@ public:
     void paint(juce::Graphics&) override; // legend strip along the bottom
     void resized() override;
 
-    static constexpr int kRowHeight    = 26;
+    static constexpr int kRowHeight    = 22;
     static constexpr int kHeaderWidth  = 62;
-    static constexpr int kLegendHeight = 22;
+    static constexpr int kLegendHeight = 20;
 
     // Total height needed for a fixed number of rows (6 - Kick/Clap/
     // HatClosed/HatOpen/PercA/PercB) plus the legend, for the owner's

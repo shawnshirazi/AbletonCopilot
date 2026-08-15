@@ -1,0 +1,109 @@
+{
+  "bass_groove_corpus_manifest": [
+    {
+      "pack": "PML Mirage",
+      "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Serum Presets/Midi",
+      "wildcard": "*BS*.mid"
+    },
+    {
+      "pack": "PML Mystique",
+      "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Serum Presets/Midi",
+      "wildcard": "*BS*.mid"
+    },
+    {
+      "pack": "Odd Frequency Exo2",
+      "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo 2 - Full Bundle/Exo 2 - Artists Inspired MIDI Files",
+      "wildcard": "*_BS_*.mid"
+    }
+  ],
+  "bass_groove_stats": {
+    "num_files": 20,
+    "packs": [
+      "Odd Frequency Exo2",
+      "PML Mirage",
+      "PML Mystique"
+    ],
+    "total_notes": 856,
+    "step16_hit_probability": [
+      0.0993,
+      0.0619,
+      0.0724,
+      0.1063,
+      0.0456,
+      0.0234,
+      0.1402,
+      0.0526,
+      0.0432,
+      0.0502,
+      0.0584,
+      0.0537,
+      0.0245,
+      0.0432,
+      0.0993,
+      0.0257
+    ],
+    "on_kick_fraction": 0.2126,
+    "mean_notes_per_bar": 6.5223,
+    "mean_note_len_steps": 1.3179,
+    "mean_pitch_range_semitones": 2.15,
+    "mean_unique_pitches": 1.9,
+    "pitch_offset_distribution": [
+      {
+        "offsetSemitones": 0,
+        "probability": 0.7465
+      },
+      {
+        "offsetSemitones": 3,
+        "probability": 0.0514
+      },
+      {
+        "offsetSemitones": -2,
+        "probability": 0.0491
+      },
+      {
+        "offsetSemitones": 7,
+        "probability": 0.0374
+      },
+      {
+        "offsetSemitones": -4,
+        "probability": 0.0362
+      },
+      {
+        "offsetSemitones": -5,
+        "probability": 0.028
+      },
+      {
+        "offsetSemitones": -7,
+        "probability": 0.028
+      },
+      {
+        "offsetSemitones": 2,
+        "probability": 0.0234
+      }
+    ],
+    "register_min_pitch_examples": [
+      33,
+      39,
+      40,
+      43,
+      43,
+      48,
+      48,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      59,
+      59,
+      61,
+      62,
+      63,
+      66
+    ]
+  },
+  "excluded_rolling_file_count": 18,
+  "excluded_sustained_file_count": 17
+}

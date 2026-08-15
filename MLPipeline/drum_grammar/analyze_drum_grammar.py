@@ -514,6 +514,31 @@ def ascii_pattern(rec, role_letter):
     return lines
 
 
+
+# HAT's loop corpus blends three genuinely different loop types that a
+# vendor happened to file under the same "Hihats"/"Hat Loop" folders:
+#   - ~16 files at exactly 4 onsets/bar: a pure offbeat-8th foundation
+#     (steps 2/6/10/14 only)
+#   - ~17 files at 6-12 onsets/bar: real selective grooves (offbeat-8th
+#     foundation + occasional extra 16th movement)
+#   - ~58 files (62% of the corpus!) at 15-16 onsets/bar: continuous
+#     16th-note "roller" loops - a different production tool (raw texture
+#     meant to be gated/chopped, or a build/riser layer), not a groove
+# Averaging all three together (the un-filtered corpus) is dominated by
+# the 62% roller majority, producing a near-flat per-position probability
+# (~0.05-0.08 everywhere) and an inflated mean of 12.6 onsets/bar - which
+# is exactly why the generator was placing hats on almost every 16th
+# note ("filling space" instead of a recognizable groove - see the
+# improved-hat-groove milestone). HAT_GROOVE_MAX_ONSETS_PER_BAR excludes
+# the roller majority so kHatRhythm reflects the actual groove material,
+# the same "exclude a dense majority that pollutes the average" precedent
+# already used for PERC's accent-subset scale (see generate_rhythm_
+# grammar_header.py), just via an objective density threshold instead of
+# a filename heuristic (HAT loop filenames don't reliably distinguish
+# roller vs groove the way PERC's "*Loop*" naming did).
+HAT_GROOVE_MAX_ONSETS_PER_BAR = 12.5
+
+
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -522,6 +547,11 @@ def main():
     for role, dirs in LOOP_CORPUS.items():
         print(f"Analyzing {role} loop corpus...")
         recs = analyze_role_corpus(role, dirs)
+        if role == "HAT":
+            before = len(recs)
+            recs = [r for r in recs if len(r["steps"]) / max(1, r["num_bars"]) <= HAT_GROOVE_MAX_ONSETS_PER_BAR]
+            print(f"  [HAT groove filter] {before} files -> {len(recs)} groove-density files "
+                  f"(excluded {before - len(recs)} continuous-16th roller loops >{HAT_GROOVE_MAX_ONSETS_PER_BAR}/bar)")
         records_by_role[role] = recs
         role_stats[role] = compute_role_stats(role, recs)
         print(f"  {len(recs)} files analyzed, {role_stats[role]['total_onsets']} onsets, "

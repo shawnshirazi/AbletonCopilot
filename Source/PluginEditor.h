@@ -21,6 +21,7 @@
 #include "PresetLibraryScanner.h"
 #include "Engine/Grid.h"
 #include "Engine/DrumEngine.h"
+#include "Engine/BassEngine.h"
 #include <optional>
 
 class AbletonCopilotAudioProcessorEditor
@@ -72,6 +73,14 @@ private:
     // PluginProcessor.cpp), no Drum Rack or companion plugin required. Also
     // emits the pattern as MIDI, kept only as an optional secondary output.
     void generateDrumPatternClicked();
+
+    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - reuses
+    // the EXISTING melody-voice/hosted-Serum2 path (track 0, "Bass" by
+    // default - see its setup at construction below) rather than a new
+    // one: this only ever produces note data and hands it to
+    // processor.setMelodyPattern(), exactly like every other melody
+    // track's own Generate button already does.
+    void generateBassPatternClicked();
 
     // Keeps generateDrumPatternButton's enabled state and label in sync
     // with sampleIndexReady/libraryDir - called once at construction and
@@ -231,6 +240,13 @@ private:
     // Read-only display of the generated pattern, fed the exact same data
     // as processor.setGeneratedDrumPattern() - see generateDrumPatternClicked().
     GeneratedDrumGridComponent generatedDrumGrid;
+
+    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - see
+    // generateBassPatternClicked(). Not gated by kShowFullUI, same
+    // reasoning as generateDrumPatternButton above: this is the new
+    // deterministic-engine bass, not the hidden prompt/critique layer.
+    juce::TextButton  generateBassPatternButton { "Generate Bass" };
+    juce::Label       bassPatternStatusLabel;
 
     juce::TextButton  loadReferenceButton  { "Load Reference Track..." };
     juce::TextButton  clearReferenceButton { "Clear" };

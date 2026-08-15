@@ -189,57 +189,57 @@
       "adjacent_bars_identical_fraction": 0.8085
     },
     "HAT": {
-      "num_files": 94,
+      "num_files": 33,
       "packs": [
         "Odd Frequency Exo",
         "Odd Frequency Exo2",
         "PML Mirage",
         "PML Mystique"
       ],
-      "total_onsets": 3058,
-      "total_bars_analyzed": 240,
-      "mean_onsets_per_bar": 12.60904255319149,
+      "total_onsets": 602,
+      "total_bars_analyzed": 83,
+      "mean_onsets_per_bar": 6.856060606060606,
       "step16_hit_probability": [
-        0.0608,
-        0.0559,
-        0.0765,
-        0.0553,
-        0.0657,
-        0.0556,
-        0.0765,
-        0.0513,
-        0.0634,
-        0.0582,
-        0.0755,
-        0.0559,
-        0.0647,
-        0.0566,
-        0.0765,
-        0.0513
+        0.0648,
+        0.0299,
+        0.1279,
+        0.0266,
+        0.0731,
+        0.0266,
+        0.1246,
+        0.0183,
+        0.0615,
+        0.0349,
+        0.1229,
+        0.0349,
+        0.0714,
+        0.0299,
+        0.1262,
+        0.0266
       ],
       "step16_mean_relative_velocity": [
-        0.4083,
-        0.3682,
-        0.742,
-        0.3664,
-        0.3004,
-        0.354,
-        0.7764,
-        0.3527,
-        0.3047,
-        0.3692,
-        0.756,
-        0.3736,
-        0.3305,
-        0.3651,
-        0.7667,
-        0.3961
+        0.5059,
+        0.35,
+        0.7208,
+        0.4265,
+        0.4024,
+        0.2638,
+        0.803,
+        0.3847,
+        0.4062,
+        0.35,
+        0.7469,
+        0.4015,
+        0.4199,
+        0.2773,
+        0.7886,
+        0.4216
       ],
-      "on_beat_fraction": 0.2547,
-      "eighth_offbeat_fraction": 0.3051,
-      "weak_16th_fraction": 0.4402,
-      "adjacent_bar_pairs_analyzed": 146,
-      "adjacent_bars_identical_fraction": 0.6507
+      "on_beat_fraction": 0.2708,
+      "eighth_offbeat_fraction": 0.5017,
+      "weak_16th_fraction": 0.2276,
+      "adjacent_bar_pairs_analyzed": 50,
+      "adjacent_bars_identical_fraction": 0.66
     },
     "PERC": {
       "num_files": 56,
@@ -401,14 +401,14 @@
   },
   "cross_role_aggregate_vector_correlation": {
     "KICK<->CLAP": 0.6391,
-    "KICK<->HAT": 0.0758,
+    "KICK<->HAT": 0.0751,
     "KICK<->PERC": -0.4488,
     "KICK<->RIDE": -0.062,
-    "CLAP<->HAT": 0.1509,
+    "CLAP<->HAT": 0.129,
     "CLAP<->PERC": -0.425,
     "CLAP<->RIDE": 0.0018,
-    "HAT<->PERC": 0.4758,
-    "HAT<->RIDE": 0.929,
+    "HAT<->PERC": 0.5076,
+    "HAT<->RIDE": 0.9064,
     "PERC<->RIDE": 0.3379
   },
   "cross_role_matched_pair_co_occurrence": {
@@ -419,10 +419,10 @@
       "co_occurrence_fraction": 1.0
     },
     "KICK->HAT": {
-      "matched_file_pairs": 18,
-      "role_b_onsets_total": 496,
-      "role_b_onsets_landing_on_role_a_step": 128,
-      "co_occurrence_fraction": 0.2581
+      "matched_file_pairs": 7,
+      "role_b_onsets_total": 89,
+      "role_b_onsets_landing_on_role_a_step": 25,
+      "co_occurrence_fraction": 0.2809
     },
     "KICK->PERC": {
       "matched_file_pairs": 1,
@@ -431,13 +431,13 @@
       "co_occurrence_fraction": 0.2727
     },
     "CLAP->HAT": {
-      "matched_file_pairs": 13,
-      "role_b_onsets_total": 374,
-      "role_b_onsets_landing_on_role_a_step": 50,
-      "co_occurrence_fraction": 0.1337
+      "matched_file_pairs": 5,
+      "role_b_onsets_total": 64,
+      "role_b_onsets_landing_on_role_a_step": 10,
+      "co_occurrence_fraction": 0.1562
     }
   },
-  "matched_pair_count": 40,
+  "matched_pair_count": 21,
   "sound_fingerprints": {
     "KICK": {
       "num_samples": 83,

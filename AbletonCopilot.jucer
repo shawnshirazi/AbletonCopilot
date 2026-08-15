@@ -117,6 +117,8 @@
         <FILE id="Eng2hdr" name="Grid.h" compile="0" resource="0" file="Source/Engine/Grid.h"/>
         <FILE id="Eng3cpp" name="DrumEngine.cpp" compile="1" resource="0" file="Source/Engine/DrumEngine.cpp"/>
         <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0" file="Source/Engine/DrumEngine.h"/>
+        <FILE id="Bas1cpp" name="BassEngine.cpp" compile="1" resource="0" file="Source/Engine/BassEngine.cpp"/>
+        <FILE id="Bas1hdr" name="BassEngine.h" compile="0" resource="0" file="Source/Engine/BassEngine.h"/>
         <FILE id="Eng4cpp" name="DrumVoiceSynth.cpp" compile="1" resource="0" file="Source/Engine/DrumVoiceSynth.cpp"/>
         <FILE id="Eng4hdr" name="DrumVoiceSynth.h" compile="0" resource="0" file="Source/Engine/DrumVoiceSynth.h"/>
         <FILE id="Eng5cpp" name="DrumSampleSelection.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleSelection.cpp"/>

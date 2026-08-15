@@ -3,7 +3,7 @@
 ## Corpus
 - **KICK**: 17 loop files, packs: PML Mirage, PML Mystique, 68 total onsets, 17 bars analyzed
 - **CLAP**: 26 loop files, packs: PML Mirage, PML Mystique, 176 total onsets, 73 bars analyzed
-- **HAT**: 94 loop files, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique, 3058 total onsets, 240 bars analyzed
+- **HAT**: 33 loop files, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique, 602 total onsets, 83 bars analyzed
 - **PERC**: 56 loop files, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique, 1590 total onsets, 163 bars analyzed
 - **TOP**: 48 loop files, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mystique, 1987 total onsets, 144 bars analyzed
 - **RIDE**: 19 loop files, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, 352 total onsets, 47 bars analyzed
@@ -25,13 +25,13 @@ on-beat (step%4==0): 84.1%   8th-offbeat (step%4==2): 8.5%   weak 16th (step%4 i
 adjacent bars byte-identical: 80.8% of 47 pairs
 mean onsets/bar: 2.63
 
-### HAT (n=94 files, 3058 onsets)
+### HAT (n=33 files, 602 onsets)
 step:     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
-prob:  0.06 0.06 0.08 0.06 0.07 0.06 0.08 0.05 0.06 0.06 0.08 0.06 0.06 0.06 0.08 0.05
-vel:   0.41 0.37 0.74 0.37 0.30 0.35 0.78 0.35 0.30 0.37 0.76 0.37 0.33 0.37 0.77 0.40
-on-beat (step%4==0): 25.5%   8th-offbeat (step%4==2): 30.5%   weak 16th (step%4 in 1,3): 44.0%
-adjacent bars byte-identical: 65.1% of 146 pairs
-mean onsets/bar: 12.61
+prob:  0.06 0.03 0.13 0.03 0.07 0.03 0.12 0.02 0.06 0.03 0.12 0.03 0.07 0.03 0.13 0.03
+vel:   0.51 0.35 0.72 0.43 0.40 0.26 0.80 0.38 0.41 0.35 0.75 0.40 0.42 0.28 0.79 0.42
+on-beat (step%4==0): 27.1%   8th-offbeat (step%4==2): 50.2%   weak 16th (step%4 in 1,3): 22.8%
+adjacent bars byte-identical: 66.0% of 50 pairs
+mean onsets/bar: 6.86
 
 ### PERC (n=56 files, 1590 onsets)
 step:     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
@@ -61,21 +61,21 @@ mean onsets/bar: 7.53
 
 ### Aggregate step-probability-vector correlation (corpus-wide, always available)
 - KICK<->CLAP: r = 0.6391
-- KICK<->HAT: r = 0.0758
+- KICK<->HAT: r = 0.0751
 - KICK<->PERC: r = -0.4488
 - KICK<->RIDE: r = -0.062
-- CLAP<->HAT: r = 0.1509
+- CLAP<->HAT: r = 0.129
 - CLAP<->PERC: r = -0.425
 - CLAP<->RIDE: r = 0.0018
-- HAT<->PERC: r = 0.4758
-- HAT<->RIDE: r = 0.929
+- HAT<->PERC: r = 0.5076
+- HAT<->RIDE: r = 0.9064
 - PERC<->RIDE: r = 0.3379
 
-### Direct co-occurrence on matched same-BPM/same-theme companion loops (n=40 matched pairs total)
+### Direct co-occurrence on matched same-BPM/same-theme companion loops (n=21 matched pairs total)
 - KICK->CLAP: 8 pairs, 32/32 of role B's onsets land on a role A step (100.0%)
-- KICK->HAT: 18 pairs, 128/496 of role B's onsets land on a role A step (25.8%)
+- KICK->HAT: 7 pairs, 25/89 of role B's onsets land on a role A step (28.1%)
 - KICK->PERC: 1 pairs, 9/33 of role B's onsets land on a role A step (27.3%)
-- CLAP->HAT: 13 pairs, 50/374 of role B's onsets land on a role A step (13.4%)
+- CLAP->HAT: 5 pairs, 10/64 of role B's onsets land on a role A step (15.6%)
 
 ## Sound fingerprints (one-shot samples, Phase 4)
 
@@ -150,14 +150,12 @@ CLAP - PML_MTM2_Clap_Loop_002_122BPM_Ocean.wav (122.0 BPM, 2 bar(s)):
   ....C.......C...
   ....C.......C...
 
-HAT - Odd Frequency - Exo - Hat Loop 1 (125 BPM).wav (125.0 BPM, 4 bar(s)):
-  .HHHHHHHHHHHHHHH
-  HHHHHHHHHHHHHHHH
-  HHHHHHHHHHHHHHHH
-  HHHHHHHHHHHHHHHH
-
 HAT - Odd Frequency - Exo - Hat Loop 10 (125 BPM).wav (125.0 BPM, 2 bar(s)):
   HHH.HHH.HHH.HHH.
+  HHH.HHH.HHH.HHH.
+
+HAT - Odd Frequency - Exo - Hat Loop 14 (125 BPM).wav (125.0 BPM, 2 bar(s)):
+  ..H..HH.HHH.HHH.
   HHH.HHH.HHH.HHH.
 
 PERC - Odd Frequency - Exo - Perc Loop 1 (126 BPM).wav (126.0 BPM, 4 bar(s)):
