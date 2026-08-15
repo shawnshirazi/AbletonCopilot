@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "purpose": "Machine-readable companion to melodic_techno_spec.md section B. Numbers marked \"measured\" are pulled directly from Source/Engine/BassRhythmGrammar.h (generated from MLPipeline/drum_grammar/output/bass_grammar.json).",
+    "generated_from": "Source/Engine/BassRhythmGrammar.h as of the bass-groove milestone",
+    "status": "specification/reference only"
+  },
+  "groove_subset": {
+    "num_files": 20,
+    "num_files_raw_corpus": 55,
+    "packs": ["PML Mirage", "PML Mystique", "Odd Frequency Exo2"],
+    "meanNotesPerBar": 6.5223,
+    "meanNoteLenSteps": 1.3179,
+    "onKickFraction": 0.2126,
+    "onKickFraction_uniform_baseline": 0.25,
+    "note_on_onKickFraction": "measurably BELOW the uniform baseline - real syncopation around the kick, not an absolute exclusion",
+    "step16Probability_peak_steps": [3, 6, 14],
+    "meanPitchRangeSemitones": 2.15,
+    "meanUniquePitches": 1.9
+  },
+  "excluded_subsets": {
+    "rolling_continuous": {
+      "count": 18,
+      "criterion": ">11 notes/bar",
+      "note": "the bass equivalent of the HAT corpus's excluded rollers - a different production tool, not a groove target"
+    },
+    "sustained_padstyle": {
+      "count": 17,
+      "criterion": "mean note length > 2.5 steps, or < 4 notes/bar",
+      "note": "harmonic-pad role, not a rhythmic groove - candidate BREAKDOWN_BASS material for a future phase, not DROP_BASS"
+    }
+  },
+  "pitchOffsetDistribution": [
+    { "offsetSemitones": 0, "probability": 0.7465, "interval_name": "root" },
+    { "offsetSemitones": 3, "probability": 0.0514, "interval_name": "minor third up" },
+    { "offsetSemitones": -2, "probability": 0.0491, "interval_name": "whole step down" },
+    { "offsetSemitones": 7, "probability": 0.0374, "interval_name": "perfect fifth up" },
+    { "offsetSemitones": -4, "probability": 0.0362, "interval_name": "major third down" },
+    { "offsetSemitones": -5, "probability": 0.028, "interval_name": "perfect fourth down" },
+    { "offsetSemitones": -7, "probability": 0.028, "interval_name": "perfect fifth down" },
+    { "offsetSemitones": 2, "probability": 0.0234, "interval_name": "whole step up" }
+  ],
+  "step16Probability": [0.0993, 0.0619, 0.0724, 0.1063, 0.0456, 0.0234, 0.1402, 0.0526, 0.0432, 0.0502, 0.0584, 0.0537, 0.0245, 0.0432, 0.0993, 0.0257],
+  "external_corroboration": {
+    "source": "Myloops bassline production guide",
+    "root_percentage": "~70% root, remaining 30% harmonic movement",
+    "movement": "root + fifth (harmonic width), walkdowns via minor third or flat seventh",
+    "register": "keep range to one octave, mostly root and fifth",
+    "kick_relationship": "notes land on 'the and of every beat' - offbeat placement forced by kick decay length (300-500ms, no room on the downbeat)",
+    "agreement_with_measured": "close - measured 74.7% root vs guide's ~70%; measured intervals include the fifth (+/-7) and third-family (-4/+3) the guide names"
+  },
+  "sidechain": {
+    "sequencing_level_gap": "implemented - kBassKickCorrelation derived from measured onKickFraction",
+    "mix_level_dsp_gap": {
+      "status": "NOT implemented - no sidechain/ducking DSP exists anywhere in the plugin",
+      "external_target_numbers": {
+        "release_ms_at_122_124bpm": [90, 140],
+        "ratio": "4:1 to 6:1",
+        "attack_ms": [0.1, 1],
+        "release_ms_general": [150, 200],
+        "reduction_db_on_bass": [3, 5]
+      },
+      "note": "distinct from sequencing-level kick avoidance - both are real techniques, only the sequencing one is implemented"
+    }
+  },
+  "voice_architecture_note": "Bass notes are inherently ~1 step long in the current melody-voice trigger model (PluginProcessor.cpp retriggers noteOn/noteOff every step boundary regardless of whether the pitch changed) - this already matches the measured 1.32-step mean reasonably well without needing an explicit note-length parameter."
+}

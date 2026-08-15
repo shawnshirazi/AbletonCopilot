@@ -1,0 +1,124 @@
+{
+  "_meta": {
+    "purpose": "Machine-readable companion to melodic_techno_spec.md sections E/F/G/H and melodic_techno_research.md section 3. Section lengths/order below are extracted directly from real Ableton Arrangement-view locators in three reference tracks already in the user's library, not invented.",
+    "sources": [
+      "PML - Complete Arrangement Academy (PML361)/PML - Bonus Course Files (Ableton Project Files)/PML - Melodic Techno/PML - Melodic Techno - 01 - Arrangement Analysis/PML - Melodic Techno - Arrangement Analysis.als",
+      "PML - Complete Arrangement Academy (PML361)/PML - Bonus Course Files (Ableton Project Files)/PML - Melodic Techno/PML - Melodic Techno - 02 - Practical Session Track 1/PML - Melodic Techno - 004 - Final arrangement.als",
+      "PML - Complete Arrangement Academy (PML361)/PML - Bonus Course Files (Ableton Project Files)/PML - Melodic Techno/PML - Melodic Techno - 03 - Practical Session Track 2/PML - Melodic Techno - 006 - Final arrangement.als",
+      "PML - Complete Arrangement Academy (PML361)/PML - Guide to Electronic Arrangements (PDF)/PML - Guide to Electronic Arrangements.pdf"
+    ],
+    "extraction_method": "gunzip'd the .als (gzip-compressed XML), parsed <Locator><Time Value=.../><Name Value=.../></Locator> elements directly, converted beat-time to bar number at each project's own tempo",
+    "status": "specification/reference only - not consumed by any code yet. No song-level arrangement generator exists (current DrumEngine/BassEngine each produce one fixed-length Drop section only)."
+  },
+  "reference_tracks": [
+    {
+      "name": "Arrangement Analysis",
+      "bpm": 124,
+      "sections": [
+        { "bars": [1, 16], "length": 16, "label": "(opening, unmarked)" },
+        { "bars": [17, 32], "length": 16, "label": "Loop Intro" },
+        { "bars": [33, 48], "length": 16, "label": "Intro" },
+        { "bars": [49, 80], "length": 32, "label": "Full Theme" },
+        { "bars": [81, 96], "length": 16, "label": "Drop 1" },
+        { "bars": [97, 120], "length": 24, "label": "Drums Reintroduction" },
+        { "bars": [121, 128], "length": 8, "label": "Pre-Break" },
+        { "bars": [129, 144], "length": 16, "label": "Break" },
+        { "bars": [145, 152], "length": 8, "label": "Buildup" },
+        { "bars": [153, 184], "length": 32, "label": "Drop 2" },
+        { "bars": [185, 192], "length": 8, "label": "Melodic Break" },
+        { "bars": [193, 224], "length": 32, "label": "Drop 3" },
+        { "bars": [225, 232], "length": 8, "label": "Outro" },
+        { "bars": [233, 240], "length": 8, "label": "Loop Outro" }
+      ]
+    },
+    {
+      "name": "Practical Session Track 1",
+      "bpm": 124,
+      "sections": [
+        { "bars": [1, 32], "length": 32, "label": "Intro" },
+        { "bars": [33, 48], "length": 16, "label": "Break" },
+        { "bars": [49, 80], "length": 32, "label": "Drop" },
+        { "bars": [81, 84], "length": 4, "label": "Pre-Break" },
+        { "bars": [85, 108], "length": 24, "label": "Break" },
+        { "bars": [109, 148], "length": 40, "label": "Drop" },
+        { "bars": [149, 164], "length": 16, "label": "Lead section" },
+        { "bars": [165, 188], "length": 24, "label": "Drop" },
+        { "bars": [189, 204], "length": 16, "label": "Outro" }
+      ]
+    },
+    {
+      "name": "Practical Session Track 2",
+      "bpm": 125,
+      "sections": [
+        { "bars": [1, 16], "length": 16, "label": "Intro" },
+        { "bars": [17, 40], "length": 24, "label": "Bass in" },
+        { "bars": [41, 64], "length": 24, "label": "Break" },
+        { "bars": [65, 80], "length": 16, "label": "Drop" },
+        { "bars": [81, 104], "length": 24, "label": "Drums in" },
+        { "bars": [105, 112], "length": 8, "label": "Pre-Break" },
+        { "bars": [113, 128], "length": 16, "label": "Break" },
+        { "bars": [129, 152], "length": 24, "label": "Drop" },
+        { "bars": [153, 160], "length": 8, "label": "Outro" }
+      ]
+    }
+  ],
+  "section_length_stats": {
+    "observed_lengths_bars": [4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16, 16, 16, 16, 16, 16, 16, 16, 16, 24, 24, 24, 24, 24, 24, 32, 32, 32, 32, 40],
+    "note": "every observed section length is a multiple of 8 except one 4-bar Pre-Break micro-transition",
+    "drop_lengths_observed": [16, 24, 32, 32, 32, 40],
+    "break_lengths_observed": [16, 16, 16, 24, 24],
+    "preBreak_lengths_observed": [4, 8, 8],
+    "build_lengths_observed": [8],
+    "intro_total_lengths_observed": [32, 32, 40],
+    "element_reintroduction_lengths_observed": [24, 24, 24]
+  },
+  "state_machine": {
+    "states": [
+      "INTRO",
+      "FULL_GROOVE",
+      "DROP",
+      "ELEMENT_REINTRODUCTION",
+      "PRE_BREAK",
+      "BREAK",
+      "BUILD",
+      "MELODIC_BREAK_SHORT_VARIANT"
+    ],
+    "typical_sequence": "INTRO -> FULL_GROOVE -> DROP -> ELEMENT_REINTRODUCTION -> PRE_BREAK -> BREAK -> BUILD -> DROP -> [MELODIC_BREAK_SHORT_VARIANT ->] DROP -> OUTRO",
+    "note": "not a rigid mandatory template - the 3 reference tracks vary in exact order/count; PRE_BREAK and ELEMENT_REINTRODUCTION are the two states most guides/generic templates omit but all 3 real tracks include",
+    "explicitly_not_this": "the generic-EDM Pop Form (Intro/Verse/Pre-Chorus/Chorus/Bridge/Drop/Outro) - a real, different, named structure per the same source PDF"
+  },
+  "pml_guide_melodic_techno_structure": {
+    "intro_bars": [8, 16],
+    "buildup_bars": [16, 32],
+    "firstDrop_bars": [32, 64],
+    "breakdown_bars": [64, 96],
+    "mainDrop_bars": [96, 128],
+    "outro_bars_min": 128,
+    "note": "these are the PDF's own generic per-genre-guideline ranges, expressed as running bar counts from track start, not per-section lengths - kept separate from the 3 real tracks' actual authored section lengths above since the two don't use identical bar-numbering conventions"
+  },
+  "drop_types": [
+    { "name": "Melodic Drop", "description": "expansive, full-bodied synth moments" },
+    { "name": "Fancy Drop", "description": "deliberately different from everything before - new sound design elements, high impact" },
+    { "name": "Percussion-Driven Drop", "description": "minimal melodic content, rhythm-focused" },
+    { "name": "Call and Response Drop", "description": "one element 'calls', another 'responds'" }
+  ],
+  "breakdown_design": {
+    "removed_or_reduced": ["kick (main)", "aggressive percussion", "secondary bass layers", "rhythmic melodic elements (arps, rhythmic pads)"],
+    "retained": ["sub-bass pulse (rhythmic anchor)", "main chord progression", "lead melody (now foregrounded)", "atmospheric textures with increased reverb"],
+    "layton_giordani_technique": "low-pass filter automation on the bassline during breakdowns/build-ups, to create tension and anticipation - the single most consistently attributed concrete technique across sources",
+    "tension_techniques": ["gradual high-pass filter sweep, 20Hz->200-400Hz over 16-32 bars", "delayed snare fills / randomized rhythmic elements", "reversed pads through long reverb tails", "removing lead synths right before impact"]
+  },
+  "build_design": {
+    "length_into_later_drop_bars": [4, 8],
+    "length_into_first_drop_bars": [16, 32],
+    "note": "builds are NOT a fixed length - they depend on which drop they lead into; later-drop builds are consistently much shorter than the initial build in all 3 reference tracks"
+  },
+  "harmony": {
+    "scale": "natural minor",
+    "progressions": [
+      { "roman": "i-VII-VI-VII", "example_Am": "Am-G-F-G", "character": "dark, cyclical, hypnotic" },
+      { "roman": "i-v-iv-VII", "example_Am": "Am-Em-Fm-G", "character": "more introspective" }
+    ],
+    "chordChangesPer32Bars": [3, 4]
+  }
+}

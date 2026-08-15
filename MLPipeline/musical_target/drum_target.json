@@ -1,0 +1,89 @@
+{
+  "_meta": {
+    "purpose": "Machine-readable companion to melodic_techno_spec.md section A. Numbers marked \"measured\" are pulled directly from Source/Engine/DrumRhythmGrammar.h (generated from MLPipeline/drum_grammar/output/drum_grammar.json) - not re-derived or rounded further here. Numbers marked \"external\" are sourced from melodic_techno_research.md and are NOT yet corpus-confirmed.",
+    "generated_from": "Source/Engine/DrumRhythmGrammar.h as of the hat-groove-density-fix milestone",
+    "status": "specification/reference only - not consumed by any code yet"
+  },
+  "kick": {
+    "onBeatFraction": 1.0,
+    "meanOnsetsPerBar": 4.0,
+    "step16RelativeVelocity_beat1_beat2_beat3_beat4": [0.9876, 0.8616, 0.8536, 0.8561],
+    "source": "measured, n=17 loop files",
+    "decayMs_target_external": [300, 500],
+    "decayMs_status": "not modeled in DrumVoiceSynth - external source only"
+  },
+  "clap": {
+    "onBeatFraction": 0.8409,
+    "meanOnsetsPerBar": 2.634615,
+    "dominantSteps": [4, 12],
+    "adjacentBarsIdenticalFraction": 0.808,
+    "source": "measured, n=26 loop files"
+  },
+  "hatClosed": {
+    "groove_subset": {
+      "meanOnsetsPerBar": 6.856061,
+      "onBeatFraction": 0.2708,
+      "eighthOffbeatFraction": 0.5017,
+      "adjacentBarsIdenticalFraction": 0.66,
+      "offbeat8thSteps": [2, 6, 10, 14],
+      "offbeat8thVelocityRange": [0.72, 0.80],
+      "otherPositionVelocityRange": [0.26, 0.51],
+      "source": "measured, n=33 of 94 raw HAT loop files (density <= 12.5 onsets/bar)"
+    },
+    "excluded_roller_subset": {
+      "meanOnsetsPerBar": 15.72,
+      "fraction_of_raw_corpus": 0.649,
+      "note": "62% of the raw HAT corpus - continuous 16th-note loops, not a groove target. Excluded from hatClosed's stats by analyze_drum_grammar.py's HAT_GROOVE_MAX_ONSETS_PER_BAR filter."
+    },
+    "camelphat_dense_alternative_external": {
+      "description": "constant 16th-note hi-hats, offbeat emphasized",
+      "status": "documented but deliberately not the chosen target - see melodic_techno_research.md section 4"
+    },
+    "swing_percent_target_external": [8, 12],
+    "swing_status": "not implemented - DrumEngine places all hits on an exact grid",
+    "hihat_choke_status": "not implemented - external technique, no choke-group mechanism in DrumVoiceSynth"
+  },
+  "hatOpen": {
+    "source_stats": "kRideRhythm (RIDE loop corpus, n=19 files, since HAT loops don't distinguish open/closed)",
+    "onBeatFraction": 0.233,
+    "eighthOffbeatFraction": 0.4886,
+    "adjacentBarsIdenticalFraction": 0.8214,
+    "meanOnsetsPerBar": 7.526316,
+    "stageEnergyScale_establish_to_fullDrop": [0.10, 0.25, 0.55, 0.75],
+    "note": "~7.5x density ratio across the 4-stage phrase arc, i.e. genuinely near-absent early, real presence only by the drop's later bars"
+  },
+  "percA_percB": {
+    "meanOnsetsPerBar_accent_subset": 4.78,
+    "meanOnsetsPerBar_corpus_wide_raw": 10.486607,
+    "note_on_two_values": "corpus-wide raw average blends in continuous *Perc Loop*-named material; accent-subset figure is what the generator targets",
+    "correlations": {
+      "kickPerc": -0.4488,
+      "clapPerc": -0.425,
+      "hatPerc": 0.4758,
+      "percRide": 0.3379
+    },
+    "percB_vs_percA_disclosed_nonmeasured_correlation": -0.5,
+    "percB_vs_percA_note": "not a measured value - the corpus has no second percussion instrument category to measure; disclosed as a design rule, not data"
+  },
+  "crossRoleCorrelation": {
+    "kickClap": 0.6391,
+    "kickHat": 0.0758,
+    "kickPerc": -0.4488,
+    "clapHat": 0.1509,
+    "clapPerc": -0.425,
+    "hatPerc": 0.4758,
+    "kickRide": -0.062,
+    "clapRide": 0.0018,
+    "hatRide": 0.929,
+    "percRide": 0.3379
+  },
+  "ghost_kick_external": {
+    "description": "very quiet (-15 to -20dB) kick hits on off-beat 16th positions",
+    "status": "NOT confirmed in local corpus - 17 real kick loops measured 100% on-beat, zero off-beat onsets. External source only, flagged as untested."
+  },
+  "velocity_hierarchy": {
+    "kick": "beat1 (0.988) > beats 2-4 (0.85-0.86)",
+    "hatClosed": "offbeat-8th pulse (0.72-0.80) > other positions / ghost (0.26-0.51)",
+    "clap": "on-beat backbeat (~0.93-0.94) > ghost hits (~0.3-0.45)"
+  }
+}
