@@ -248,6 +248,13 @@ void RackBrowserComponent::run()
         auto files = dir.findChildFiles(juce::File::findFiles, true,
                                          "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
 
+        if (onFilesDiscovered)
+        {
+            const int count = (int) files.size();
+            auto callback = onFilesDiscovered;
+            juce::MessageManager::callAsync([callback, count] { callback(count); });
+        }
+
         for (auto& f : files)
         {
             if (threadShouldExit())

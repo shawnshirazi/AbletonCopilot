@@ -73,6 +73,14 @@ public:
     // Fires on the message thread whenever a library scan finishes.
     std::function<void(const std::vector<Rack>&)> onRacksChanged;
 
+    // Fires on the message thread right after the recursive directory
+    // walk finds its file list, BEFORE the (much slower, one
+    // AudioFormatManager::createReaderFor() open per file) classification
+    // pass starts - proves the scan is actually progressing rather than
+    // stuck, and separates "the file-find step never returned" from "it's
+    // still classifying" as two distinguishable, debuggable states.
+    std::function<void(int)> onFilesDiscovered;
+
     void resized() override;
     void paint(juce::Graphics&) override;
 

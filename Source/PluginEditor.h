@@ -82,6 +82,12 @@ private:
     // DrumVoiceSynth with no indication why.
     void updateGenerateButtonAvailability();
 
+    // Formats rackScanStarted/rackFilesDiscovered/.../onIndexReadyFired
+    // (see their declarations below) into libraryScanStatusLabel's text -
+    // called once at construction and again every timerCallback() tick,
+    // plus immediately whenever one of those fields changes.
+    void updateLibraryScanStatusLabel();
+
     // Small local helpers so the reference-track status UI (now Studio-tab
     // members, not AdvisorPanelComponent's) has one place each that updates
     // text/visibility/enabled-state - mirrors the setReferenceStatus/
@@ -214,6 +220,13 @@ private:
     // generateDrumPatternClicked(). Not gated by kShowExperimentalFeatures -
     // this is the new engine, not the hidden heuristic/AI layer.
     juce::TextButton  generateDrumPatternButton { "Generate Drum Pattern" };
+    // Temporary "trace the library-scan pipeline" diagnostic (separate from
+    // drumPatternStatusLabel, which only ever shows post-Generate-click
+    // decode diagnostics) - always visible, refreshed every timerCallback()
+    // tick from real state set at each real pipeline step below, so a
+    // stuck scan is visibly stuck at a specific stage instead of a single
+    // static "Scanning..." button label with no progress signal at all.
+    juce::Label       libraryScanStatusLabel;
     juce::Label       drumPatternStatusLabel;
     // Read-only display of the generated pattern, fed the exact same data
     // as processor.setGeneratedDrumPattern() - see generateDrumPatternClicked().
@@ -282,6 +295,20 @@ private:
     DrumSampleIndex            sampleIndex;
     std::vector<IndexedSample> latestSampleIndex;
     bool                       sampleIndexReady = false; // true once sampleIndex.onIndexReady has fired at least once
+
+    // Library-scan pipeline diagnostics (temporary, "isolate the stuck
+    // Scanning Library... problem" milestone) - each field is set at the
+    // exact real step it names, never inferred/reconstructed, so
+    // libraryScanStatusLabel can show precisely which stage the pipeline
+    // is actually at right now.
+    bool   rackScanStarted        = false; // rackBrowser.setLibraryDir() has been called
+    double scanPipelineStartSecs  = 0.0;   // juce::Time::getMillisecondCounterHiRes()*0.001 at the moment rackScanStarted flips true - lets the label show real elapsed seconds, proving the timer/UI is alive even mid-scan, not just a static label
+    int  rackFilesDiscovered    = -1;    // -1 = not yet reported; set from RackBrowserComponent::onFilesDiscovered
+    bool rackScanCompleted      = false; // rackBrowser.onRacksChanged has fired
+    bool onRacksChangedFired    = false; // same signal as rackScanCompleted, tracked separately so the label can show the callback explicitly
+    bool sampleIndexScanStarted = false; // sampleIndex.analyzeRacks() has been called
+    bool onIndexReadyFired      = false; // same signal as sampleIndexReady, tracked separately for the same reason as onRacksChangedFired
+    int  kickCandidateCount = 0, clapCandidateCount = 0, hatCandidateCount = 0, percCandidateCount = 0;
 
     bool   wasPlayheadRunning = false;
     double playheadStartTime  = 0.0;

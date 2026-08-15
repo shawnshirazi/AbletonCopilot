@@ -111,7 +111,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     // generateDrumPatternClicked), and the generated pattern grid + legend
     // with a little breathing room; flip kShowFullUI back to restore the
     // full 980x760 layout.
-    setSize(980, kShowFullUI ? 930 : 582); // +170 for the temporarily-tall diagnostic status block, see its setBounds comment
+    setSize(980, kShowFullUI ? 1044 : 696); // +170 for the drum-decode diagnostic block, +114 for the library-scan diagnostic block, see their setBounds comments
 
     // Genre picker
     const auto& profiles = GenreProfiles::getInstance();
@@ -258,6 +258,12 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(generateDrumPatternButton);
     updateGenerateButtonAvailability(); // starts disabled - the background sample scan hasn't run yet at this point in the constructor
 
+    libraryScanStatusLabel.setFont(small());
+    libraryScanStatusLabel.setJustificationType(juce::Justification::topLeft);
+    libraryScanStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    addAndMakeVisible(libraryScanStatusLabel);
+    updateLibraryScanStatusLabel(); // initial snapshot - everything "no"/pending until the scan actually progresses
+
     drumPatternStatusLabel.setFont(small()); // smaller font: room for 4 full sample paths without ballooning the window
     drumPatternStatusLabel.setJustificationType(juce::Justification::topLeft); // long multi-line diagnostic block reads top-down, not vertically centred
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
@@ -386,6 +392,12 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
         updateTrackTitle(*panel);
     }
 
+    rackBrowser.onFilesDiscovered = [this](int count)
+    {
+        rackFilesDiscovered = count;
+        updateLibraryScanStatusLabel();
+    };
+
     rackBrowser.onRacksChanged = [this](const std::vector<Rack>& racks)
     {
         latestRacks = racks;
@@ -394,19 +406,42 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
         exportMelodyPattern();
         resized();
 
+        rackScanCompleted   = true;
+        onRacksChangedFired = true;
+
         // Re-analyze the drum-role samples in the background whenever the
         // library rescans (a fresh library path, or samples added/removed/
         // changed on disk) - never on the message/audio thread, and the
         // disk cache (Source/DrumSampleIndex.h) means unchanged files
         // aren't re-decoded.
+        sampleIndexScanStarted = true;
         sampleIndex.analyzeRacks(racks);
+        updateLibraryScanStatusLabel();
     };
 
     sampleIndex.onIndexReady = [this](const std::vector<IndexedSample>& indexed)
     {
         latestSampleIndex = indexed;
         sampleIndexReady  = true;
+        onIndexReadyFired = true;
+
+        // Candidate counts per role, mirroring DrumSampleSelector's own
+        // role->rack mapping exactly (clap draws from CLAP+SNARE) - a
+        // direct, real count of what the selector will actually see,
+        // not a guess.
+        kickCandidateCount = clapCandidateCount = hatCandidateCount = percCandidateCount = 0;
+        for (auto& s : indexed)
+        {
+            if (!s.features.valid)
+                continue;
+            if (s.rackId == "KICK")                        ++kickCandidateCount;
+            if (s.rackId == "CLAP" || s.rackId == "SNARE")  ++clapCandidateCount;
+            if (s.rackId == "HIHAT")                        ++hatCandidateCount;
+            if (s.rackId == "PERC")                         ++percCandidateCount;
+        }
+
         updateGenerateButtonAvailability();
+        updateLibraryScanStatusLabel();
     };
 
     // Studio / Advisor tab strip
@@ -454,6 +489,9 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
             if (auto* self = safeThis.getComponent())
             {
                 StartupTiming::mark("Library scan kickoff (deferred)");
+                self->rackScanStarted       = true;
+                self->scanPipelineStartSecs = juce::Time::getMillisecondCounterHiRes() * 0.001;
+                self->updateLibraryScanStatusLabel();
                 self->rackBrowser.setLibraryDir(self->libraryDir);
                 self->presetScanner.setLibraryDir(self->libraryDir);
             }
@@ -574,6 +612,13 @@ void AbletonCopilotAudioProcessorEditor::resized()
     // hidden by kShowFullUI.
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
+    area.removeFromTop(4);
+    // Temporary (110px): library-scan pipeline diagnostics (see
+    // updateLibraryScanStatusLabel) - always visible, not gated behind a
+    // Generate click, since the whole point is showing why Generate can't
+    // be clicked yet. Shrink/remove once the scan-pipeline milestone
+    // is done.
+    libraryScanStatusLabel.setBounds(area.removeFromTop(110).reduced(12, 0));
     area.removeFromTop(4);
     // Temporarily tall (320px, up from 150px): the bug-hunting diagnostic
     // block below prints ~4 lines per role (pool size, candidate path,
@@ -1073,6 +1118,34 @@ void AbletonCopilotAudioProcessorEditor::updateGenerateButtonAvailability()
     }
 }
 
+void AbletonCopilotAudioProcessorEditor::updateLibraryScanStatusLabel()
+{
+    juce::String s;
+    s << "Library path: " << (libraryDir.isDirectory() ? libraryDir.getFullPathName() : juce::String("(none - not a valid directory)")) << "\n";
+    s << "Scan started: " << (rackScanStarted ? "yes" : "no");
+    if (rackScanStarted && !onIndexReadyFired)
+    {
+        const double elapsed = juce::Time::getMillisecondCounterHiRes() * 0.001 - scanPipelineStartSecs;
+        s << " (" << juce::String(elapsed, 1) << "s ago - still running if this number is climbing)";
+    }
+    else if (onIndexReadyFired)
+    {
+        const double elapsed = juce::Time::getMillisecondCounterHiRes() * 0.001 - scanPipelineStartSecs;
+        s << " (completed in " << juce::String(elapsed, 1) << "s)";
+    }
+    s << "\n";
+    s << "Files discovered: " << (rackFilesDiscovered < 0 ? juce::String("pending") : juce::String(rackFilesDiscovered)) << "\n";
+    s << "Audio files: " << (rackFilesDiscovered < 0 ? juce::String("pending") : juce::String(rackFilesDiscovered))
+      << " (findChildFiles already filters to wav/aif/aiff/flac/mp3/ogg)\n";
+    s << "Kick candidates: " << kickCandidateCount << "   Clap candidates: " << clapCandidateCount
+      << "   Hat candidates: " << hatCandidateCount << "   Perc candidates: " << percCandidateCount << "\n";
+    s << "Scan completed: " << (rackScanCompleted ? "yes" : "no") << "\n";
+    s << "Completion callback: onRacksChanged=" << (onRacksChangedFired ? "fired" : "not fired")
+      << ", onIndexReady=" << (onIndexReadyFired ? "fired" : "not fired");
+
+    libraryScanStatusLabel.setText(s, juce::dontSendNotification);
+}
+
 void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 {
     const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 16 bars = 256 steps
@@ -1543,6 +1616,12 @@ void AbletonCopilotAudioProcessorEditor::paintLiveMeters(juce::Graphics& g,
 
 void AbletonCopilotAudioProcessorEditor::timerCallback()
 {
+    // Keeps the "Xs ago" elapsed counter climbing while the library scan
+    // is in flight - a real, ticking number is what actually distinguishes
+    // "still scanning" from "frozen", which a static label can't.
+    if (rackScanStarted && !onIndexReadyFired)
+        updateLibraryScanStatusLabel();
+
     if (kShowAnalyzer)
     {
         // Auto-trigger: fires when Ableton transport stops
@@ -1804,8 +1883,16 @@ void AbletonCopilotAudioProcessorEditor::chooseLibrary()
 
         libraryDir = result;
         libraryPathLabel.setText(libraryDir.getFullPathName(), juce::dontSendNotification);
-        sampleIndexReady = false; // the old index belongs to the previous library dir - don't let Generate use it while the new one scans
+        sampleIndexReady     = false; // the old index belongs to the previous library dir - don't let Generate use it while the new one scans
+        rackScanStarted      = true;
+        scanPipelineStartSecs = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        rackFilesDiscovered  = -1;
+        rackScanCompleted    = false;
+        onRacksChangedFired  = false;
+        sampleIndexScanStarted = false;
+        onIndexReadyFired    = false;
         updateGenerateButtonAvailability();
+        updateLibraryScanStatusLabel();
         rackBrowser.setLibraryDir(libraryDir);
         presetScanner.setLibraryDir(libraryDir);
 
