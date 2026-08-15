@@ -1,5 +1,7 @@
 #include "../DrumSampleScoring.h"
+#include "../DrumSampleFingerprint.h"
 #include "TestSupport.h"
+#include <cmath>
 
 using namespace Engine;
 
@@ -16,6 +18,21 @@ namespace
         f.peakAmplitude     = peak;
         f.rms               = peak * 0.5f;
         f.estimatedPitchHz  = pitchHz;
+        return f;
+    }
+
+    // Builds features `stddevsAway` standard deviations from `fp`'s mean on
+    // every dimension at once (0 = an exact match to the measured target).
+    DrumSampleFeatures makeFeaturesAtFingerprintOffset(const DrumRoleFingerprint& fp, float stddevsAway)
+    {
+        DrumSampleFeatures f;
+        f.valid            = true;
+        f.durationSec       = fp.durationSec.mean + stddevsAway * fp.durationSec.stddev;
+        f.attackTimeMs      = fp.attackMs.mean + stddevsAway * fp.attackMs.stddev;
+        f.zeroCrossingRate  = fp.zeroCrossingHz.mean + stddevsAway * fp.zeroCrossingHz.stddev;
+        f.estimatedPitchHz  = fp.estimatedPitchHz.mean + stddevsAway * fp.estimatedPitchHz.stddev;
+        f.peakAmplitude     = fp.peak.mean + stddevsAway * fp.peak.stddev;
+        f.rms               = fp.rms.mean + stddevsAway * fp.rms.stddev;
         return f;
     }
 }
@@ -119,6 +136,78 @@ int main()
             CHECK(s >= 0.0f);
             CHECK(s == s); // NaN check (NaN != NaN)
         }
+    }
+
+    // =====================================================================
+    // Fingerprint-based scoring (Phase 5): a candidate that exactly matches
+    // its role's MEASURED target fingerprint (Source/Engine/
+    // DrumSampleFingerprint.h, generated from real analysis - see
+    // MLPipeline/drum_grammar/) scores higher than the same candidate
+    // pushed 1, 2, and 3 measured standard deviations away - a direct,
+    // real check that scoring is genuinely shaped by the measured data,
+    // not an incidental side effect of some other heuristic.
+    // =====================================================================
+    {
+        struct RoleFp { DrumRole role; const DrumRoleFingerprint& fp; };
+        const RoleFp roleFps[] = {
+            { DrumRole::Kick, targetFingerprintForRole(DrumRole::Kick) },
+            { DrumRole::Clap, targetFingerprintForRole(DrumRole::Clap) },
+            { DrumRole::Hat,  targetFingerprintForRole(DrumRole::Hat) },
+            { DrumRole::Perc, targetFingerprintForRole(DrumRole::Perc) },
+        };
+        for (auto& rf : roleFps)
+        {
+            const float atMean  = scoreForRole(rf.role, makeFeaturesAtFingerprintOffset(rf.fp, 0.0f), 124.0);
+            const float at1Sd   = scoreForRole(rf.role, makeFeaturesAtFingerprintOffset(rf.fp, 1.0f), 124.0);
+            const float at2Sd   = scoreForRole(rf.role, makeFeaturesAtFingerprintOffset(rf.fp, 2.0f), 124.0);
+            const float at3Sd   = scoreForRole(rf.role, makeFeaturesAtFingerprintOffset(rf.fp, 3.0f), 124.0);
+            CHECK(atMean > at1Sd);
+            CHECK(at1Sd > at2Sd);
+            CHECK(at2Sd > at3Sd);
+        }
+    }
+
+    // =====================================================================
+    // A candidate exactly matching KICK's own measured fingerprint scores
+    // higher for Kick than a candidate exactly matching a DIFFERENT role's
+    // fingerprint - the four measured targets are genuinely distinct
+    // enough to discriminate, not interchangeable copies of each other.
+    // Uses a slow bpmHint (90) so this isolates fingerprint-character
+    // discrimination from the separate BPM-overlap playability penalty
+    // (already covered above) - the real measured KICK mean duration
+    // (~0.49s) is close enough to a typical 124bpm beat length that the
+    // playability penalty can legitimately fire on it, which would muddy
+    // what this check is actually testing.
+    // =====================================================================
+    {
+        auto kickIdeal = makeFeaturesAtFingerprintOffset(targetFingerprintForRole(DrumRole::Kick), 0.0f);
+        auto hatIdeal  = makeFeaturesAtFingerprintOffset(targetFingerprintForRole(DrumRole::Hat), 0.0f);
+        CHECK(scoreForRole(DrumRole::Kick, kickIdeal, 90.0) > scoreForRole(DrumRole::Kick, hatIdeal, 90.0));
+        CHECK(scoreForRole(DrumRole::Hat, hatIdeal, 90.0) > scoreForRole(DrumRole::Hat, kickIdeal, 90.0));
+    }
+
+    // =====================================================================
+    // The four generated target fingerprints are real, non-degenerate
+    // measurements, not placeholder/zeroed data - every stddev is strictly
+    // positive (a zero stddev would make gaussianFit divide by zero) and at
+    // least the discriminating dimensions (duration/attack/zcr) differ
+    // materially between roles (a real corpus wouldn't measure HAT and
+    // KICK as acoustically identical).
+    // =====================================================================
+    {
+        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+        {
+            const auto& fp = targetFingerprintForRole(role);
+            CHECK(fp.durationSec.stddev > 0.0f);
+            CHECK(fp.attackMs.stddev > 0.0f);
+            CHECK(fp.zeroCrossingHz.stddev > 0.0f);
+            CHECK(fp.estimatedPitchHz.stddev > 0.0f);
+            CHECK(fp.peak.stddev > 0.0f);
+            CHECK(fp.rms.stddev > 0.0f);
+        }
+        const auto& kickFp = targetFingerprintForRole(DrumRole::Kick);
+        const auto& hatFp  = targetFingerprintForRole(DrumRole::Hat);
+        CHECK(std::abs(kickFp.zeroCrossingHz.mean - hatFp.zeroCrossingHz.mean) > 1000.0f); // real kicks measure far darker than real hats
     }
 
     TEST_SUMMARY_AND_EXIT();

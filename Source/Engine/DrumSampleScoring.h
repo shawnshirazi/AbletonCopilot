@@ -4,12 +4,14 @@
 #include "DrumVoiceSynth.h" // DrumRole
 
 // Phase 1 deterministic engine: turns measured sample characteristics
-// (DrumSampleFeatures) into a single "how well does this fit the desired
-// Melodic Techno character for this role" score. Pure, explainable
-// piecewise-range scoring against target ranges taken directly from the
-// stated brief per role - not a black-box/ML model, and not a random or
-// arbitrary EQ/filtering decision. Zero JUCE dependency, so it's testable
-// the same way as the rest of Engine/.
+// (DrumSampleFeatures) into a single "how well does this fit the measured
+// Melodic Techno character for this role" score. Pure, explainable Gaussian
+// similarity against a target fingerprint (Source/Engine/
+// DrumSampleFingerprint.h) - real mean/stddev statistics measured from real
+// one-shot samples in four Melodic-Techno-branded packs (see
+// MLPipeline/drum_grammar/), not hand-picked ranges and not a black-box/ML
+// model. Zero JUCE dependency, so it's testable the same way as the rest of
+// Engine/.
 //
 // This file only judges sound character - it has no idea what a step, a
 // bar, or a pattern is (that's DrumEngine's job) and no idea how samples
