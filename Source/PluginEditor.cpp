@@ -111,7 +111,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     // generateDrumPatternClicked), and the generated pattern grid + legend
     // with a little breathing room; flip kShowFullUI back to restore the
     // full 980x760 layout.
-    setSize(980, kShowFullUI ? 760 : 412);
+    setSize(980, kShowFullUI ? 930 : 582); // +170 for the temporarily-tall diagnostic status block, see its setBounds comment
 
     // Genre picker
     const auto& profiles = GenreProfiles::getInstance();
@@ -256,8 +256,10 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     generateDrumPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
     generateDrumPatternButton.onClick = [this] { generateDrumPatternClicked(); };
     addAndMakeVisible(generateDrumPatternButton);
+    updateGenerateButtonAvailability(); // starts disabled - the background sample scan hasn't run yet at this point in the constructor
 
     drumPatternStatusLabel.setFont(small()); // smaller font: room for 4 full sample paths without ballooning the window
+    drumPatternStatusLabel.setJustificationType(juce::Justification::topLeft); // long multi-line diagnostic block reads top-down, not vertically centred
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     drumPatternStatusLabel.setText(
         "Not generated yet.", juce::dontSendNotification);
@@ -403,6 +405,8 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     sampleIndex.onIndexReady = [this](const std::vector<IndexedSample>& indexed)
     {
         latestSampleIndex = indexed;
+        sampleIndexReady  = true;
+        updateGenerateButtonAvailability();
     };
 
     // Studio / Advisor tab strip
@@ -571,7 +575,12 @@ void AbletonCopilotAudioProcessorEditor::resized()
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
     generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
     area.removeFromTop(4);
-    drumPatternStatusLabel.setBounds(area.removeFromTop(150).reduced(12, 0));
+    // Temporarily tall (320px, up from 150px): the bug-hunting diagnostic
+    // block below prints ~4 lines per role (pool size, candidate path,
+    // exists/extension/format/decoder/length, final loaded-or-fallback) -
+    // shrink this back once the SYNTH FALLBACK root cause is fixed and
+    // the status returns to a short summary.
+    drumPatternStatusLabel.setBounds(area.removeFromTop(320).reduced(12, 0));
     area.removeFromTop(4);
     generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRequiredHeight).reduced(12, 0));
     area.removeFromTop(8);
@@ -1045,6 +1054,25 @@ void AbletonCopilotAudioProcessorEditor::applyReferenceDrumsClicked()
     setExtractPatternsStatusText(msg, false);
 }
 
+void AbletonCopilotAudioProcessorEditor::updateGenerateButtonAvailability()
+{
+    if (!libraryDir.isDirectory())
+    {
+        generateDrumPatternButton.setEnabled(false);
+        generateDrumPatternButton.setButtonText("No Sample Library");
+    }
+    else if (!sampleIndexReady)
+    {
+        generateDrumPatternButton.setEnabled(false);
+        generateDrumPatternButton.setButtonText("Scanning Library...");
+    }
+    else
+    {
+        generateDrumPatternButton.setEnabled(true);
+        generateDrumPatternButton.setButtonText("Generate Drum Pattern");
+    }
+}
+
 void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 {
     const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 16 bars = 256 steps
@@ -1132,25 +1160,38 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
 
-    // Debug/proof block: the ACTUAL file loaded into each role's playback
-    // voice right now, queried straight back from the processor
-    // (getGeneratedRoleLoadedFile) - not the selector's suggestion above
-    // (choiceForRole), which could differ if a file failed to decode. This
-    // call is synchronous with setGeneratedDrumPattern() just above, so
-    // there's no race between "what we just asked for" and "what's
-    // actually playing" - what's printed here is what processBlock will
-    // use on the very next block.
+    // Bug-hunting diagnostic block (temporary, "trace the runtime audio
+    // path" milestone): for each role, show every step actually checked -
+    // the selector's pool size (0 here means the sample index had no
+    // candidates for this role AT ALL, which is a completely different
+    // failure than "a candidate was chosen but wouldn't decode" below),
+    // then the exact file/extension/format/decoder/length checks
+    // PluginProcessor::setGeneratedDrumPattern() performed, queried back
+    // via getGeneratedRoleLoadDiagnostics() - not reconstructed here, so
+    // this can't drift from what setGeneratedDrumPattern() actually did.
+    // This call is synchronous with setGeneratedDrumPattern() just above.
+    status << "Sample index: " << (int) latestSampleIndex.size() << " analyzed samples total.\n";
     for (auto& role : roles)
     {
         Engine::DrumRole resolvedRole;
         if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
             continue;
 
-        const juce::File loaded = processor.getGeneratedRoleLoadedFile(resolvedRole);
-        status << juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
-               << juce::String(role.name).toLowerCase().substring(1) << ": ";
-        if (loaded.existsAsFile())
-            status << loaded.getFullPathName();
+        const DrumSampleChoice& choice = choiceForRole(role.name);
+        const auto d = processor.getGeneratedRoleLoadDiagnostics(resolvedRole);
+
+        const juce::String label = juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
+                                  + juce::String(role.name).toLowerCase().substring(1);
+        status << label << ": pool=" << choice.poolSize << " shortlist=" << choice.shortlistSize << "\n";
+        status << "  candidate: " << (d.candidateFile.getFullPathName().isEmpty() ? "(none)" : d.candidateFile.getFullPathName()) << "\n";
+        status << "  exists=" << (d.candidateExists ? "yes" : "no")
+               << " ext=" << (d.extension.isEmpty() ? "(none)" : d.extension)
+               << " formatRecognized=" << (d.formatRecognized ? d.recognizedFormatName : juce::String("no"))
+               << " readerCreated=" << (d.readerCreated ? "yes" : "no")
+               << " decodedLength=" << (juce::int64) d.decodedLengthSamples << " samples\n";
+        status << "  " << label << ": ";
+        if (d.finalLoadedFile.existsAsFile())
+            status << d.finalLoadedFile.getFullPathName();
         else
             status << "SYNTH FALLBACK";
         status << "\n";
@@ -1763,6 +1804,8 @@ void AbletonCopilotAudioProcessorEditor::chooseLibrary()
 
         libraryDir = result;
         libraryPathLabel.setText(libraryDir.getFullPathName(), juce::dontSendNotification);
+        sampleIndexReady = false; // the old index belongs to the previous library dir - don't let Generate use it while the new one scans
+        updateGenerateButtonAvailability();
         rackBrowser.setLibraryDir(libraryDir);
         presetScanner.setLibraryDir(libraryDir);
 

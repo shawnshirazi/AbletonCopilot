@@ -73,6 +73,15 @@ private:
     // emits the pattern as MIDI, kept only as an optional secondary output.
     void generateDrumPatternClicked();
 
+    // Keeps generateDrumPatternButton's enabled state and label in sync
+    // with sampleIndexReady/libraryDir - called once at construction and
+    // again whenever sampleIndex.onIndexReady fires. Disabled (not just
+    // silently ineffective) is the fix for the confirmed race where
+    // clicking Generate before the first background scan completes made
+    // every role's candidate pool 0, so every role fell back to
+    // DrumVoiceSynth with no indication why.
+    void updateGenerateButtonAvailability();
+
     // Small local helpers so the reference-track status UI (now Studio-tab
     // members, not AdvisorPanelComponent's) has one place each that updates
     // text/visibility/enabled-state - mirrors the setReferenceStatus/
@@ -261,11 +270,18 @@ private:
     // Analyzed+cached drum-role samples (see Source/DrumSampleIndex.h) -
     // rebuilt in the background whenever rackBrowser rescans, off the
     // audio thread. generateDrumPatternClicked() ranks/selects from
-    // whatever's here at click time (see Source/DrumSampleSelector.h);
-    // an empty/stale vector just means every role falls back to
-    // DrumVoiceSynth until the first scan completes, not a hang.
+    // whatever's here at click time (see Source/DrumSampleSelector.h).
+    // Confirmed root cause of "every role falls back to DrumVoiceSynth
+    // even though the library has real candidates": the FIRST scan can
+    // take several seconds (a real, measured background DSP-analysis
+    // cost, not a bug in the analysis itself), and clicking Generate
+    // before it completes used to silently proceed with an empty index -
+    // every role's candidate pool was 0, so every role fell back, with
+    // nothing telling the user why. Generate is now disabled
+    // (updateGenerateButtonAvailability()) until sampleIndexReady is true.
     DrumSampleIndex            sampleIndex;
     std::vector<IndexedSample> latestSampleIndex;
+    bool                       sampleIndexReady = false; // true once sampleIndex.onIndexReady has fired at least once
 
     bool   wasPlayheadRunning = false;
     double playheadStartTime  = 0.0;

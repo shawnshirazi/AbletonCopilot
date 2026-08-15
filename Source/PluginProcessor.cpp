@@ -394,6 +394,7 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
     {
         std::shared_ptr<juce::AudioBuffer<float>> loaded[kMaxGeneratedDrumRoles];
         juce::File                                loadedFile[kMaxGeneratedDrumRoles]; // stays invalid File() unless the load below actually succeeds
+        GeneratedRoleLoadDiagnostics               diag[kMaxGeneratedDrumRoles]; // captured at each real check below, never reconstructed after the fact
 
         for (const auto& role : roles)
         {
@@ -401,12 +402,37 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
             if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
                 continue;
 
-            if (!role.sampleFile.existsAsFile())
+            GeneratedRoleLoadDiagnostics d;
+            d.candidateFile = role.sampleFile;
+            d.extension     = role.sampleFile.getFileExtension();
+
+            for (int fmt = 0; fmt < drumFormatManager.getNumKnownFormats(); ++fmt)
+            {
+                auto* format = drumFormatManager.getKnownFormat(fmt);
+                if (format != nullptr && format->getFileExtensions().contains(d.extension, true))
+                {
+                    d.formatRecognized     = true;
+                    d.recognizedFormatName = format->getFormatName();
+                    break;
+                }
+            }
+
+            d.candidateExists = role.sampleFile.existsAsFile();
+            if (!d.candidateExists)
+            {
+                diag[(int) resolvedRole] = d;
                 continue;
+            }
 
             std::unique_ptr<juce::AudioFormatReader> reader(drumFormatManager.createReaderFor(role.sampleFile));
+            d.readerCreated = (reader != nullptr);
             if (reader == nullptr)
-                continue; // selector suggested a file, but it couldn't actually be decoded - stays a synth fallback, not a silent lie
+            {
+                diag[(int) resolvedRole] = d; // selector suggested a file, but it couldn't actually be decoded - stays a synth fallback, not a silent lie
+                continue;
+            }
+
+            d.decodedLengthSamples = reader->lengthInSamples;
 
             auto buf = std::make_shared<juce::AudioBuffer<float>>(
                 juce::jmax(1, (int) reader->numChannels), (int) reader->lengthInSamples);
@@ -414,13 +440,16 @@ void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<Gen
 
             loaded[(int) resolvedRole]     = buf;
             loadedFile[(int) resolvedRole] = role.sampleFile; // only set on an actual successful decode - this IS what's now in generatedRoleSampleBuffers
+            d.finalLoadedFile              = role.sampleFile;
+            diag[(int) resolvedRole]       = d;
         }
 
         juce::ScopedLock sampleLock(generatedSampleLock);
         for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
         {
-            generatedRoleSampleBuffers[r] = loaded[r];
-            generatedRoleLoadedFile[r]    = loadedFile[r];
+            generatedRoleSampleBuffers[r]    = loaded[r];
+            generatedRoleLoadedFile[r]       = loadedFile[r];
+            generatedRoleLoadDiagnostics[r]  = diag[r];
         }
     }
 
@@ -433,6 +462,13 @@ juce::File AbletonCopilotAudioProcessor::getGeneratedRoleLoadedFile(Engine::Drum
 {
     juce::ScopedLock sl(generatedSampleLock);
     return generatedRoleLoadedFile[(int) role];
+}
+
+AbletonCopilotAudioProcessor::GeneratedRoleLoadDiagnostics
+    AbletonCopilotAudioProcessor::getGeneratedRoleLoadDiagnostics(Engine::DrumRole role) const
+{
+    juce::ScopedLock sl(generatedSampleLock);
+    return generatedRoleLoadDiagnostics[(int) role];
 }
 
 int AbletonCopilotAudioProcessor::addMelodyTrack()

@@ -177,6 +177,24 @@ public:
     // so this is always up to date by the time it returns.
     juce::File getGeneratedRoleLoadedFile(Engine::DrumRole role) const;
 
+    // Bug-hunting diagnostic (temporary, per the "prove the runtime audio
+    // path" milestone): every step setGeneratedDrumPattern() actually
+    // checked for `role`'s candidate, captured at the exact point each
+    // check happened - not reconstructed after the fact, so it can't lie
+    // about what really occurred during loading.
+    struct GeneratedRoleLoadDiagnostics
+    {
+        juce::File   candidateFile;              // the sample-selection layer's suggestion, unmodified
+        bool         candidateExists      = false; // candidateFile.existsAsFile() at load time
+        juce::String extension;                  // candidateFile.getFileExtension()
+        bool         formatRecognized     = false; // a registered AudioFormat claims this extension
+        juce::String recognizedFormatName;        // e.g. "WAV file", empty if formatRecognized is false
+        bool         readerCreated        = false; // drumFormatManager.createReaderFor() returned non-null
+        juce::int64  decodedLengthSamples = 0;     // reader->lengthInSamples, only meaningful if readerCreated
+        juce::File   finalLoadedFile;              // == candidateFile iff every step above succeeded; invalid File() otherwise
+    };
+    GeneratedRoleLoadDiagnostics getGeneratedRoleLoadDiagnostics(Engine::DrumRole role) const;
+
 private:
     void loadSerum();
 
@@ -338,6 +356,7 @@ private:
     // the buffer stays null and this stays an invalid File(), so
     // getGeneratedRoleLoadedFile() always reflects reality, never intent.
     juce::File generatedRoleLoadedFile[kMaxGeneratedDrumRoles]; // guarded by generatedSampleLock
+    GeneratedRoleLoadDiagnostics generatedRoleLoadDiagnostics[kMaxGeneratedDrumRoles]; // guarded by generatedSampleLock
 
     struct GeneratedSampleVoiceState
     {
