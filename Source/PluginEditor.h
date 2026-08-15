@@ -175,6 +175,15 @@ private:
         int presetIndex = -1;
         std::unique_ptr<juce::DocumentWindow> serumWindow;
 
+        // The name of the preset actually confirmed loaded into Serum2
+        // right now - set ONLY inside a successful captureCurrentSound()
+        // or a successful cyclePresetForTrack()/generateForTrack() load,
+        // NEVER just from presetIndex advancing. Empty = nothing confirmed
+        // loaded. This, not presetIndex/presetFiles directly, is what
+        // serumStatusFor()/updateTrackTitle() must read - see
+        // SerumPresetStatus.h for the shared honesty contract.
+        juce::String lastConfirmedPresetName;
+
         juce::Label       titleLabel;
         juce::TextButton  prevPresetButton { "<" };
         juce::TextButton  nextPresetButton { ">" };

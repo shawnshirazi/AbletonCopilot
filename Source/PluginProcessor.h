@@ -155,7 +155,7 @@ public:
     // fed straight back later — no format translation, so it's guaranteed
     // compatible. No-op (returns false) if that track's Serum2 hasn't
     // finished loading.
-    bool captureMelodyTrackState(int trackIndex, juce::MemoryBlock& outState) const;
+    bool captureMelodyTrackState(int trackIndex, juce::MemoryBlock& outState);
     bool loadCapturedPreset(int trackIndex, const juce::File& captureFile);
 
     juce::String getMelodyTrackStatus(int trackIndex) const;
@@ -175,6 +175,18 @@ public:
         float   lastBlockPeakOut       = 0.0f;  // peak |sample| in this voice's own scratch buffer AFTER serum->processBlock(), BEFORE any downstream suppression/mixing gate - proves whether Serum's own output is silent independent of whether it reaches the main mix
         bool    suppressOwnPlayback    = false; // the shared gate that silences ALL melody-voice (and drum) output when true - see setSuppressOwnPlayback
         int     generatedGateLengthCount = 0;   // number of non-zero entries in generatedGateLengthSteps - proves setGeneratedMelodyPattern's optional gate array actually reached this voice (0 for every track that never passed one, e.g. Melody)
+
+        // True ONLY immediately after loadCapturedPreset() successfully
+        // called setStateInformation() on a real, loaded Serum2 instance -
+        // never set from UI-side bookkeeping (a preset FILE having been
+        // selected/cycled to is NOT the same as it actually being loaded).
+        // False on construction, and false again after a host-restore
+        // (setStateInformation via the project-load path) applies a
+        // pendingState blob, since that blob has no known on-disk preset
+        // name to honestly report. The UI must never display "(captured)"
+        // or a preset name without checking this first - see
+        // PluginEditor's serumStatusFor/updateTrackTitle.
+        bool    capturedPresetActive   = false;
     };
     MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
@@ -368,6 +380,12 @@ private:
         std::atomic<bool> loaded        { false };
         std::atomic<bool> muted         { false };
         std::atomic<bool> solo          { false };
+
+        // True ONLY right after loadCapturedPreset() successfully applies
+        // real captured state to a loaded Serum2 instance - see
+        // MelodyVoiceDiagnostics::capturedPresetActive for the full
+        // honesty contract this exists to support.
+        std::atomic<bool> capturedPresetActive { false };
 
         // Static, role-based default EQ (see setMelodyTrackCategory) — a
         // high-pass + shelf pair matching real mixing convention per

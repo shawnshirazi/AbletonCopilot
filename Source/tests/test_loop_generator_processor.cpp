@@ -110,6 +110,25 @@ int main()
         CHECK(processor.getMelodyVoiceDiagnostics(1).generatedPatternActive);
     }
 
+    // ---- Serum2 preset-honesty guard: capturedPresetActive must start
+    // false (nothing has ever been captured/loaded), and a loadCapturedPreset
+    // call that fails (no real Serum2 instance is loaded in this test
+    // environment - construction never auto-loads a plugin) must leave it
+    // false, never flip it true on a failed attempt. This is the most
+    // important guard against the two dishonest-reporting bugs found this
+    // pass (PluginEditor's serumStatusFor/updateTrackTitle previously
+    // trusted UI-side presetIndex bookkeeping alone) - a full successful-
+    // capture path can't be exercised here without a real loaded Serum2
+    // instance, but "never a false positive" is provable without one. ----
+    {
+        CHECK(processor.getMelodyVoiceDiagnostics(0).capturedPresetActive == false);
+        CHECK(processor.getMelodyVoiceDiagnostics(1).capturedPresetActive == false);
+
+        const bool loaded = processor.loadCapturedPreset(0, juce::File("/nonexistent/no.serumstate"));
+        CHECK(loaded == false); // no Serum2 instance in this test environment - must fail, not silently succeed
+        CHECK(processor.getMelodyVoiceDiagnostics(0).capturedPresetActive == false);
+    }
+
     // ---- Real gate-length data (Part 3 of the archetype-groove pass:
     // Engine::BassArchetype's note lengths) reaches the voice when passed,
     // and does NOT appear on a track that never received one - proves the

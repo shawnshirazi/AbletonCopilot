@@ -448,7 +448,8 @@ AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
         return d;
 
     auto& voice = melodyVoices[trackIndex];
-    d.serumInstanceLoaded = voice.instance.load(std::memory_order_acquire) != nullptr;
+    d.serumInstanceLoaded  = voice.instance.load(std::memory_order_acquire) != nullptr;
+    d.capturedPresetActive = voice.capturedPresetActive.load(std::memory_order_acquire);
     d.noteOnEventsSent    = voice.noteOnEventsSent.load(std::memory_order_relaxed);
     d.lastBlockPeakOut    = voice.lastBlockPeakOut.load(std::memory_order_relaxed);
     d.suppressOwnPlayback = suppressOwnPlayback.load(std::memory_order_relaxed);
@@ -1492,13 +1493,17 @@ void AbletonCopilotAudioProcessor::setStateInformation(const void* data, int siz
         // (e.g. right after construction, on project load) — stash it and
         // the loader thread's completion callback will apply it once ready.
         melodyVoices[t].pendingState = voiceState;
+        // A host-restored blob has no known on-disk preset name/file - the
+        // UI must not report a captured-preset name for it (see
+        // MelodyVoiceDiagnostics::capturedPresetActive's own comment).
+        melodyVoices[t].capturedPresetActive.store(false, std::memory_order_release);
 
         if (auto* serum = melodyVoices[t].instance.load(std::memory_order_acquire))
             serum->setStateInformation(voiceState.getData(), (int) voiceState.getSize());
     }
 }
 
-bool AbletonCopilotAudioProcessor::captureMelodyTrackState(int trackIndex, juce::MemoryBlock& outState) const
+bool AbletonCopilotAudioProcessor::captureMelodyTrackState(int trackIndex, juce::MemoryBlock& outState)
 {
     if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
         return false;
@@ -1509,6 +1514,11 @@ bool AbletonCopilotAudioProcessor::captureMelodyTrackState(int trackIndex, juce:
 
     outState.reset();
     serum->getStateInformation(outState);
+    // We just read Serum2's own CURRENT live state directly - it's real,
+    // nameable state as of right now (the caller, PluginEditor's
+    // captureCurrentSound, still gates display on the user actually
+    // confirming a name for it - see lastConfirmedPresetName).
+    melodyVoices[trackIndex].capturedPresetActive.store(true, std::memory_order_release);
     return outState.getSize() > 0;
 }
 
@@ -1529,6 +1539,7 @@ bool AbletonCopilotAudioProcessor::loadCapturedPreset(int trackIndex, const juce
     // state, captured earlier via captureMelodyTrackState(), fed straight
     // back the same way a DAW session save/reload would.
     serum->setStateInformation(state.getData(), (int) state.getSize());
+    melodyVoices[trackIndex].capturedPresetActive.store(true, std::memory_order_release);
     return true;
 }
 

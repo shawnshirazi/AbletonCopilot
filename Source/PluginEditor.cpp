@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "UIStyle.h"
 #include "Engine/DrumSamplePackTier.h"
+#include "SerumPresetStatus.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -1454,14 +1455,18 @@ void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode
         drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 
         // Serum2 status - the REAL captured preset name if one exists
-        // (MelodyTrackPanel::presetFiles/presetIndex already track this -
-        // see updateTrackTitle - just not previously read here); otherwise
-        // states PLAINLY what was actually traced this session: with no
-        // capture ever performed, a freshly-instantiated Serum2 plays its
-        // own built-in factory "Init" patch - setStateInformation is only
-        // ever called from loadCapturedPreset (a user click) or a host
-        // project reload, never automatically at construction (confirmed
-        // by reading PluginProcessor.cpp's loader callback: `if
+        // (MelodyTrackPanel::lastConfirmedPresetName, set ONLY on a
+        // confirmed-successful capture/load - see cyclePresetForTrack/
+        // captureCurrentSound/generateForTrack - cross-checked against
+        // PluginProcessor::MelodyVoiceDiagnostics::capturedPresetActive so
+        // a UI-side bookkeeping desync can never claim a preset is loaded
+        // when Serum2 doesn't actually have it - see SerumPresetStatus.h);
+        // otherwise states PLAINLY what was actually traced this session:
+        // with no capture ever performed, a freshly-instantiated Serum2
+        // plays its own built-in factory "Init" patch - setStateInformation
+        // is only ever called from loadCapturedPreset (a user click) or a
+        // host project reload, never automatically at construction
+        // (confirmed by reading PluginProcessor.cpp's loader callback: `if
         // (voice.pendingState.getSize() > 0)` is the ONLY place a non-
         // default state is applied, and pendingState starts empty). Serum
         //2's own VST program-list API is a confirmed dead end for
@@ -1472,17 +1477,13 @@ void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode
         // can't prove.
         auto serumStatusFor = [&](const char* trackLabel, int trackIndex, const char* suggestions) -> juce::String
         {
+            juce::String confirmedName;
             if (trackIndex >= 0 && trackIndex < melodyPanels.size())
-            {
-                auto& panel = *melodyPanels[trackIndex];
-                if (panel.presetIndex >= 0 && panel.presetIndex < panel.presetFiles.size())
-                    return juce::String(trackLabel) + " - Serum 2 preset: "
-                         + panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension()
-                         + " (captured)";
-            }
-            return juce::String(trackLabel) + " - Serum 2 preset: factory Init patch (no capture performed yet - "
-                 + "open Serum 2, browse to a real " + suggestions + " preset, click Capture) - "
-                 + processor.getMelodyTrackStatus(trackIndex);
+                confirmedName = melodyPanels[trackIndex]->lastConfirmedPresetName;
+
+            const bool capturedActive = processor.getMelodyVoiceDiagnostics(trackIndex).capturedPresetActive;
+            return SerumPresetStatus::statusText(trackLabel, confirmedName, capturedActive,
+                                                  suggestions, processor.getMelodyTrackStatus(trackIndex));
         };
         serumBassStatusLabel.setText(
             serumStatusFor("Bass", 0, "Melodic Techno bass (e.g. PML BS Rolling Close / PML BS Sub Particles / PML BS Reese Fall)"),
@@ -2431,15 +2432,23 @@ void AbletonCopilotAudioProcessorEditor::cyclePresetForTrack(MelodyTrackPanel& p
         return;
 
     const int n = panel.presetFiles.size();
-    panel.presetIndex = ((panel.presetIndex + direction) % n + n) % n;
+    const int previousIndex = panel.presetIndex;
+    const int candidateIndex = ((panel.presetIndex + direction) % n + n) % n;
+    panel.presetIndex = candidateIndex;
 
-    if (!processor.loadCapturedPreset(panel.trackIndex, panel.presetFiles.getReference(panel.presetIndex)))
+    if (!processor.loadCapturedPreset(panel.trackIndex, panel.presetFiles.getReference(candidateIndex)))
     {
+        // Revert - the candidate was never actually applied to Serum 2, so
+        // presetIndex must not be left pointing at it (that would let a
+        // later serumStatusFor/updateTrackTitle call report a preset name
+        // that was never loaded). lastConfirmedPresetName is untouched.
+        panel.presetIndex = previousIndex;
         panel.statusLabel.setText("Couldn't load preset (is Serum 2 loaded yet?)", juce::dontSendNotification);
         return;
     }
 
-    auto name = panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension();
+    auto name = panel.presetFiles.getReference(candidateIndex).getFileNameWithoutExtension();
+    panel.lastConfirmedPresetName = name;
     melodyGrid.setTrackPresetName(panel.trackIndex, name);
     updateTrackTitle(panel);
 }
@@ -2489,6 +2498,10 @@ void AbletonCopilotAudioProcessorEditor::captureCurrentSound(MelodyTrackPanel& p
             if (foundIt != panel.presetFiles.end())
                 panel.presetIndex = (int) std::distance(panel.presetFiles.begin(), foundIt);
 
+            // Real capture, just written to disk and already confirmed
+            // active in Serum 2 by processor.captureMelodyTrackState above
+            // - safe to confirm.
+            panel.lastConfirmedPresetName = safeName;
             melodyGrid.setTrackPresetName(panel.trackIndex, safeName);
             updateTrackTitle(panel);
         }), false);
@@ -2517,8 +2530,14 @@ void AbletonCopilotAudioProcessorEditor::generateForTrack(MelodyTrackPanel& pane
             panel.presetIndex = 0;
 
         if (processor.loadCapturedPreset(panel.trackIndex, panel.presetFiles.getReference(panel.presetIndex)))
-            melodyGrid.setTrackPresetName(panel.trackIndex,
-                panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension());
+        {
+            auto name = panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension();
+            panel.lastConfirmedPresetName = name;
+            melodyGrid.setTrackPresetName(panel.trackIndex, name);
+        }
+        // On failure, lastConfirmedPresetName (and whatever it held
+        // before) is left untouched - updateTrackTitle below must not
+        // claim this candidate loaded just because we tried it.
     }
 
     updateTrackTitle(panel);
@@ -2563,11 +2582,10 @@ void AbletonCopilotAudioProcessorEditor::openSerumWindowForTrack(MelodyTrackPane
 
 void AbletonCopilotAudioProcessorEditor::updateTrackTitle(MelodyTrackPanel& panel)
 {
-    juce::String name = (panel.presetIndex >= 0 && panel.presetIndex < panel.presetFiles.size())
-        ? panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension()
-        : "(no captured sounds yet — click Capture)";
-    panel.titleLabel.setText(categoryDisplayName(panel.category) + "  \xe2\x80\x94  " + name,
-                              juce::dontSendNotification);
+    const bool capturedActive = processor.getMelodyVoiceDiagnostics(panel.trackIndex).capturedPresetActive;
+    panel.titleLabel.setText(
+        SerumPresetStatus::titleText(categoryDisplayName(panel.category), panel.lastConfirmedPresetName, capturedActive),
+        juce::dontSendNotification);
 }
 
 void AbletonCopilotAudioProcessorEditor::runDrumPatternGeneration()
