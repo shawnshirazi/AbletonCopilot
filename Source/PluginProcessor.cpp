@@ -1,8 +1,51 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Engine/Grid.h"
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+
+namespace
+{
+    // Real swing (Part 4 of the groove-improvement pass): sourced from two
+    // independent production guides that converge on the same range -
+    // Beatportal's ARTBAT/Anyma-style guide ("apply 8-12% swing to your
+    // hi-hats and percussion while keeping your kick and bass on strict,
+    // straight quantisation") and Studio Brootle's techno drum guide
+    // ("SP1200 16 Swing-67 at 10%"). 10% is the midpoint of the sourced
+    // range, applied only to hatClosed/percA/percB - kick/clap/bass keep
+    // triggering exactly on the step-boundary detection below, unchanged.
+    constexpr float kSwingAmount = 0.10f;
+
+    bool synthRoleIsSwung(int midiNote)
+    {
+        Engine::DrumRole role;
+        if (!Engine::drumRoleForGmNote(midiNote, role))
+            return false;
+        return role == Engine::DrumRole::HatClosed
+            || role == Engine::DrumRole::PercA
+            || role == Engine::DrumRole::PercB;
+    }
+
+    // Extra delay (in samples) swing adds to this step vs. a straight grid -
+    // Engine::stepTimeSeconds (Source/Engine/Grid.h) already computes the
+    // real swing-aware onset time (delays only odd/off-beat 16ths); this
+    // is just the DIFFERENCE between the swung and straight timing for the
+    // one step in question, converted to samples. wrappedStep/totalSteps
+    // determine bars-per-loop implicitly (stepsPerBar is always 16 in this
+    // codebase's step-grid convention - see kDrumSteps/kMelodySteps/
+    // Engine::kLoopStepsPerBar, all 16), bpm comes from the host transport.
+    int swingDelaySamples(int wrappedStep, double bpm, double sampleRate)
+    {
+        if (bpm <= 0.0 || sampleRate <= 0.0)
+            return 0;
+        Engine::StepGridConfig straight; straight.swing = 0.0f;
+        Engine::StepGridConfig swung;    swung.swing    = kSwingAmount;
+        const double deltaSec = Engine::stepTimeSeconds(wrappedStep, bpm, swung)
+                               - Engine::stepTimeSeconds(wrappedStep, bpm, straight);
+        return juce::jmax(0, (int) std::lround(deltaSec * sampleRate));
+    }
+}
 
 namespace
 {
@@ -761,6 +804,33 @@ void AbletonCopilotAudioProcessor::triggerGeneratedRole(Engine::DrumRole role, f
     }
 }
 
+void AbletonCopilotAudioProcessor::fireGeneratedRoleNote(int r, int midiNote, float velocity01,
+                                                            juce::MidiBuffer& midiMessages)
+{
+    // Primary output: trigger this role's real sample if one was
+    // selected/loaded, otherwise DrumVoiceSynth (see triggerGeneratedRole).
+    Engine::DrumRole synthRole;
+    if (Engine::drumRoleForGmNote(midiNote, synthRole))
+        triggerGeneratedRole(synthRole, velocity01);
+
+    // Optional secondary output: real MIDI note to the host, kept for
+    // downstream routing but not required to hear anything.
+    if (r < 0 || r >= kMaxGeneratedDrumRoles)
+        return;
+    auto& voice = generatedDrumVoices[r];
+    if (voice.noteOn)
+    {
+        midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), 0);
+        voice.noteOn = false;
+    }
+
+    const juce::uint8 midiVel = (juce::uint8) juce::jlimit(1, 127, (int) std::lround(velocity01 * 127.0f));
+    midiMessages.addEvent(juce::MidiMessage::noteOn(10, midiNote, midiVel), 0);
+    voice.noteOn          = true;
+    voice.pitch           = midiNote;
+    voice.samplesUntilOff = juce::jmax(1, (int) (0.04 * getSampleRate()));
+}
+
 //==============================================================================
 
 void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
@@ -941,31 +1011,28 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         if (gatedVel <= 0)
                             continue;
 
-                        // Primary output: trigger this role's real sample
-                        // if one was selected/loaded, otherwise
-                        // DrumVoiceSynth (see triggerGeneratedRole) - same
-                        // shared function, same fallback rule, as the
-                        // incoming-MIDI path above, keyed by GM note so
-                        // this doesn't depend on localRoles' array order.
-                        Engine::DrumRole synthRole;
-                        if (Engine::drumRoleForGmNote(role.midiNote, synthRole))
-                            triggerGeneratedRole(synthRole, (float) gatedVel / 127.0f);
-
-                        // Optional secondary output: real MIDI note to the
-                        // host, kept for downstream routing but not
-                        // required to hear anything (see the render/mix
-                        // pass below).
-                        auto& voice = generatedDrumVoices[r];
-                        if (voice.noteOn)
+                        // Real swing (Grid.h's stepTimeSeconds already
+                        // computed this timing math - see kSwingAmount's
+                        // own comment below for the source): hatClosed/
+                        // percA/percB's off-beat 16th positions land a
+                        // small, deterministic amount late; kick/clap/bass
+                        // stay exactly on this block-boundary detection.
+                        // A swung hit is queued (generatedSwingTriggers)
+                        // instead of fired immediately - see its own
+                        // countdown loop below, the same
+                        // decrement-until-zero idiom this file already
+                        // uses for note-off scheduling.
+                        const bool isSwingRole = synthRoleIsSwung(role.midiNote);
+                        if (isSwingRole && (wrappedStep % 2) != 0)
                         {
-                            midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), 0);
-                            voice.noteOn = false;
+                            const double swingBpm = (double) currentBpm.load(std::memory_order_relaxed);
+                            const int delaySamples = swingDelaySamples(wrappedStep, swingBpm, getSampleRate());
+                            generatedSwingTriggers[r] = { true, role.midiNote, (float) gatedVel / 127.0f, delaySamples };
                         }
-
-                        midiMessages.addEvent(juce::MidiMessage::noteOn(10, role.midiNote, (juce::uint8) gatedVel), 0);
-                        voice.noteOn          = true;
-                        voice.pitch           = role.midiNote;
-                        voice.samplesUntilOff = juce::jmax(1, (int) (0.04 * getSampleRate()));
+                        else
+                        {
+                            fireGeneratedRoleNote((int) r, role.midiNote, (float) gatedVel / 127.0f, midiMessages);
+                        }
                     }
                 }
             }
@@ -989,6 +1056,23 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                                                  numSamplesForGate + voice.samplesUntilOff);
                 midiMessages.addEvent(juce::MidiMessage::noteOff(10, voice.pitch), offset);
                 voice.noteOn = false;
+            }
+        }
+
+        // Fires any swing-delayed hits whose countdown has now reached
+        // this block - see generatedSwingTriggers' own declaration for why
+        // this exists instead of firing immediately.
+        for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+        {
+            auto& pending = generatedSwingTriggers[r];
+            if (!pending.pending)
+                continue;
+
+            pending.samplesRemaining -= numSamplesForGate;
+            if (pending.samplesRemaining <= 0)
+            {
+                pending.pending = false;
+                fireGeneratedRoleNote(r, pending.midiNote, pending.velocity01, midiMessages);
             }
         }
     }

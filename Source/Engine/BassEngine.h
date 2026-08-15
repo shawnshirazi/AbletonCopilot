@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Arrangement.h"
+#include "DrumEngine.h" // DropPattern - see generateBassLoop16 below
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -80,4 +81,34 @@ namespace Engine
     // fixed-128-step melody-voice array manual editing depends on).
     std::vector<int8_t> generateArrangementBassPattern(const MusicArrangement& arrangement,
                                                          const BassPatternParams& params);
+
+    // ------------------------------------------------------------------
+    // Native 16-bar (256-step) loop bassline - the primary entry point for
+    // the loop-generator workflow (Source/Engine/MusicIdentity.h). Two
+    // real differences from generateBassPattern above, both evidence-
+    // backed (see MLPipeline/musical_target/melodic_techno_research.md
+    // and this function's own .cpp comment for the reasoning):
+    //
+    //  1. FOUR blocks instead of two, i.e. real bar-9-16 development
+    //     instead of generateBassPattern's implicit "loop the first 8
+    //     bars" - reuses the exact same buildBassBlock/deriveBassBlock
+    //     motif-then-develop mechanism generateBassPattern already uses,
+    //     just chained four times with a density scale that ramps
+    //     (establish/develop/increase/full), mirroring DrumEngine's own
+    //     already-documented 4-stage energy arc rather than inventing a
+    //     new shape.
+    //  2. Real cross-role awareness: `drums` is the ACTUAL generated
+    //     DropPattern for this same 16-bar loop (Engine::generateDrop),
+    //     not a synthetic always-four-on-the-floor stand-in -
+    //     generateBassPattern/generateArrangementBassPattern are
+    //     UNCHANGED and keep using the synthetic reference (they have no
+    //     ordering dependency on drum generation, by design). This
+    //     function trades that independence for a real "designed
+    //     together" groove: bass avoids the real kick (same measured
+    //     kBassKickCorrelation, now fed real occupancy) and, as a
+    //     disclosed design decision NOT backed by measured co-occurrence
+    //     data (no real simultaneous bass+hat corpus exists - see the
+    //     research doc), also leans away from hatClosed/percA's busiest
+    //     positions.
+    std::vector<int8_t> generateBassLoop16(const DropPattern& drums, const BassPatternParams& params);
 }

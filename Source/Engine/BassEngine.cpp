@@ -34,9 +34,67 @@ namespace Engine
         // DrumEngine.cpp uses for its own measured cross-role correlations.
         const float kBassKickCorrelation = kBassGrooveRhythm.onKickFraction / 0.25f - 1.0f;
 
+        // Disclosed design decisions, NOT measured: no real simultaneous
+        // bass+hat/perc corpus exists in this library (the bass MIDI corpus
+        // is bass-only preset-demo files - see BassEngine.h's own
+        // generateBassLoop16 comment). Used only by generateBassLoop16,
+        // which has real per-role occupancy to check against;
+        // generateBassPattern/generateArrangementBassPattern never
+        // reference these. Modest and asymmetric on purpose: weaker than
+        // the measured kick correlation, and percA (already measured
+        // negatively correlated with kick/clap by DrumRhythmGrammar - see
+        // melodic_techno_research.md section 4) gets an even lighter touch
+        // than hatClosed, so this doesn't fight DrumEngine's own already-
+        // measured percussion placement.
+        constexpr float kBassHatClosedCorrelation = -0.20f;
+        constexpr float kBassPercACorrelation     = -0.15f;
+
         bool occupiedAt(const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock, int bar, int stepInBar)
         {
             return kickBlock[(size_t) (bar * kStepsPerBar + stepInBar)];
+        }
+
+        // One occupancy reference a bass position-decision correlates
+        // against - generalizes the single hardcoded synthetic kickBlock
+        // used by generateBassPattern/generateArrangementBassPattern (still
+        // built and passed exactly as before, just wrapped in this same
+        // struct now) to also carry REAL per-role StepArray occupancy for
+        // generateBassLoop16. `block` is always a local 4-bar (kBlockBars)
+        // window - for the synthetic reference this is the one recurring
+        // four-on-the-floor shape (correct for every block, since kick
+        // never varies); for a real reference the caller slices out
+        // exactly this bass block's own 4 bars from the full 256-step
+        // DropPattern role before constructing the ref, so indexing stays
+        // uniformly block-local either way.
+        struct BassCorrelationRef
+        {
+            const std::array<bool, kBlockBars * kStepsPerBar>* block;
+            float                                               corr;
+        };
+
+        float applyCorrelations(float activation, int bar, int stepInBar, const std::vector<BassCorrelationRef>& refs)
+        {
+            for (auto& ref : refs)
+                if (ref.block != nullptr && occupiedAt(*ref.block, bar, stepInBar))
+                    activation *= std::max(0.0f, 1.0f + ref.corr);
+            return activation;
+        }
+
+        // Converts a 4-bar slice of a real StepArray role (e.g.
+        // DropPattern::kick/hatClosed/percA) starting at `barOffset` into
+        // the same local-4-bar bool-occupancy shape the synthetic
+        // reference already uses, so both go through identical downstream
+        // code (applyCorrelations/occupiedAt above).
+        std::array<bool, kBlockBars * kStepsPerBar> sliceRealOccupancy(const StepArray& role, int barOffset)
+        {
+            std::array<bool, kBlockBars * kStepsPerBar> out {};
+            for (int bar = 0; bar < kBlockBars; ++bar)
+                for (int s = 0; s < kStepsPerBar; ++s)
+                {
+                    const size_t srcIdx = (size_t) ((barOffset + bar) * kStepsPerBar + s);
+                    out[(size_t) (bar * kStepsPerBar + s)] = srcIdx < role.size() && role[srcIdx].active;
+                }
+            return out;
         }
 
         // Weighted pick from the real measured pitch-offset distribution
@@ -57,13 +115,12 @@ namespace Engine
 
         using Block = std::array<int8_t, kBlockBars * kStepsPerBar>;
 
-        bool decideBassPosition(std::mt19937& rng, int stepInBar, float densityScale,
-                                 const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock, int kickBar)
+        bool decideBassPosition(std::mt19937& rng, int stepInBar, int bar, float densityScale,
+                                 const std::vector<BassCorrelationRef>& refs)
         {
             float activation = kBassGrooveRhythm.step16Probability[stepInBar]
                               * kBassGrooveRhythm.meanNotesPerBar * densityScale;
-            if (occupiedAt(kickBlock, kickBar, stepInBar))
-                activation *= std::max(0.0f, 1.0f + kBassKickCorrelation);
+            activation = applyCorrelations(activation, bar, stepInBar, refs);
             activation = clamp01(activation);
             return uniform01(rng) < activation;
         }
@@ -78,13 +135,13 @@ namespace Engine
         // clean 1-bar loops and longer, lightly-varying 4-bar phrases (see
         // analyze_bass_grammar.py's motif-length inspection).
         Block buildBassBlock(std::mt19937& rng, float densityScale,
-                              const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock)
+                              const std::vector<BassCorrelationRef>& refs)
         {
             Block block;
             block.fill(kBassOffValue);
 
             for (int s = 0; s < kStepsPerBar; ++s)
-                if (decideBassPosition(rng, s, densityScale, kickBlock, 0))
+                if (decideBassPosition(rng, s, 0, densityScale, refs))
                     block[(size_t) s] = (int8_t) pickPitchOffset(rng);
 
             // Real measured adjacent-bar identity isn't available for bass
@@ -115,7 +172,7 @@ namespace Engine
                     const size_t idx = (size_t) (base + s);
                     if (block[idx] != kBassOffValue)
                         block[idx] = kBassOffValue;
-                    else if (decideBassPosition(rng, s, densityScale, kickBlock, bar))
+                    else if (decideBassPosition(rng, s, bar, densityScale, refs))
                         block[idx] = (int8_t) pickPitchOffset(rng);
                 }
             }
@@ -131,7 +188,7 @@ namespace Engine
         // try a few candidates, skip the touch entirely rather than force
         // one onto a bad position).
         Block deriveBassBlock(std::mt19937& rng, const Block& previous, float variation,
-                               const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock)
+                               const std::vector<BassCorrelationRef>& refs)
         {
             Block block = previous;
             const int touches = std::max(1, (int) std::lround(variation * 6.0f));
@@ -148,8 +205,7 @@ namespace Engine
                         chosenStep = s; // removing is always fine
                         break;
                     }
-                    const bool kickOccupied = occupiedAt(kickBlock, bar, s);
-                    const float weight = kickOccupied ? std::max(0.0f, 1.0f + kBassKickCorrelation) : 1.0f;
+                    const float weight = applyCorrelations(1.0f, bar, s, refs);
                     if (weight > 0.6f)
                     {
                         chosenStep = s;
@@ -209,11 +265,20 @@ namespace Engine
 
         Block deriveOrRebuildBassBlock(std::mt19937& rng, const Block& previousBlock, float scaleDelta,
                                         float newScale, float variation,
-                                        const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock)
+                                        const std::vector<BassCorrelationRef>& refs)
         {
             if (std::abs(scaleDelta) > kBigDeltaRebuildThreshold)
-                return buildBassBlock(rng, newScale, kickBlock);
-            return deriveBassBlock(rng, previousBlock, variation, kickBlock);
+                return buildBassBlock(rng, newScale, refs);
+            return deriveBassBlock(rng, previousBlock, variation, refs);
+        }
+
+        // Builds the single-element refs vector both generateBassPattern
+        // and generateArrangementBassPattern use - unchanged behaviour,
+        // now expressed through the same BassCorrelationRef mechanism
+        // generateBassLoop16 uses for real per-role occupancy.
+        std::vector<BassCorrelationRef> syntheticKickRefs(const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock)
+        {
+            return { { &kickBlock, kBassKickCorrelation } };
         }
     }
 
@@ -236,9 +301,10 @@ namespace Engine
                 kickBlock[(size_t) (bar * kStepsPerBar + beat * (kStepsPerBar / 4))] = true;
 
         const float densityScale = 0.7f + params.density * 0.6f; // 0.5 default -> ~1.0, tracks the measured groove-subset's own scale
+        const auto refs = syntheticKickRefs(kickBlock);
 
-        const Block established = buildBassBlock(rng, densityScale, kickBlock);
-        const Block developed   = deriveBassBlock(rng, established, params.variation, kickBlock);
+        const Block established = buildBassBlock(rng, densityScale, refs);
+        const Block developed   = deriveBassBlock(rng, established, params.variation, refs);
 
         copyBlock(out, 0, kBlockBars, established);
         copyBlock(out, kBlockBars, kBlockBars, developed);
@@ -260,6 +326,7 @@ namespace Engine
                 kickBlock[(size_t) (bar * kStepsPerBar + beat * (kStepsPerBar / 4))] = true;
 
         const float densityBase = 0.7f + params.density * 0.6f; // matches generateBassPattern's own scale - at bassEnergy==1.0 this reproduces its exact density
+        const auto refs = syntheticKickRefs(kickBlock);
 
         const int numBlocks = (numBars + kBlockBars - 1) / kBlockBars;
         Block previousBlock {};
@@ -279,10 +346,67 @@ namespace Engine
             const float thisScale = densityBase * avgBassEnergy;
 
             const Block thisBlock = (blockIdx == 0)
-                ? buildBassBlock(rng, thisScale, kickBlock)
-                : deriveOrRebuildBassBlock(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, kickBlock);
+                ? buildBassBlock(rng, thisScale, refs)
+                : deriveOrRebuildBassBlock(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, refs);
 
             copyBlockDynamic(out, blockBarStart, blockBarCount, numBars, thisBlock);
+
+            previousBlock = thisBlock;
+            previousScale = thisScale;
+        }
+
+        return out;
+    }
+
+    std::vector<int8_t> generateBassLoop16(const DropPattern& drums, const BassPatternParams& params)
+    {
+        constexpr int kNumLoopBlocks = 4; // 4 blocks x 4 bars = 16 bars, one block per DrumEngine's own 4-stage arc
+        // Establish/develop/increase/full - the same 4-stage language
+        // DrumEngine.cpp's generateDrop already documents and uses for its
+        // own energy arc (see DrumEngine.h), applied here to bass density
+        // instead of drum density. A disclosed design choice (no separate
+        // 16-bar bass-specific arc was measured - the bass MIDI corpus is
+        // short preset-demo loops, not full 16-bar phrases), deliberately
+        // reusing an already-evidenced shape rather than inventing a new
+        // one.
+        constexpr float kBlockDensityScale[kNumLoopBlocks] = { 0.7f, 0.85f, 1.0f, 1.0f };
+
+        std::vector<int8_t> out((size_t) kBassSteps * 2, kBassOffValue); // 128*2 = 256 steps = 16 bars
+
+        std::mt19937 rng = makeRng(params.seed);
+        const float densityScale = 0.7f + params.density * 0.6f; // matches generateBassPattern's own scale
+
+        Block previousBlock {};
+        previousBlock.fill(kBassOffValue);
+        float previousScale = 0.0f;
+
+        for (int blockIdx = 0; blockIdx < kNumLoopBlocks; ++blockIdx)
+        {
+            const int barOffset = blockIdx * kBlockBars;
+
+            // Real per-role occupancy for exactly this block's own 4 bars -
+            // not a synthetic always-identical reference. Kick is measured
+            // 100% four-on-the-floor in a Drop (see DrumRhythmGrammar.h),
+            // so this is provably equivalent to the synthetic reference
+            // for kick specifically; hatClosed/percA vary block-to-block
+            // per DrumEngine's own arc, so THIS is real information the
+            // synthetic-only path never had.
+            const auto kickOcc      = sliceRealOccupancy(drums.kick, barOffset);
+            const auto hatClosedOcc = sliceRealOccupancy(drums.hatClosed, barOffset);
+            const auto percAOcc     = sliceRealOccupancy(drums.percA, barOffset);
+            const std::vector<BassCorrelationRef> refs = {
+                { &kickOcc,      kBassKickCorrelation },
+                { &hatClosedOcc, kBassHatClosedCorrelation },
+                { &percAOcc,     kBassPercACorrelation },
+            };
+
+            const float thisScale = densityScale * kBlockDensityScale[blockIdx];
+
+            const Block thisBlock = (blockIdx == 0)
+                ? buildBassBlock(rng, thisScale, refs)
+                : deriveOrRebuildBassBlock(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, refs);
+
+            copyBlockDynamic(out, barOffset, kBlockBars, kNumLoopBlocks * kBlockBars, thisBlock);
 
             previousBlock = thisBlock;
             previousScale = thisScale;

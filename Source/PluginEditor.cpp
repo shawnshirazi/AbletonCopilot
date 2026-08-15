@@ -1447,12 +1447,32 @@ void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode
 
         drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 
-        // Serum2 status - reuses the existing, already-honest
-        // processor.getMelodyTrackStatus() (never fabricates a preset
-        // name - see MelodyTrackPanel's own Capture-driven status for the
-        // fuller per-track version of this).
-        serumBassStatusLabel.setText("Bass - Serum 2: " + processor.getMelodyTrackStatus(0), juce::dontSendNotification);
-        serumMelodyStatusLabel.setText("Melody - Serum 2: " + processor.getMelodyTrackStatus(1), juce::dontSendNotification);
+        // Serum2 status - the REAL captured preset name if one exists
+        // (MelodyTrackPanel::presetFiles/presetIndex already track this -
+        // see updateTrackTitle - just not previously read here), otherwise
+        // processor.getMelodyTrackStatus()'s honest load-status text plus
+        // a few REAL preset names actually found on disk this session (not
+        // auto-loaded - Serum2's VST3 program list is a confirmed dead end,
+        // see BassEngine/MusicIdentity's own research notes - just a
+        // pointer to browse to and Capture).
+        auto serumStatusFor = [&](const char* trackLabel, int trackIndex, const char* suggestions) -> juce::String
+        {
+            if (trackIndex >= 0 && trackIndex < melodyPanels.size())
+            {
+                auto& panel = *melodyPanels[trackIndex];
+                if (panel.presetIndex >= 0 && panel.presetIndex < panel.presetFiles.size())
+                    return juce::String(trackLabel) + " - Serum 2: "
+                         + panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension();
+            }
+            return juce::String(trackLabel) + " - Serum 2: (no captured sound - open Serum 2, browse to a real "
+                 + suggestions + " preset, click Capture) - " + processor.getMelodyTrackStatus(trackIndex);
+        };
+        serumBassStatusLabel.setText(
+            serumStatusFor("Bass", 0, "Melodic Techno bass (e.g. PML BS Rolling Close / PML BS Sub Particles / PML BS Reese Fall)"),
+            juce::dontSendNotification);
+        serumMelodyStatusLabel.setText(
+            serumStatusFor("Melody", 1, "Melodic Techno lead"),
+            juce::dontSendNotification);
     }
 
     // Per-role MIX defaults for this mode (Part 10/11) - ALWAYS applied,

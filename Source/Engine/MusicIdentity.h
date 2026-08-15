@@ -52,12 +52,12 @@ namespace Engine
         // loop-shaped caller instead of only the long-form arrangement.
         DropPattern drumMotif;
 
-        // 16-bar/256-step: Engine::generateBassPattern()'s 8-bar/128-step
-        // output tiled twice. The 8-bar generator is untouched - two
-        // literal copies is the smallest-correct way to reach a 16-bar
-        // loop without redesigning BassEngine (per the explicit "use the
-        // existing BassEngine as the starting point, do NOT throw it
-        // away" instruction).
+        // 16-bar/256-step, from Engine::generateBassLoop16(drumMotif, ...)
+        // - a native 4-block generator that develops across the full loop
+        // and is really aware of this identity's own drumMotif occupancy
+        // (see BassEngine.h). generateBassPattern (the plain 8-bar
+        // generator this replaced here) is untouched and still used
+        // as-is by the manual-editing/arrangement paths.
         std::vector<int8_t> bassMotif;
     };
 

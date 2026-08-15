@@ -269,6 +269,15 @@ private:
     // uses. Audio-thread only.
     void triggerGeneratedRole(Engine::DrumRole role, float velocity01);
 
+    // Actually fires a generated-pattern role's note: real sample/synth
+    // audio via triggerGeneratedRole, plus the optional secondary MIDI
+    // noteOn/noteOff bookkeeping (generatedDrumVoices[r]) - the exact body
+    // that used to be inline at the step-detection point, factored out so
+    // both an immediate (non-swung) trigger and a swing-delayed one
+    // (generatedSwingTriggers' own countdown, see processBlock) call the
+    // same code instead of two copies. Audio-thread only.
+    void fireGeneratedRoleNote(int r, int midiNote, float velocity01, juce::MidiBuffer& midiMessages);
+
     AudioAnalyzer analyzer;
 
     struct DrumVoice
@@ -400,6 +409,26 @@ private:
     };
     GeneratedDrumVoiceState generatedDrumVoices[kMaxGeneratedDrumRoles];
     int                     generatedDrumLastStepIndex = -1;
+
+    // Real swing timing (Part 4 of the groove-improvement pass): hatClosed/
+    // percA/percB's off-beat 16th positions are delayed a small, sourced,
+    // deterministic amount (see kSwingAmount and Engine::stepTimeSeconds,
+    // Source/Engine/Grid.h - that swing-aware timing math already existed,
+    // this is what actually wires it to real playback). Kick/clap/bass
+    // always trigger exactly on the block-boundary detection below,
+    // unchanged. A swung hit is queued here instead of firing immediately,
+    // then counted down block-by-block the same way
+    // GeneratedDrumVoiceState::samplesUntilOff already counts down note-off
+    // - the established idiom in this file for "an event that must land at
+    // a specific future sample, not immediately," not a new mechanism.
+    struct PendingSwingTrigger
+    {
+        bool  pending          = false;
+        int   midiNote         = -1;
+        float velocity01       = 0.0f;
+        int   samplesRemaining = 0;
+    };
+    PendingSwingTrigger generatedSwingTriggers[kMaxGeneratedDrumRoles];
 
     // Internal audio synthesis (Source/Engine/DrumVoiceSynth.h) - the
     // primary way to hear the generated pattern; the MIDI-out gate state

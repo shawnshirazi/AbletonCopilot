@@ -116,5 +116,57 @@ int main()
     CHECK(dropPatternsEqual(drop.drum, dropAgain.drum));
     CHECK(drop.bass == dropAgain.bass);
 
+    // ---- Bass phrase development across the 16-bar loop (Part 5/1 of the
+    // groove-improvement pass): bars 9-16 must NOT be a byte-identical
+    // copy of bars 1-8 - proves generateBassLoop16's real 4-block chain
+    // replaced the old blind "tile the first 8 bars twice" behaviour. ----
+    {
+        constexpr int kBarSteps = kLoopStepsPerBar * 8; // 128 - first/second half of the 16-bar loop
+        bool anySeedDiffers = false;
+        for (uint32_t seed = 100; seed < 130; ++seed)
+        {
+            MusicIdentityParams p;
+            p.seed = seed; p.bpm = 124.0; p.rootNote = 9; p.isMinor = true;
+            const MusicIdentity id2 = generateMusicIdentity(p);
+            bool identicalHalves = true;
+            for (int i = 0; i < kBarSteps; ++i)
+                if (id2.bassMotif[(size_t) i] != id2.bassMotif[(size_t) (kBarSteps + i)])
+                    { identicalHalves = false; break; }
+            if (!identicalHalves)
+            {
+                anySeedDiffers = true;
+                break;
+            }
+        }
+        CHECK(anySeedDiffers);
+    }
+
+    // ---- Bass density (active-step count) at bars 1-4 vs bars 13-16
+    // should, on average across many seeds, be higher in the final block -
+    // matches the establish(0.7)->develop(0.85)->increase(1.0)->full(1.0)
+    // density ramp generateBassLoop16 applies (mirroring DrumEngine's own
+    // already-documented 4-stage energy arc), aggregated because any
+    // single seed's random draw can go either way even with a real
+    // upward-biased ramp. ----
+    {
+        constexpr int kBlockSteps = kLoopStepsPerBar * 4; // 64 = 4 bars
+        long totalFirstBlockActive = 0, totalLastBlockActive = 0;
+        constexpr int kNumSeeds = 40;
+        for (uint32_t seed = 200; seed < (uint32_t) (200 + kNumSeeds); ++seed)
+        {
+            MusicIdentityParams p;
+            p.seed = seed; p.bpm = 124.0; p.rootNote = 9; p.isMinor = true;
+            const MusicIdentity id2 = generateMusicIdentity(p);
+            for (int i = 0; i < kBlockSteps; ++i)
+            {
+                if (id2.bassMotif[(size_t) i] != kBassOffValue) ++totalFirstBlockActive;
+                if (id2.bassMotif[(size_t) (3 * kBlockSteps + i)] != kBassOffValue) ++totalLastBlockActive;
+            }
+        }
+        std::printf("bass active steps: bars1-4 total=%ld bars13-16 total=%ld (over %d seeds)\n",
+                     totalFirstBlockActive, totalLastBlockActive, kNumSeeds);
+        CHECK(totalLastBlockActive > totalFirstBlockActive);
+    }
+
     TEST_SUMMARY_AND_EXIT();
 }

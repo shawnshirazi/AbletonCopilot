@@ -37,21 +37,21 @@ namespace Engine
         drumParams.seed        = params.seed;
         id.drumMotif = generateDrop(grid, drumParams, DrumSection::Drop);
 
-        // Bass: generateBassPattern() is a deterministic 8-bar/128-step
-        // generator - tile it twice to fill the same 16-bar loop. Reuses
-        // the SAME seed (not a derived one) so this identity's bass and
-        // drum motifs are both fully determined by params.seed alone, per
-        // "for seed X, Generate -> same loop every time."
+        // Bass: generateBassLoop16 - a native 16-bar generator that is
+        // REALLY aware of this identity's own drumMotif (real kick/
+        // hatClosed/percA occupancy, not a synthetic four-on-the-floor
+        // stand-in) and develops across all 4 blocks instead of looping
+        // the first 8 bars unchanged - see BassEngine.h's own comment on
+        // generateBassLoop16 for the evidence behind both differences from
+        // the plain generateBassPattern() this replaced. Reuses the SAME
+        // seed (not a derived one) so this identity's bass and drum
+        // motifs are both fully determined by params.seed alone, per "for
+        // seed X, Generate -> same loop every time."
         BassPatternParams bassParams;
         bassParams.density   = 0.5f;
         bassParams.variation = 0.2f;
         bassParams.seed      = params.seed;
-        const auto eightBarBass = generateBassPattern(bassParams);
-
-        id.bassMotif.resize((size_t) kLoopTotalSteps, kBassOffValue);
-        for (int rep = 0; rep < 2; ++rep)
-            for (int i = 0; i < kBassSteps; ++i)
-                id.bassMotif[(size_t) (rep * kBassSteps + i)] = eightBarBass[(size_t) i];
+        id.bassMotif = generateBassLoop16(id.drumMotif, bassParams);
 
         return id;
     }
