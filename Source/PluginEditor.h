@@ -22,6 +22,8 @@
 #include "Engine/Grid.h"
 #include "Engine/DrumEngine.h"
 #include "Engine/BassEngine.h"
+#include "Engine/MusicIdentity.h"
+#include "MusicTheory/MelodyMotifGenerator.h"
 #include <optional>
 
 class AbletonCopilotAudioProcessorEditor
@@ -67,12 +69,30 @@ private:
     void extractPatternsClicked();
     void applyReferenceDrumsClicked();
 
-    // Phase 1 deterministic engine (Source/Engine/) - synthesizes and plays
-    // real audio directly from AbletonCopilot itself (see
-    // setGeneratedDrumPattern/DrumVoiceSynth rendering in
-    // PluginProcessor.cpp), no Drum Rack or companion plugin required. Also
-    // emits the pattern as MIDI, kept only as an optional secondary output.
-    void generateDrumPatternClicked();
+    // The single "Generate" workflow: builds ONE shared Engine::MusicIdentity
+    // (Source/Engine/MusicIdentity.h - drums via the already-existing native
+    // 16-bar Engine::generateDrop(), bass via Engine::generateBassPattern()
+    // tiled x2) plus a melody motif (MusicTheory/MelodyMotifGenerator.h,
+    // same tiling), stores both as editor state, then renders the currently
+    // selected mode via applyRenderMode(). Drums+bass+melody all become
+    // audible from bar 1 of one immediately-looping 16-bar idea - see
+    // MusicIdentity.h's own header comment for why the long-form
+    // Arrangement/MusicState machinery is no longer what this button drives.
+    void generateLoopClicked();
+
+    // DROP/BREAKDOWN mode buttons - re-renders the STORED currentIdentity
+    // via applyRenderMode() with no new seed drawn and no call into
+    // generateLoopClicked(), so switching modes can never regenerate the
+    // underlying motifs (see Engine::renderMode's own guarantee).
+    void modeClicked(Engine::RenderMode mode);
+
+    // Sends currentIdentity/currentMelodyMotif's ALWAYS-unchanged pattern
+    // data to setGeneratedDrumPattern/setGeneratedMelodyPattern only when
+    // called from generateLoopClicked() (a real new pattern to store) and
+    // applies that mode's RoleMix mute/gain suggestions
+    // (setGeneratedDrumRoleMuted/setGeneratedDrumRoleGain/
+    // setMelodyTrackMuted) every time, including on a bare mode switch.
+    void applyRenderMode(Engine::RenderMode mode, bool alsoSendPatternData);
 
     // Part D of the bass-runtime-bug + sample-selection investigation:
     // "why did the selector think this was a good Melodic Techno
@@ -84,21 +104,13 @@ private:
     // real ranking behind percA/percB's actual choice can be inspected
     // after every Generate Drum Pattern click - not a one-off report,
     // always current. sel/pool/seed/bpm are exactly what
-    // generateDrumPatternClicked() already computed for this click - see
+    // generateLoopClicked() already computed for this click - see
     // its own call to selectDrumSamples().
     static void logPercussionCandidateDiagnostics(const std::vector<IndexedSample>& indexed,
                                                     const DrumSampleSelection& sel,
                                                     double bpm);
 
-    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - reuses
-    // the EXISTING melody-voice/hosted-Serum2 path (track 0, "Bass" by
-    // default - see its setup at construction below) rather than a new
-    // one: this only ever produces note data and hands it to
-    // processor.setMelodyPattern(), exactly like every other melody
-    // track's own Generate button already does.
-    void generateBassPatternClicked();
-
-    // Keeps generateDrumPatternButton's enabled state and label in sync
+    // Keeps generateLoopButton's enabled state and label in sync
     // with sampleIndexReady/libraryDir - called once at construction and
     // again whenever sampleIndex.onIndexReady fires. Disabled (not just
     // silently ineffective) is the fix for the confirmed race where
@@ -240,11 +252,25 @@ private:
     // critiquing existing/already-played audio; a reference track is an
     // input to generation, so it lives here). See loadReferenceTrackClicked/
     // onReferenceAnalyzed/clearReferenceTrack/extractPatternsClicked below.
-    // Phase 1 deterministic engine (Source/Engine/) - synthesizes and plays
-    // real audio directly from AbletonCopilot itself, see
-    // generateDrumPatternClicked(). Not gated by kShowExperimentalFeatures -
-    // this is the new engine, not the hidden heuristic/AI layer.
-    juce::TextButton  generateDrumPatternButton { "Generate Drum Pattern" };
+    // The loop-generator workflow (Source/Engine/MusicIdentity.h) - synthesizes
+    // and plays real audio directly from AbletonCopilot itself, see
+    // generateLoopClicked(). Not gated by kShowExperimentalFeatures - this
+    // is the new engine, not the hidden heuristic/AI layer.
+    juce::TextButton  generateLoopButton { "Generate" };
+
+    // DROP/BREAKDOWN - two mixes of the SAME generated MusicIdentity, see
+    // modeClicked()/applyRenderMode(). currentRenderMode tracks which one
+    // is active so a mode button click can re-render without regenerating.
+    juce::TextButton  dropModeButton      { "DROP" };
+    juce::TextButton  breakdownModeButton { "BREAKDOWN" };
+    Engine::RenderMode currentRenderMode = Engine::RenderMode::Drop;
+
+    // The identity/melody generated by the last generateLoopClicked() -
+    // std::nullopt until the first Generate click. modeClicked() reads
+    // this (never regenerates it) to switch mixes.
+    std::optional<Engine::MusicIdentity> currentIdentity;
+    std::vector<int8_t>                  currentMelodyMotif; // 256 steps once generated
+
     // Temporary "trace the library-scan pipeline" diagnostic (separate from
     // drumPatternStatusLabel, which only ever shows post-Generate-click
     // decode diagnostics) - always visible, refreshed every timerCallback()
@@ -254,15 +280,28 @@ private:
     juce::Label       libraryScanStatusLabel;
     juce::Label       drumPatternStatusLabel;
     // Read-only display of the generated pattern, fed the exact same data
-    // as processor.setGeneratedDrumPattern() - see generateDrumPatternClicked().
+    // as processor.setGeneratedDrumPattern() - see generateLoopClicked().
     GeneratedDrumGridComponent generatedDrumGrid;
 
-    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - see
-    // generateBassPatternClicked(). Not gated by kShowFullUI, same
-    // reasoning as generateDrumPatternButton above: this is the new
-    // deterministic-engine bass, not the hidden prompt/critique layer.
-    juce::TextButton  generateBassPatternButton { "Generate Bass" };
-    juce::Label       bassPatternStatusLabel;
+    // Loop-generator mute row: independent per-role MIX control (Part 10 of
+    // the loop-generator brief) - never touches the stored pattern, see
+    // PluginProcessor::setGeneratedDrumRoleMuted. One control per
+    // Engine::DrumRole ordinal (Kick/Clap/HatClosed/HatOpen/PercA/PercB, in
+    // that order - see the array init in the constructor).
+    struct DrumRoleMuteControl
+    {
+        juce::Label      roleLabel;
+        juce::TextButton muteButton { "M" };
+    };
+    std::array<DrumRoleMuteControl, 6> drumRoleMutes;
+
+    // Serum2 status for the loop workflow's two always-present voices
+    // (track 0 = Bass, track 1 = Melody) - reuses the existing, already-
+    // honest processor.getMelodyTrackStatus() (never fabricates a preset
+    // name) for both.
+    juce::Label serumBassStatusLabel;
+    juce::Label serumMelodyStatusLabel;
+    juce::Label loopLengthLabel;
 
     juce::TextButton  loadReferenceButton  { "Load Reference Track..." };
     juce::TextButton  clearReferenceButton { "Clear" };
@@ -314,7 +353,7 @@ private:
 
     // Analyzed+cached drum-role samples (see Source/DrumSampleIndex.h) -
     // rebuilt in the background whenever rackBrowser rescans, off the
-    // audio thread. generateDrumPatternClicked() ranks/selects from
+    // audio thread. generateLoopClicked() ranks/selects from
     // whatever's here at click time (see Source/DrumSampleSelector.h).
     // Confirmed root cause of "every role falls back to DrumVoiceSynth
     // even though the library has real candidates": the FIRST scan can

@@ -250,13 +250,29 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(genreEqToggle);
     genreEqToggle.setVisible(kShowFullUI); // melody-track EQ toggle, hidden alongside the melody grid
 
-    // Phase 1 deterministic engine - AbletonCopilot outputs real MIDI directly
-    // to the host, mixed straight into AbletonCopilot's own audio output -
-    // no Drum Rack or other instrument required to hear it.
-    generateDrumPatternButton.setColour(juce::TextButton::buttonColourId,  kPanel);
-    generateDrumPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
-    generateDrumPatternButton.onClick = [this] { generateDrumPatternClicked(); };
-    addAndMakeVisible(generateDrumPatternButton);
+    // Loop-generator workflow (Source/Engine/MusicIdentity.h) - one click
+    // builds a shared MusicIdentity and immediately plays drums+bass+melody
+    // together as a 16-bar loop, mixed straight into AbletonCopilot's own
+    // audio output - no Drum Rack or other instrument required to hear it.
+    dropModeButton.setClickingTogglesState(true);
+    dropModeButton.setRadioGroupId(1);
+    dropModeButton.setToggleState(true, juce::dontSendNotification);
+    dropModeButton.setColour(juce::TextButton::buttonOnColourId,  kAccent);
+    dropModeButton.setColour(juce::TextButton::buttonColourId,    kPanel);
+    dropModeButton.onClick = [this] { modeClicked(Engine::RenderMode::Drop); };
+    addAndMakeVisible(dropModeButton);
+
+    breakdownModeButton.setClickingTogglesState(true);
+    breakdownModeButton.setRadioGroupId(1);
+    breakdownModeButton.setColour(juce::TextButton::buttonOnColourId,  kAccent);
+    breakdownModeButton.setColour(juce::TextButton::buttonColourId,    kPanel);
+    breakdownModeButton.onClick = [this] { modeClicked(Engine::RenderMode::Breakdown); };
+    addAndMakeVisible(breakdownModeButton);
+
+    generateLoopButton.setColour(juce::TextButton::buttonColourId,  kPanel);
+    generateLoopButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    generateLoopButton.onClick = [this] { generateLoopClicked(); };
+    addAndMakeVisible(generateLoopButton);
     updateGenerateButtonAvailability(); // starts disabled - the background sample scan hasn't run yet at this point in the constructor
 
     libraryScanStatusLabel.setFont(small());
@@ -273,21 +289,48 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(drumPatternStatusLabel);
     addAndMakeVisible(generatedDrumGrid);
 
-    // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - plays
-    // through the existing track-0 "Bass" Serum2 voice (see its setup
-    // below), same trigger/audio path every other melody track already
-    // uses, so this button needs no availability gating like the drum one
-    // does (no sample-library scan dependency).
-    generateBassPatternButton.setColour(juce::TextButton::buttonColourId,  kPanel);
-    generateBassPatternButton.setColour(juce::TextButton::textColourOffId, kAccent);
-    generateBassPatternButton.onClick = [this] { generateBassPatternClicked(); };
-    addAndMakeVisible(generateBassPatternButton);
+    // Per-role mute row (Part 10) - a MIX control, independent of
+    // generation. See PluginProcessor::setGeneratedDrumRoleMuted; role
+    // order matches Engine::DrumRole (Kick, Clap, HatClosed, HatOpen,
+    // PercA, PercB).
+    {
+        static const char* const kRoleNames[6] = { "Kick", "Clap", "Closed Hat", "Open Hat", "Perc A", "Perc B" };
+        for (int r = 0; r < 6; ++r)
+        {
+            auto& ctrl = drumRoleMutes[(size_t) r];
+            ctrl.roleLabel.setText(kRoleNames[r], juce::dontSendNotification);
+            ctrl.roleLabel.setFont(small());
+            ctrl.roleLabel.setColour(juce::Label::textColourId, kTextDim);
+            addAndMakeVisible(ctrl.roleLabel);
 
-    bassPatternStatusLabel.setFont(small());
-    bassPatternStatusLabel.setJustificationType(juce::Justification::topLeft);
-    bassPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    bassPatternStatusLabel.setText("Not generated yet.", juce::dontSendNotification);
-    addAndMakeVisible(bassPatternStatusLabel);
+            ctrl.muteButton.setClickingTogglesState(true);
+            ctrl.muteButton.setColour(juce::TextButton::buttonColourId,   kPanel);
+            ctrl.muteButton.setColour(juce::TextButton::buttonOnColourId, UIStyle::kMuteActive);
+            ctrl.muteButton.onClick = [this, r]
+            {
+                processor.setGeneratedDrumRoleMuted(r, drumRoleMutes[(size_t) r].muteButton.getToggleState());
+            };
+            addAndMakeVisible(ctrl.muteButton);
+        }
+    }
+
+    // Bass/Melody Serum2 status - reuses the existing, already-honest
+    // processor.getMelodyTrackStatus() (never fabricates a preset name).
+    serumBassStatusLabel.setFont(small());
+    serumBassStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    serumBassStatusLabel.setText("Bass - Serum 2: not loaded yet", juce::dontSendNotification);
+    addAndMakeVisible(serumBassStatusLabel);
+
+    serumMelodyStatusLabel.setFont(small());
+    serumMelodyStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    serumMelodyStatusLabel.setText("Melody - Serum 2: not loaded yet", juce::dontSendNotification);
+    addAndMakeVisible(serumMelodyStatusLabel);
+
+    loopLengthLabel.setFont(small());
+    loopLengthLabel.setColour(juce::Label::textColourId, kTextDim);
+    loopLengthLabel.setText(juce::String("Loop: ") + juce::String(Engine::kLoopBars) + " bars",
+                             juce::dontSendNotification);
+    addAndMakeVisible(loopLengthLabel);
 
     // Reference-track controls - Studio, not Advisor (see PluginEditor.h).
     loadReferenceButton.setColour(juce::TextButton::buttonColourId,  kPanel);
@@ -404,6 +447,25 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
         melodyGrid.addTrack(categoryDisplayName(MelodyCategory::Bass), categoryColour(MelodyCategory::Bass));
         processor.setMelodyTrackCategory(trackIndex, MelodyCategory::Bass);
         auto* panel = melodyPanels.add(new MelodyTrackPanel(*this, trackIndex));
+        mainContent.addAndMakeVisible(panel);
+        scanPresetsForTrack(*panel);
+        updateTrackTitle(*panel);
+    }
+
+    // Track 1 — always present ("Melody" by default, Lead category) for
+    // the loop-generator workflow's third simultaneous voice (see
+    // generateLoopClicked()). Same "reference the processor's own
+    // already-allocated slot directly" pattern as track 0 above - the
+    // processor constructor already called addMelodyTrack() a second time
+    // for this. Reuses the existing MelodyTrackPanel/Capture/preset-cycle
+    // machinery unchanged, so capturing a real melodic-techno lead sound
+    // for this track works exactly the same way it already does for Bass.
+    {
+        const int trackIndex = 1;
+        melodyGrid.addTrack(categoryDisplayName(MelodyCategory::Lead), categoryColour(MelodyCategory::Lead));
+        auto* panel = melodyPanels.add(new MelodyTrackPanel(*this, trackIndex));
+        panel->category = MelodyCategory::Lead;
+        processor.setMelodyTrackCategory(trackIndex, MelodyCategory::Lead);
         mainContent.addAndMakeVisible(panel);
         scanPresetsForTrack(*panel);
         updateTrackTitle(*panel);
@@ -621,36 +683,52 @@ void AbletonCopilotAudioProcessorEditor::resized()
         area.removeFromTop(12);
     }
 
-    // Phase 1 deterministic engine row(s) - always visible (not gated by
-    // kShowExperimentalFeatures). Status label gets its own multi-line
-    // block below the button (temporary end-to-end diagnostics - several
-    // lines of text, doesn't fit next to the button). This is the focus
-    // of the drum-generation milestone, so it's the one section never
-    // hidden by kShowFullUI.
+    // Loop-generator row(s) - always visible (not gated by
+    // kShowExperimentalFeatures). Mode buttons + Generate first, then
+    // status/diagnostics below (several lines of text, doesn't fit next to
+    // the buttons).
+    auto modeRow = area.removeFromTop(26).reduced(12, 0);
+    dropModeButton.setBounds(modeRow.removeFromLeft(90));
+    modeRow.removeFromLeft(6);
+    breakdownModeButton.setBounds(modeRow.removeFromLeft(120));
+    modeRow.removeFromLeft(12);
+    loopLengthLabel.setBounds(modeRow.removeFromLeft(100));
+    area.removeFromTop(6);
+
     auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
-    generateDrumPatternButton.setBounds(drumEngineRow.removeFromLeft(180));
+    generateLoopButton.setBounds(drumEngineRow.removeFromLeft(180));
+    area.removeFromTop(6);
+
+    // Per-role mute row - one compact column per role.
+    {
+        auto muteRow = area.removeFromTop(48).reduced(12, 0);
+        const int colWidth = muteRow.getWidth() / 6;
+        for (auto& ctrl : drumRoleMutes)
+        {
+            auto col = muteRow.removeFromLeft(colWidth);
+            ctrl.roleLabel.setBounds(col.removeFromTop(20));
+            ctrl.muteButton.setBounds(col.removeFromTop(24).withWidth(40));
+        }
+    }
+    area.removeFromTop(6);
+
+    serumBassStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
+    serumMelodyStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
     area.removeFromTop(4);
+
     // Library-scan pipeline diagnostics (see updateLibraryScanStatusLabel)
     // - always visible, not gated behind a Generate click, since the whole
     // point is showing why Generate can't be clicked yet. 6 short lines.
     libraryScanStatusLabel.setBounds(area.removeFromTop(90).reduced(12, 0));
     area.removeFromTop(4);
     // Sample-load diagnostic block - one compact line per role (see
-    // generateDrumPatternClicked) instead of the earlier 4-lines-per-role
+    // generateLoopClicked) instead of the earlier 4-lines-per-role
     // layout, so 6 roles' worth of diagnostics plus everything below it
-    // (drum grid, bass controls) fits in the fixed-height window without
-    // clipping (see the UI-compactness milestone).
+    // (drum grid) fits in the fixed-height window without clipping (see
+    // the UI-compactness milestone).
     drumPatternStatusLabel.setBounds(area.removeFromTop(150).reduced(12, 0));
     area.removeFromTop(4);
     generatedDrumGrid.setBounds(area.removeFromTop(GeneratedDrumGridComponent::kRequiredHeight).reduced(12, 0));
-    area.removeFromTop(8);
-
-    // Bass row - same "always visible, own status block below the button"
-    // convention as the drum engine row above.
-    auto bassEngineRow = area.removeFromTop(26).reduced(12, 0);
-    generateBassPatternButton.setBounds(bassEngineRow.removeFromLeft(180));
-    area.removeFromTop(4);
-    bassPatternStatusLabel.setBounds(area.removeFromTop(80).reduced(12, 0));
     area.removeFromTop(8);
 
     // Reference-track row(s) - hidden while kShowExperimentalFeatures is
@@ -1126,18 +1204,18 @@ void AbletonCopilotAudioProcessorEditor::updateGenerateButtonAvailability()
 {
     if (!libraryDir.isDirectory())
     {
-        generateDrumPatternButton.setEnabled(false);
-        generateDrumPatternButton.setButtonText("No Sample Library");
+        generateLoopButton.setEnabled(false);
+        generateLoopButton.setButtonText("No Sample Library");
     }
     else if (!sampleIndexReady)
     {
-        generateDrumPatternButton.setEnabled(false);
-        generateDrumPatternButton.setButtonText("Scanning Library...");
+        generateLoopButton.setEnabled(false);
+        generateLoopButton.setButtonText("Scanning Library...");
     }
     else
     {
-        generateDrumPatternButton.setEnabled(true);
-        generateDrumPatternButton.setButtonText("Generate Drum Pattern");
+        generateLoopButton.setEnabled(true);
+        generateLoopButton.setButtonText("Generate");
     }
 }
 
@@ -1185,154 +1263,221 @@ void AbletonCopilotAudioProcessorEditor::updateLibraryScanStatusLabel()
     libraryScanStatusLabel.setText(s, juce::dontSendNotification);
 }
 
-void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
+void AbletonCopilotAudioProcessorEditor::generateLoopClicked()
 {
     juce::Random rng;
+    const auto [keyRoot, isMinor] = getSelectedKey();
 
-    // Drums and bass each get their OWN independently-seeded
-    // MusicArrangement (Source/Engine/Arrangement.h) and this click only
-    // ever touches drum state - see generateBassPatternClicked() below,
-    // which is the mirror image. They are deliberately NOT coupled
-    // together anymore: an earlier version of this code had "Generate
-    // Bass" call straight into this function (to keep them on one shared
-    // arrangement/seed), which meant clicking Generate Bass silently
-    // regenerated and replaced the entire drum pattern too - a real,
-    // confirmed bug (drum rack state changing when only bass was asked
-    // for), not the intended "share musical context" behaviour. Both
-    // still use the exact same Engine::buildArrangement/MusicState
-    // machinery - the SHAPE of the arrangement (section order, energy/
-    // tension curve) is structurally identical either way - they just no
-    // longer force each other to regenerate on every click.
-    Engine::ArrangementConfig arrangementCfg;
-    arrangementCfg.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
-    if (arrangementCfg.bpm <= 0.0)
-        arrangementCfg.bpm = 124.0; // matches the real reference arrangements' own tempo (2 of the 3 measured tracks are 124 BPM) - see melodic_techno_research.md section 3.2
-    const auto [arrangementKeyRoot, arrangementIsMinor] = getSelectedKey();
-    arrangementCfg.rootNote = arrangementKeyRoot;
-    arrangementCfg.seed     = (uint32_t) rng.nextInt();
-    const Engine::MusicArrangement arrangement = Engine::buildArrangement(arrangementCfg);
+    // ONE shared Engine::MusicIdentity drives drums+bass together (see
+    // MusicIdentity.h - drums via the already-existing native 16-bar
+    // Engine::generateDrop(), bass via Engine::generateBassPattern()
+    // tiled x2). This replaces the previous 92-bar-arrangement-driven
+    // Generate Drum Pattern/Generate Bass split: both are now one click,
+    // both are audible from bar 1, and the loop is exactly 16 bars.
+    Engine::MusicIdentityParams idParams;
+    idParams.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
+    if (idParams.bpm <= 0.0)
+        idParams.bpm = 124.0; // matches the real reference arrangements' own tempo - see melodic_techno_research.md section 3.2
+    idParams.rootNote = keyRoot;
+    idParams.isMinor  = isMinor;
+    idParams.seed     = (uint32_t) rng.nextInt();
+    currentIdentity = Engine::generateMusicIdentity(idParams);
 
-    constexpr int kStepsPerBar = 16;
+    // Melody motif: the SAME real motif generator this codebase already
+    // has (MusicTheory/MelodyMotifGenerator.h, extracted from
+    // MelodyGridComponent's manual-editing path) - not a second
+    // independent generation system (per the loop-generator's explicit
+    // "don't build separate generation systems" rule). Its native output
+    // is 8 bars/128 steps; tiled x2 to fill the same 16-bar loop as
+    // drums/bass, same convention as MusicIdentity's own bass tiling.
+    const auto eightBarMelody = MelodyMotifGenerator::generateMelodyMotif(
+        keyRoot, isMinor, MelodyCategory::Lead, MelodyStyle::Default, idParams.seed);
+    currentMelodyMotif.assign((size_t) Engine::kLoopTotalSteps, MelodyGridComponent::kMelodyOff);
+    for (int rep = 0; rep < 2; ++rep)
+        for (int i = 0; i < (int) eightBarMelody.size(); ++i)
+            currentMelodyMotif[(size_t) (rep * (int) eightBarMelody.size() + i)] = eightBarMelody[(size_t) i];
 
-    Engine::DrumPatternParams params;
-    params.density     = 0.5f;
-    params.syncopation = 0.3f;
-    params.variation   = 0.2f;
-    params.seed        = arrangementCfg.seed;
+    applyRenderMode(currentRenderMode, /* alsoSendPatternData */ true);
+}
 
-    const Engine::DropPattern drop = Engine::generateArrangementDrop(arrangement, kStepsPerBar, params);
+void AbletonCopilotAudioProcessorEditor::modeClicked(Engine::RenderMode mode)
+{
+    // Re-renders the STORED identity - no new seed drawn, no call into
+    // generateLoopClicked(), so this can never regenerate the underlying
+    // motifs (see Engine::renderMode's own by-construction guarantee: its
+    // .drum/.bass output is always byte-identical across modes).
+    applyRenderMode(mode, /* alsoSendPatternData */ false);
+}
 
-    struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
-    // General MIDI drum map note numbers - a real, recognized convention
-    // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Open Hi-Hat, Side Stick, Open
-    // Hi Conga) so this lines up with most drum racks/instruments by
-    // default. Order matches Engine::DrumRole (Kick, Clap, HatClosed,
-    // HatOpen, PercA, PercB).
-    std::vector<RoleExport> roles;
-    roles.push_back({ "KICK",       36, UIStyle::kKick,     drop.kick      });
-    roles.push_back({ "CLAP",       39, UIStyle::kClap,     drop.clap      });
-    roles.push_back({ "HAT_CLOSED", 42, UIStyle::kHihat,     drop.hatClosed });
-    roles.push_back({ "HAT_OPEN",   46, UIStyle::kHihatOpen, drop.hatOpen   });
-    roles.push_back({ "PERC_A",     37, UIStyle::kPerc,      drop.percA    });
-    roles.push_back({ "PERC_B",     63, UIStyle::kPercAlt,   drop.percB    });
+void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode, bool alsoSendPatternData)
+{
+    currentRenderMode = mode;
+    dropModeButton.setToggleState(mode == Engine::RenderMode::Drop, juce::dontSendNotification);
+    breakdownModeButton.setToggleState(mode == Engine::RenderMode::Breakdown, juce::dontSendNotification);
 
-    // Hand the pattern straight to the processor - it plays it back as real
-    // audio (DrumVoiceSynth, see PluginProcessor.cpp) and, secondarily, as
-    // MIDI. Also feed generatedDrumGrid so the UI shows exactly the same
-    // pattern - both consumers are built from the SAME toVelocityArray()
-    // result per role (Engine::toVelocityArray, DrumEngine.h), never two
-    // independently-derived patterns.
-    std::vector<AbletonCopilotAudioProcessor::GeneratedDrumRole> processorRoles;
-    std::vector<GeneratedDrumGridComponent::RowDisplay> displayRows;
-    juce::StringArray summaryParts;
-    int totalHits = 0;
+    if (!currentIdentity.has_value())
+        return; // nothing generated yet - the mode just becomes the default applied on the next Generate click
 
-    // Sample-selection layer (Source/DrumSampleSelector.h): decides WHICH
-    // FILE, never WHEN/WHERE/how loud - that stays entirely DrumEngine's
-    // job above. One seed drawn here (same pattern as each role's own
-    // DrumPatternParams::seed) so the same seed always picks the same
-    // samples; a fresh Generate click still explores new choices, same as
-    // it already explores new patterns.
-    const uint32_t sampleSeed = (uint32_t) rng.nextInt();
-    const double   bpmForSelection = (double) processor.currentBpm.load(std::memory_order_relaxed);
-    const DrumSampleSelection sampleSel = selectDrumSamples(latestSampleIndex, sampleSeed, bpmForSelection);
-    logPercussionCandidateDiagnostics(latestSampleIndex, sampleSel, bpmForSelection);
+    const auto [keyRoot, isMinor] = getSelectedKey();
+    juce::ignoreUnused(isMinor);
+    const Engine::RenderedLoop rendered = Engine::renderMode(*currentIdentity, mode);
 
-    auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
+    if (alsoSendPatternData)
     {
-        if (juce::String(name) == "KICK")       return sampleSel.kick;
-        if (juce::String(name) == "CLAP")       return sampleSel.clap;
-        if (juce::String(name) == "HAT_CLOSED") return sampleSel.hatClosed;
-        if (juce::String(name) == "HAT_OPEN")   return sampleSel.hatOpen;
-        if (juce::String(name) == "PERC_A")     return sampleSel.percA;
-        return sampleSel.percB;
+        struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
+        // General MIDI drum map note numbers - a real, recognized convention
+        // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Open Hi-Hat, Side Stick, Open
+        // Hi Conga) so this lines up with most drum racks/instruments by
+        // default. Order matches Engine::DrumRole (Kick, Clap, HatClosed,
+        // HatOpen, PercA, PercB).
+        std::vector<RoleExport> roles;
+        roles.push_back({ "KICK",       36, UIStyle::kKick,     rendered.drum.kick      });
+        roles.push_back({ "CLAP",       39, UIStyle::kClap,     rendered.drum.clap      });
+        roles.push_back({ "HAT_CLOSED", 42, UIStyle::kHihat,     rendered.drum.hatClosed });
+        roles.push_back({ "HAT_OPEN",   46, UIStyle::kHihatOpen, rendered.drum.hatOpen   });
+        roles.push_back({ "PERC_A",     37, UIStyle::kPerc,      rendered.drum.percA    });
+        roles.push_back({ "PERC_B",     63, UIStyle::kPercAlt,   rendered.drum.percB    });
+
+        // Hand the pattern straight to the processor - it plays it back as real
+        // audio (DrumVoiceSynth, see PluginProcessor.cpp) and, secondarily, as
+        // MIDI. Also feed generatedDrumGrid so the UI shows exactly the same
+        // pattern - both consumers are built from the SAME toVelocityArray()
+        // result per role (Engine::toVelocityArray, DrumEngine.h), never two
+        // independently-derived patterns.
+        std::vector<AbletonCopilotAudioProcessor::GeneratedDrumRole> processorRoles;
+        std::vector<GeneratedDrumGridComponent::RowDisplay> displayRows;
+        juce::StringArray summaryParts;
+        int totalHits = 0;
+
+        // Sample-selection layer (Source/DrumSampleSelector.h): decides WHICH
+        // FILE, never WHEN/WHERE/how loud - that stays entirely DrumEngine's
+        // job above. One seed drawn here (independent of the identity's own
+        // seed) so the same identity seed can still explore new sample
+        // choices on a fresh Generate click, same as before.
+        juce::Random rng;
+        const uint32_t sampleSeed = (uint32_t) rng.nextInt();
+        const double   bpmForSelection = currentIdentity->bpm;
+        const DrumSampleSelection sampleSel = selectDrumSamples(latestSampleIndex, sampleSeed, bpmForSelection);
+        logPercussionCandidateDiagnostics(latestSampleIndex, sampleSel, bpmForSelection);
+
+        auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
+        {
+            if (juce::String(name) == "KICK")       return sampleSel.kick;
+            if (juce::String(name) == "CLAP")       return sampleSel.clap;
+            if (juce::String(name) == "HAT_CLOSED") return sampleSel.hatClosed;
+            if (juce::String(name) == "HAT_OPEN")   return sampleSel.hatOpen;
+            if (juce::String(name) == "PERC_A")     return sampleSel.percA;
+            return sampleSel.percB;
+        };
+
+        for (auto& role : roles)
+        {
+            std::vector<int> velocity = Engine::toVelocityArray(role.steps);
+            const int activeCount = (int) std::count_if(velocity.begin(), velocity.end(),
+                                                          [](int v) { return v > 0; });
+
+            const DrumSampleChoice& choice = choiceForRole(role.name);
+
+            AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
+            pr.midiNote   = role.midiNote;
+            pr.velocity   = velocity;
+            pr.sampleFile = choice.file; // invalid File() -> PluginProcessor falls back to DrumVoiceSynth for this role
+            processorRoles.push_back(std::move(pr));
+
+            GeneratedDrumGridComponent::RowDisplay dr;
+            dr.name     = role.name;
+            dr.colour   = role.colour;
+            dr.velocity = std::move(velocity);
+            displayRows.push_back(std::move(dr));
+
+            totalHits += activeCount;
+            summaryParts.add(juce::String(activeCount) + " " + juce::String(role.name).toLowerCase());
+        }
+
+        processor.setGeneratedDrumPattern(processorRoles);
+        generatedDrumGrid.setPattern(std::move(displayRows), Engine::kLoopStepsPerBar, Engine::kLoopBars);
+
+        // Bass (track 0) and Melody (track 1) - both immediately active
+        // from bar 1, both fed by the SAME identity/melody stored above
+        // (never regenerated by a mode switch - see modeClicked()).
+        processor.setGeneratedMelodyPattern(0, currentIdentity->bassMotif, keyRoot);
+        processor.setGeneratedMelodyPattern(1, currentMelodyMotif, keyRoot);
+
+        int bassActiveCount = 0;
+        for (auto v : currentIdentity->bassMotif)
+            if (v != Engine::kBassOffValue)
+                ++bassActiveCount;
+        int melodyActiveCount = 0;
+        for (auto v : currentMelodyMotif)
+            if (v != MelodyGridComponent::kMelodyOff)
+                ++melodyActiveCount;
+
+        juce::String status;
+        status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
+               << " total), bass " << bassActiveCount << " notes, melody " << melodyActiveCount
+               << " notes - a " << Engine::kLoopBars << "-bar loop.\n";
+        status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
+                  "No Drum Rack or other instrument required.\n";
+
+        // Sample-load diagnostic block: one compact line per role (pool/
+        // shortlist size, candidate filename + exists/format/reader checks,
+        // final loaded file or fallback) - see
+        // getGeneratedRoleLoadDiagnostics(), queried fresh here so this
+        // can't drift from what setGeneratedDrumPattern() actually did.
+        status << "Sample index: " << (int) latestSampleIndex.size() << " analyzed samples total.\n";
+        for (auto& role : roles)
+        {
+            Engine::DrumRole resolvedRole;
+            if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
+                continue;
+
+            const DrumSampleChoice& choice = choiceForRole(role.name);
+            const auto d = processor.getGeneratedRoleLoadDiagnostics(resolvedRole);
+
+            const juce::String label = juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
+                                      + juce::String(role.name).toLowerCase().substring(1);
+            status << label << ": pool=" << choice.poolSize << "/" << choice.shortlistSize
+                   << "  cand=" << (d.candidateFile.getFileName().isEmpty() ? juce::String("(none)") : d.candidateFile.getFileName())
+                   << " [" << (d.candidateExists ? juce::String("found") : juce::String("MISSING"))
+                   << (d.formatRecognized ? (", " + d.recognizedFormatName) : juce::String(", unrecognized"))
+                   << (d.readerCreated ? (", " + juce::String((juce::int64) d.decodedLengthSamples) + "smp") : juce::String(", no-reader"))
+                   << "]  -> " << (d.finalLoadedFile.existsAsFile() ? d.finalLoadedFile.getFileName() : juce::String("SYNTH FALLBACK"))
+                   << "\n";
+        }
+
+        drumPatternStatusLabel.setText(status, juce::dontSendNotification);
+
+        // Serum2 status - reuses the existing, already-honest
+        // processor.getMelodyTrackStatus() (never fabricates a preset
+        // name - see MelodyTrackPanel's own Capture-driven status for the
+        // fuller per-track version of this).
+        serumBassStatusLabel.setText("Bass - Serum 2: " + processor.getMelodyTrackStatus(0), juce::dontSendNotification);
+        serumMelodyStatusLabel.setText("Melody - Serum 2: " + processor.getMelodyTrackStatus(1), juce::dontSendNotification);
+    }
+
+    // Per-role MIX defaults for this mode (Part 10/11) - ALWAYS applied,
+    // whether this came from a fresh Generate or a bare mode switch.
+    // Never touches generatedDrumRoles/generatedRoleSampleBuffers (see
+    // setGeneratedDrumRoleMuted's own contract) - only gates triggering.
+    struct RoleMixApply { Engine::DrumRole role; const Engine::RoleMix& mix; };
+    const RoleMixApply mixes[] = {
+        { Engine::DrumRole::Kick,      rendered.kick },
+        { Engine::DrumRole::Clap,      rendered.clap },
+        { Engine::DrumRole::HatClosed, rendered.hatClosed },
+        { Engine::DrumRole::HatOpen,   rendered.hatOpen },
+        { Engine::DrumRole::PercA,     rendered.percA },
+        { Engine::DrumRole::PercB,     rendered.percB },
     };
-
-    for (auto& role : roles)
+    for (auto& m : mixes)
     {
-        std::vector<int> velocity = Engine::toVelocityArray(role.steps);
-        const int activeCount = (int) std::count_if(velocity.begin(), velocity.end(),
-                                                      [](int v) { return v > 0; });
-
-        const DrumSampleChoice& choice = choiceForRole(role.name);
-
-        AbletonCopilotAudioProcessor::GeneratedDrumRole pr;
-        pr.midiNote   = role.midiNote;
-        pr.velocity   = velocity;
-        pr.sampleFile = choice.file; // invalid File() -> PluginProcessor falls back to DrumVoiceSynth for this role
-        processorRoles.push_back(std::move(pr));
-
-        GeneratedDrumGridComponent::RowDisplay dr;
-        dr.name     = role.name;
-        dr.colour   = role.colour;
-        dr.velocity = std::move(velocity);
-        displayRows.push_back(std::move(dr));
-
-        totalHits += activeCount;
-        summaryParts.add(juce::String(activeCount) + " " + juce::String(role.name).toLowerCase());
+        processor.setGeneratedDrumRoleMuted((int) m.role, m.mix.muted);
+        processor.setGeneratedDrumRoleGain((int) m.role, m.mix.gain);
+        // Reflects the mode-driven default in the mute button's toggle
+        // state too - the user can still override any individual one
+        // afterward (this only sets a default, it doesn't lock it).
+        drumRoleMutes[(size_t) m.role].muteButton.setToggleState(m.mix.muted, juce::dontSendNotification);
     }
-
-    processor.setGeneratedDrumPattern(processorRoles);
-    generatedDrumGrid.setPattern(std::move(displayRows), kStepsPerBar, arrangement.totalBars());
-
-    juce::String status;
-    status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
-           << " total) over " << arrangement.totalBars()
-           << " bars: Intro/Establish/Build/PreDrop/Drop/Breakdown/BreakdownBuild/FinalDrop/Outro. "
-              "(Bass is generated separately - see the Generate Bass button/status below.)\n";
-    status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
-              "No Drum Rack or other instrument required.\n";
-
-    // Sample-load diagnostic block: one compact line per role (pool/
-    // shortlist size, candidate filename + exists/format/reader checks,
-    // final loaded file or fallback) - the same information the earlier,
-    // much taller 4-lines-per-role block showed (see
-    // getGeneratedRoleLoadDiagnostics(), queried fresh here so this can't
-    // drift from what setGeneratedDrumPattern() actually did), condensed
-    // so 6 roles' worth fits without pushing the rest of the Studio view
-    // off the fixed-height window (see the UI-compactness milestone).
-    status << "Sample index: " << (int) latestSampleIndex.size() << " analyzed samples total.\n";
-    for (auto& role : roles)
-    {
-        Engine::DrumRole resolvedRole;
-        if (!Engine::drumRoleForGmNote(role.midiNote, resolvedRole))
-            continue;
-
-        const DrumSampleChoice& choice = choiceForRole(role.name);
-        const auto d = processor.getGeneratedRoleLoadDiagnostics(resolvedRole);
-
-        const juce::String label = juce::String(role.name).toLowerCase().substring(0, 1).toUpperCase()
-                                  + juce::String(role.name).toLowerCase().substring(1);
-        status << label << ": pool=" << choice.poolSize << "/" << choice.shortlistSize
-               << "  cand=" << (d.candidateFile.getFileName().isEmpty() ? juce::String("(none)") : d.candidateFile.getFileName())
-               << " [" << (d.candidateExists ? juce::String("found") : juce::String("MISSING"))
-               << (d.formatRecognized ? (", " + d.recognizedFormatName) : juce::String(", unrecognized"))
-               << (d.readerCreated ? (", " + juce::String((juce::int64) d.decodedLengthSamples) + "smp") : juce::String(", no-reader"))
-               << "]  -> " << (d.finalLoadedFile.existsAsFile() ? d.finalLoadedFile.getFileName() : juce::String("SYNTH FALLBACK"))
-               << "\n";
-    }
-
-    drumPatternStatusLabel.setText(status, juce::dontSendNotification);
+    processor.setMelodyTrackMuted(0, rendered.bassMuted); // Bass voice - "no normal bass groove" default in Breakdown
 }
 
 void AbletonCopilotAudioProcessorEditor::logPercussionCandidateDiagnostics(
@@ -1416,70 +1561,6 @@ void AbletonCopilotAudioProcessorEditor::logPercussionCandidateDiagnostics(
     auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("AbletonCopilot");
     dir.createDirectory();
     dir.getChildFile("percussion_selection_debug.txt").replaceWithText(report);
-}
-
-void AbletonCopilotAudioProcessorEditor::generateBassPatternClicked()
-{
-    juce::Random rng;
-
-    // Its own independently-seeded MusicArrangement - see
-    // generateDrumPatternClicked's comment above for why this click no
-    // longer touches drum state at all (a real, confirmed bug: it used to
-    // call straight into generateDrumPatternClicked, which regenerated
-    // and replaced the ENTIRE drum pattern every time Generate Bass was
-    // clicked).
-    Engine::ArrangementConfig arrangementCfg;
-    arrangementCfg.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
-    if (arrangementCfg.bpm <= 0.0)
-        arrangementCfg.bpm = 124.0;
-    const auto [arrangementKeyRoot, arrangementIsMinor] = getSelectedKey();
-    arrangementCfg.rootNote = arrangementKeyRoot;
-    arrangementCfg.seed     = (uint32_t) rng.nextInt();
-    const Engine::MusicArrangement arrangement = Engine::buildArrangement(arrangementCfg);
-
-    Engine::BassPatternParams bassParams;
-    bassParams.density   = 0.5f;
-    bassParams.variation = 0.2f;
-    bassParams.seed      = arrangementCfg.seed;
-    const std::vector<int8_t> bassPattern = Engine::generateArrangementBassPattern(arrangement, bassParams);
-
-    // Only ever touches track 0's generated-bass state (see
-    // PluginProcessor::setGeneratedBassPattern) - never
-    // setGeneratedDrumPattern, never the manual drum grid/rack state.
-    processor.setGeneratedBassPattern(0, bassPattern, arrangementKeyRoot);
-
-    int bassActiveCount = 0;
-    for (auto v : bassPattern)
-        if (v != Engine::kBassOffValue)
-            ++bassActiveCount;
-
-    // Runtime diagnostics (Part A of the bass-runtime-bug investigation):
-    // reports what PluginProcessor can actually PROVE happened at the
-    // moment of the click - notes stored, whether track 0's Serum2
-    // instance is loaded right now, and (once the transport has run for
-    // at least one block) how many note-on events have actually been
-    // sent to it and whether its own audio output is non-silent. This is
-    // queried fresh each time, not cached/assumed - see
-    // AbletonCopilotAudioProcessor::getMelodyVoiceDiagnostics.
-    const auto diag = processor.getMelodyVoiceDiagnostics(0);
-
-    juce::String bassStatus;
-    bassStatus << "Generated - " << bassActiveCount << " notes stored over " << arrangement.totalBars() << " bars.\n";
-    bassStatus << "Bass: Serum 2 / Preset: Unknown (host state) - start Ableton's transport to hear it.\n";
-    bassStatus << processor.getMelodyTrackStatus(0) << "\n";
-    bassStatus << "Runtime: serumLoaded=" << (diag.serumInstanceLoaded ? "yes" : "NO")
-               << "  generatedPatternActive=" << (diag.generatedPatternActive ? "yes" : "no")
-               << " (" << diag.generatedTotalSteps << " steps)"
-               << "  noteOnEventsSent=" << (juce::int64) diag.noteOnEventsSent
-               << "  lastBlockPeakOut=" << juce::String(diag.lastBlockPeakOut, 5)
-               << "  suppressOwnPlayback=" << (diag.suppressOwnPlayback ? "YES (would silence everything)" : "no") << "\n";
-    bassStatus << "(noteOnEventsSent/lastBlockPeakOut only update while Ableton's transport is running - "
-                  "press play, wait a moment, then reopen this to see real numbers.)\n";
-    bassStatus << "To use one of your own melodic-techno Serum 2 bass presets: open Serum 2 on the "
-                  "Bass track, browse to a preset by ear, then click that track's Capture button - "
-                  "captured sounds can be cycled with the </> buttons. (Serum 2's own preset files "
-                  "can't be loaded automatically - see the investigation notes for why.)";
-    bassPatternStatusLabel.setText(bassStatus, juce::dontSendNotification);
 }
 
 void AbletonCopilotAudioProcessorEditor::buildMelodyEditSuggestions()

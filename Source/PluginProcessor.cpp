@@ -51,6 +51,12 @@ AbletonCopilotAudioProcessor::AbletonCopilotAudioProcessor()
 
     juce::addDefaultFormatsToManager(pluginFormatManager);
     addMelodyTrack(); // track 0 — always present by default (the "Bass" voice) - starts loadSerum() on a background thread, does not block here
+    addMelodyTrack(); // track 1 — always present by default (the "Melody" voice, loop-generator workflow) - so its Serum2 instance is already loading before the user ever clicks Generate, per "the generated bass workflow should use the captured/known Serum 2 state immediately rather than waiting"
+
+    for (auto& muted : generatedDrumRoleMuted)
+        muted.store(false, std::memory_order_relaxed);
+    for (auto& gain : generatedDrumRoleGain)
+        gain.store(1.0f, std::memory_order_relaxed);
 
     StartupTiming::mark("AudioProcessor ctor end");
 }
@@ -297,7 +303,7 @@ void AbletonCopilotAudioProcessor::setMelodyPattern(int trackIndex,
     voice.keyRoot = keyRoot;
 }
 
-void AbletonCopilotAudioProcessor::setGeneratedBassPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot)
+void AbletonCopilotAudioProcessor::setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot)
 {
     if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
         return;
@@ -307,6 +313,20 @@ void AbletonCopilotAudioProcessor::setGeneratedBassPattern(int trackIndex, const
     voice.generatedOffsets    = offsets;
     voice.generatedTotalSteps = (int) offsets.size();
     voice.keyRoot             = keyRoot;
+}
+
+void AbletonCopilotAudioProcessor::setGeneratedDrumRoleMuted(int role, bool muted)
+{
+    if (role < 0 || role >= kMaxGeneratedDrumRoles)
+        return;
+    generatedDrumRoleMuted[role].store(muted, std::memory_order_relaxed);
+}
+
+void AbletonCopilotAudioProcessor::setGeneratedDrumRoleGain(int role, float gain)
+{
+    if (role < 0 || role >= kMaxGeneratedDrumRoles)
+        return;
+    generatedDrumRoleGain[role].store(gain, std::memory_order_relaxed);
 }
 
 void AbletonCopilotAudioProcessor::setMelodyTrackMuted(int trackIndex, bool muted)
@@ -905,6 +925,22 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         if (vel <= 0)
                             continue;
 
+                        // Per-role MIX gate (see setGeneratedDrumRoleMuted/
+                        // setGeneratedDrumRoleGain) - mute/solo-style: only
+                        // gates the TRIGGERING of a new note here, same as
+                        // drumRowMuted/MelodyVoice::muted elsewhere in this
+                        // function. Never touches role.velocity/localRoles
+                        // (the stored pattern) - an already-sounding voice
+                        // from before a mute finishes decaying naturally,
+                        // and unmuting takes effect on the very next hit
+                        // with no regeneration of any kind.
+                        if (generatedDrumRoleMuted[r].load(std::memory_order_relaxed))
+                            continue;
+                        const float roleGain = generatedDrumRoleGain[r].load(std::memory_order_relaxed);
+                        const int   gatedVel = juce::jlimit(0, 127, (int) std::lround((float) vel * roleGain));
+                        if (gatedVel <= 0)
+                            continue;
+
                         // Primary output: trigger this role's real sample
                         // if one was selected/loaded, otherwise
                         // DrumVoiceSynth (see triggerGeneratedRole) - same
@@ -913,7 +949,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         // this doesn't depend on localRoles' array order.
                         Engine::DrumRole synthRole;
                         if (Engine::drumRoleForGmNote(role.midiNote, synthRole))
-                            triggerGeneratedRole(synthRole, (float) vel / 127.0f);
+                            triggerGeneratedRole(synthRole, (float) gatedVel / 127.0f);
 
                         // Optional secondary output: real MIDI note to the
                         // host, kept for downstream routing but not
@@ -926,7 +962,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                             voice.noteOn = false;
                         }
 
-                        midiMessages.addEvent(juce::MidiMessage::noteOn(10, role.midiNote, (juce::uint8) vel), 0);
+                        midiMessages.addEvent(juce::MidiMessage::noteOn(10, role.midiNote, (juce::uint8) gatedVel), 0);
                         voice.noteOn          = true;
                         voice.pitch           = role.midiNote;
                         voice.samplesUntilOff = juce::jmax(1, (int) (0.04 * getSampleRate()));
@@ -1048,7 +1084,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
             std::array<int8_t, kMelodySteps> localMelody;
             int localMelodyRoot;
-            std::vector<int8_t> localGeneratedOffsets; // empty unless setGeneratedBassPattern is active for this track
+            std::vector<int8_t> localGeneratedOffsets; // empty unless setGeneratedMelodyPattern is active for this track
             int localGeneratedTotalSteps = 0;
             {
                 juce::ScopedLock sl(voice.lock);
@@ -1077,7 +1113,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 // through once per loop instead of being truncated to 8
                 // bars. Falls back to the normal offsets/kMelodySteps
                 // behaviour for any track that never called
-                // setGeneratedBassPattern (unchanged from before).
+                // setGeneratedMelodyPattern (unchanged from before).
                 const int totalStepsForWrap = useGeneratedPattern ? localGeneratedTotalSteps : kMelodySteps;
                 const int stepFloor   = (int) std::floor(ppq * 4.0);
                 const int wrappedStep = ((stepFloor % totalStepsForWrap) + totalStepsForWrap) % totalStepsForWrap;

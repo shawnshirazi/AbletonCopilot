@@ -109,6 +109,10 @@
         <FILE id="Ms1cpp" name="MelodyScorer.cpp" compile="1" resource="0"
               file="Source/MusicTheory/MelodyScorer.cpp"/>
         <FILE id="Ms1hdr" name="MelodyScorer.h" compile="0" resource="0" file="Source/MusicTheory/MelodyScorer.h"/>
+        <FILE id="Mmg1cpp" name="MelodyMotifGenerator.cpp" compile="1" resource="0"
+              file="Source/MusicTheory/MelodyMotifGenerator.cpp"/>
+        <FILE id="Mmg1hdr" name="MelodyMotifGenerator.h" compile="0" resource="0"
+              file="Source/MusicTheory/MelodyMotifGenerator.h"/>
       </GROUP>
       <GROUP id="{C3D4E5F6-3333-4444-5555-666677778888}" name="Engine">
         <FILE id="Eng1cpp" name="Theory.cpp" compile="1" resource="0" file="Source/Engine/Theory.cpp"/>
@@ -131,6 +135,8 @@
         <FILE id="Eng7hdr" name="DrumSampleScoring.h" compile="0" resource="0" file="Source/Engine/DrumSampleScoring.h"/>
         <FILE id="Eng8cpp" name="DrumSamplePackTier.cpp" compile="1" resource="0" file="Source/Engine/DrumSamplePackTier.cpp"/>
         <FILE id="Eng8hdr" name="DrumSamplePackTier.h" compile="0" resource="0" file="Source/Engine/DrumSamplePackTier.h"/>
+        <FILE id="Eng9cpp" name="MusicIdentity.cpp" compile="1" resource="0" file="Source/Engine/MusicIdentity.cpp"/>
+        <FILE id="Eng9hdr" name="MusicIdentity.h" compile="0" resource="0" file="Source/Engine/MusicIdentity.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

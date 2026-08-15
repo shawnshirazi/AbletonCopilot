@@ -113,21 +113,23 @@ public:
 
     void setMelodyPattern(int trackIndex, const std::array<int8_t, kMelodySteps>& offsets, int keyRoot);
 
-    // Arrangement-driven generated pattern (Engine::generateArrangementBassPattern,
-    // Source/Engine/BassEngine.h) - a SEPARATE, dynamically-sized path from
-    // setMelodyPattern above, mirroring how setGeneratedDrumPattern already
-    // coexists with the fixed-size manual drum grid below rather than
-    // reusing it. kMelodySteps is fixed at 128 (8 bars) because
-    // MelodyGridComponent's manual-editing UI and its reference-track
-    // bass-fragment-matching feature both depend on that exact size - a
-    // full multi-section arrangement (Intro through Outro) can be much
-    // longer than 8 bars, so it needs its own container rather than
-    // forcing those unrelated features to grow (or truncating the
-    // arrangement to fit them). Empty `offsets` deactivates this path and
-    // falls back to the normal setMelodyPattern/manual-editing behaviour
-    // for that track - nothing about the existing melody-voice trigger
-    // path changes for a track that never calls this.
-    void setGeneratedBassPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot);
+    // Generated-loop pattern (Source/Engine/MusicIdentity.h for drums/bass,
+    // Source/MusicTheory/MelodyMotifGenerator.h for melody) - a SEPARATE,
+    // dynamically-sized path from setMelodyPattern above, mirroring how
+    // setGeneratedDrumPattern already coexists with the fixed-size manual
+    // drum grid below rather than reusing it. kMelodySteps is fixed at 128
+    // (8 bars) because MelodyGridComponent's manual-editing UI and its
+    // reference-track bass-fragment-matching feature both depend on that
+    // exact size - the 16-bar (256-step) loop this drives is longer, so it
+    // needs its own container rather than forcing those unrelated features
+    // to grow (or truncating the loop to fit them). Empty `offsets`
+    // deactivates this path and falls back to the normal setMelodyPattern/
+    // manual-editing behaviour for that track - nothing about the existing
+    // melody-voice trigger path changes for a track that never calls this.
+    // Used for BOTH track 0 (Bass) and track 1 (Melody) - one mechanism,
+    // not two independent ones, per the "don't build separate generation
+    // systems" rule.
+    void setGeneratedMelodyPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot);
     void setMelodyTrackMuted(int trackIndex, bool muted);
     void setMelodyTrackSolo(int trackIndex, bool solo);
     juce::AudioPluginInstance* getHostedSerumInstance(int trackIndex) const noexcept;
@@ -155,14 +157,14 @@ public:
 
     // Real runtime proof for the bass-audibility investigation - every
     // field is read from state actually set by processBlock/
-    // setGeneratedBassPattern, never inferred or assumed. noteOnEventsSent
+    // setGeneratedMelodyPattern, never inferred or assumed. noteOnEventsSent
     // and lastBlockPeakOut only advance while the host transport is
     // running (processBlock only runs then) - see PluginEditor's own
     // status text for that caveat.
     struct MelodyVoiceDiagnostics
     {
         bool    serumInstanceLoaded    = false; // voice.instance != nullptr right now
-        bool    generatedPatternActive = false; // setGeneratedBassPattern has a non-empty pattern stored for this track
+        bool    generatedPatternActive = false; // setGeneratedMelodyPattern has a non-empty pattern stored for this track
         int     generatedTotalSteps    = 0;
         int64_t noteOnEventsSent       = 0;     // cumulative count of real noteOn events queued into this voice's Serum2 instance
         float   lastBlockPeakOut       = 0.0f;  // peak |sample| in this voice's own scratch buffer AFTER serum->processBlock(), BEFORE any downstream suppression/mixing gate - proves whether Serum's own output is silent independent of whether it reaches the main mix
@@ -197,9 +199,21 @@ public:
     };
 
     // Replaces the current generated drum pattern (message thread only -
-    // called from PluginEditor's Generate Drum Pattern button). At most
+    // called from PluginEditor's Generate button). At most
     // kMaxGeneratedDrumRoles entries are used; extras are ignored.
     void setGeneratedDrumPattern(const std::vector<GeneratedDrumRole>& roles);
+
+    // Per-role MIX control (not a generation control) for the generated
+    // drum pattern - see Engine::RoleMix/renderMode (Source/Engine/
+    // MusicIdentity.h) for how DROP/BREAKDOWN suggest defaults for these.
+    // Gates ONLY the triggering of new notes (same idiom already used for
+    // drumRowMuted/MelodyVoice::muted below - see processBlock's trigger
+    // loop) - never touches generatedDrumRoles/generatedRoleSampleBuffers,
+    // so muting/unmuting or changing gain can never regenerate the
+    // pattern, change sample selection, or destroy the grid. `role` is an
+    // Engine::DrumRole ordinal (0..kMaxGeneratedDrumRoles-1).
+    void setGeneratedDrumRoleMuted(int role, bool muted);
+    void setGeneratedDrumRoleGain(int role, float gain);
 
     // The file ACTUALLY loaded into the playback voice for `role` right
     // now - an invalid File() means that role is currently sounding via
@@ -272,6 +286,13 @@ private:
     std::atomic<int>                           soloedRowCount { 0 };
     DrumVoice                                  drumVoices[kDrumRows];
 
+    // Per-generated-drum-role MIX state (see setGeneratedDrumRoleMuted/
+    // setGeneratedDrumRoleGain) - indexed by Engine::DrumRole ordinal,
+    // same sizing/indexing as generatedDrumRoles below. Gates triggering
+    // only; never touched by setGeneratedDrumPattern.
+    std::atomic<bool>                          generatedDrumRoleMuted[kMaxGeneratedDrumRoles];
+    std::atomic<float>                         generatedDrumRoleGain[kMaxGeneratedDrumRoles];
+
     // Hosted Serum2 instances — one per melody voice (message-thread owns
     // each unique_ptr; audio thread only ever reads the raw atomic pointer,
     // never deletes it). One shared format manager/loader thread/alive-flag
@@ -291,7 +312,7 @@ private:
         std::array<int8_t, kMelodySteps>           offsets;
         int                                        keyRoot = 0;
 
-        // Arrangement-driven generated pattern (see setGeneratedBassPattern) -
+        // Arrangement-driven generated pattern (see setGeneratedMelodyPattern) -
         // empty = inactive, this track plays `offsets`/kMelodySteps as
         // normal. Non-empty overrides offsets entirely for this track
         // (see processBlock's melody-voice trigger loop) until cleared.
