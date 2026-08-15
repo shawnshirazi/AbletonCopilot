@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Arrangement.h"
 #include "Grid.h"
 #include <cstdint>
 #include <vector>
@@ -128,6 +129,37 @@ namespace Engine
     // hand-picked genre lore).
     DropPattern generateDrop(const StepGridConfig& grid, const DrumPatternParams& params,
                               DrumSection section = DrumSection::Drop);
+
+    // ------------------------------------------------------------------
+    // Arrangement-aware generation - the primary entry point for a full
+    // Melodic Techno arrangement (Intro through Outro, see Arrangement.h),
+    // not just one isolated Drop. Reuses the exact same measured-data-
+    // driven mechanism as generateDrop above (decidePosition/
+    // buildRoleBlock/deriveStageBlock/correlationFactor - see
+    // DrumEngine.cpp) - this is additive, not a replacement:
+    // generateDrop/DropPattern/DrumSection are untouched and still the
+    // right call for "just give me one 16-bar Drop".
+    //
+    // Kick and clap - previously unconditional across the whole grid -
+    // become section-aware here: kick is silent during Breakdown and on
+    // the single final bar of PreDrop (the real "leave space before the
+    // drop" pause technique - see Arrangement::isPreDropFinalBar); clap
+    // keeps ONE stable canonical shape (never independently varied
+    // section to section - the brief's own "don't let variation destroy
+    // the backbeat") and is simply gated on/off by each bar's
+    // MusicState::drumEnergy. hatClosed/hatOpen/percA/percB reuse the
+    // same per-4-bar-block motif-then-develop chain as generateDrop's own
+    // 4-stage arc, generalized to run continuously across every 4-bar
+    // block in the WHOLE arrangement (not just 4 fixed stages over 16
+    // bars) - each block's density scale comes from that block's own
+    // MusicState::drumEnergy (role-specific multipliers preserve the old
+    // arc's "hatOpen/percB ramp in later than hatClosed/percA" shape).
+    // Open hat is additionally force-silenced during Breakdown outright
+    // (the brief's explicit "remove open hats", not just "heavily
+    // reduce" like closed hats/percussion) - a real, disclosed rule, not
+    // a probabilistic side effect.
+    DropPattern generateArrangementDrop(const MusicArrangement& arrangement, int stepsPerBar,
+                                         const DrumPatternParams& params);
 
     // Converts a generated StepArray into a flat 0-127 integer velocity
     // array (0 = no hit, matching MIDI velocity range). This is the single

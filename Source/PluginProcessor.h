@@ -112,6 +112,22 @@ public:
     int getActiveMelodyTrackCount() const noexcept { return activeMelodyTrackCount.load(std::memory_order_relaxed); }
 
     void setMelodyPattern(int trackIndex, const std::array<int8_t, kMelodySteps>& offsets, int keyRoot);
+
+    // Arrangement-driven generated pattern (Engine::generateArrangementBassPattern,
+    // Source/Engine/BassEngine.h) - a SEPARATE, dynamically-sized path from
+    // setMelodyPattern above, mirroring how setGeneratedDrumPattern already
+    // coexists with the fixed-size manual drum grid below rather than
+    // reusing it. kMelodySteps is fixed at 128 (8 bars) because
+    // MelodyGridComponent's manual-editing UI and its reference-track
+    // bass-fragment-matching feature both depend on that exact size - a
+    // full multi-section arrangement (Intro through Outro) can be much
+    // longer than 8 bars, so it needs its own container rather than
+    // forcing those unrelated features to grow (or truncating the
+    // arrangement to fit them). Empty `offsets` deactivates this path and
+    // falls back to the normal setMelodyPattern/manual-editing behaviour
+    // for that track - nothing about the existing melody-voice trigger
+    // path changes for a track that never calls this.
+    void setGeneratedBassPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot);
     void setMelodyTrackMuted(int trackIndex, bool muted);
     void setMelodyTrackSolo(int trackIndex, bool solo);
     juce::AudioPluginInstance* getHostedSerumInstance(int trackIndex) const noexcept;
@@ -254,9 +270,16 @@ private:
         juce::AudioBuffer<float>                   scratch;
         juce::MemoryBlock                          pendingState;   // stashed until Serum2 finishes loading
 
-        juce::CriticalSection                      lock;           // guards offsets/keyRoot
+        juce::CriticalSection                      lock;           // guards offsets/keyRoot/generatedOffsets/generatedTotalSteps
         std::array<int8_t, kMelodySteps>           offsets;
         int                                        keyRoot = 0;
+
+        // Arrangement-driven generated pattern (see setGeneratedBassPattern) -
+        // empty = inactive, this track plays `offsets`/kMelodySteps as
+        // normal. Non-empty overrides offsets entirely for this track
+        // (see processBlock's melody-voice trigger loop) until cleared.
+        std::vector<int8_t>                        generatedOffsets;
+        int                                         generatedTotalSteps = 0;
 
         // Audio-thread-only playback state.
         int  lastStepIndex  = -1;

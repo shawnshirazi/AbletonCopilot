@@ -1,7 +1,9 @@
 #pragma once
 
+#include "Arrangement.h"
 #include <array>
 #include <cstdint>
+#include <vector>
 
 // Deterministic Melodic Techno DROP bassline engine, driven by MEASURED
 // data (Source/Engine/BassRhythmGrammar.h, generated from
@@ -48,4 +50,34 @@ namespace Engine
     // voice's own root (added to 36 + keyRoot by PluginProcessor, same as
     // every other melody track), or kBassOffValue for silence.
     std::array<int8_t, kBassSteps> generateBassPattern(const BassPatternParams& params);
+
+    // ------------------------------------------------------------------
+    // Arrangement-aware generation - the primary entry point for a full
+    // Melodic Techno arrangement (Intro through Outro, see Arrangement.h),
+    // sharing the SAME MusicState timeline DrumEngine::generateArrangementDrop
+    // consumes so drums and bass never drift out of sync with each other.
+    // Reuses the exact same measured-data-driven mechanism as
+    // generateBassPattern above (decideBassPosition/buildBassBlock/
+    // deriveBassBlock - see BassEngine.cpp); additive, not a replacement -
+    // generateBassPattern/kBassSteps are untouched.
+    //
+    // Density per 4-bar block comes from that block's own (averaged)
+    // MusicState::bassEnergy, not a single fixed params.density - a
+    // Breakdown block (bassEnergy ~0.05-0.10) naturally produces only
+    // occasional notes ("largely disappear... possibly retain an
+    // occasional root" per the brief), no special-case silence rule
+    // needed. Kick-avoidance still uses BassEngine's own synthetic
+    // four-on-the-floor reference (not the actual drum pattern's kick,
+    // which may itself be silent during a Breakdown) - BassEngine
+    // deliberately has no ordering dependency on drum generation, same
+    // as generateBassPattern.
+    //
+    // Output length is dynamic (arrangement.totalBars() * 16), unlike
+    // generateBassPattern's fixed 128 - the caller is responsible for
+    // routing a dynamically-sized bass pattern to the audio engine (see
+    // PluginProcessor's generated-bass-pattern path, which mirrors its
+    // existing generated-drum-pattern path rather than reusing the
+    // fixed-128-step melody-voice array manual editing depends on).
+    std::vector<int8_t> generateArrangementBassPattern(const MusicArrangement& arrangement,
+                                                         const BassPatternParams& params);
 }

@@ -1,6 +1,7 @@
 #include "BassEngine.h"
 #include "BassRhythmGrammar.h"
 #include <algorithm>
+#include <cmath>
 #include <random>
 #include <vector>
 
@@ -179,6 +180,41 @@ namespace Engine
                     out[(size_t) (destBar * kStepsPerBar + s)] = block[(size_t) (srcBar * kStepsPerBar + s)];
             }
         }
+
+        // Dynamically-sized version of copyBlock above, for
+        // generateArrangementBassPattern's arbitrary-length output.
+        void copyBlockDynamic(std::vector<int8_t>& out, int destBarStart, int barCount, int numBars, const Block& block)
+        {
+            for (int i = 0; i < barCount; ++i)
+            {
+                const int destBar = destBarStart + i;
+                if (destBar >= numBars)
+                    break;
+                const int srcBar = i % kBlockBars;
+                for (int s = 0; s < kStepsPerBar; ++s)
+                    out[(size_t) (destBar * kStepsPerBar + s)] = block[(size_t) (srcBar * kStepsPerBar + s)];
+            }
+        }
+
+        // Same rationale as DrumEngine.cpp's deriveOrRebuildRoleBlock /
+        // kBigDeltaRebuildThreshold: deriveBassBlock's touch count depends
+        // only on params.variation, not on how much the density scale
+        // actually changed between blocks - fine for the small deltas a
+        // smoothly ramping section produces, but a real arrangement can
+        // also jump a lot (e.g. Breakdown's near-zero bass density into
+        // Drop's full density) where a handful of touches would badly
+        // under/over-shoot the new target. Beyond this threshold, rebuild
+        // fresh at the new density instead.
+        constexpr float kBigDeltaRebuildThreshold = 0.3f;
+
+        Block deriveOrRebuildBassBlock(std::mt19937& rng, const Block& previousBlock, float scaleDelta,
+                                        float newScale, float variation,
+                                        const std::array<bool, kBlockBars * kStepsPerBar>& kickBlock)
+        {
+            if (std::abs(scaleDelta) > kBigDeltaRebuildThreshold)
+                return buildBassBlock(rng, newScale, kickBlock);
+            return deriveBassBlock(rng, previousBlock, variation, kickBlock);
+        }
     }
 
     std::array<int8_t, kBassSteps> generateBassPattern(const BassPatternParams& params)
@@ -206,6 +242,51 @@ namespace Engine
 
         copyBlock(out, 0, kBlockBars, established);
         copyBlock(out, kBlockBars, kBlockBars, developed);
+
+        return out;
+    }
+
+    std::vector<int8_t> generateArrangementBassPattern(const MusicArrangement& arrangement, const BassPatternParams& params)
+    {
+        const int numBars = arrangement.totalBars();
+        const int total = numBars * kStepsPerBar;
+        std::vector<int8_t> out((size_t) total, kBassOffValue);
+
+        std::mt19937 rng = makeRng(params.seed);
+
+        std::array<bool, kBlockBars * kStepsPerBar> kickBlock {};
+        for (int bar = 0; bar < kBlockBars; ++bar)
+            for (int beat = 0; beat < 4; ++beat)
+                kickBlock[(size_t) (bar * kStepsPerBar + beat * (kStepsPerBar / 4))] = true;
+
+        const float densityBase = 0.7f + params.density * 0.6f; // matches generateBassPattern's own scale - at bassEnergy==1.0 this reproduces its exact density
+
+        const int numBlocks = (numBars + kBlockBars - 1) / kBlockBars;
+        Block previousBlock {};
+        previousBlock.fill(kBassOffValue);
+        float previousScale = 0.0f;
+
+        for (int blockIdx = 0; blockIdx < numBlocks; ++blockIdx)
+        {
+            const int blockBarStart = blockIdx * kBlockBars;
+            const int blockBarCount = std::min(kBlockBars, numBars - blockBarStart);
+
+            float avgBassEnergy = 0.0f;
+            for (int b = 0; b < blockBarCount; ++b)
+                avgBassEnergy += musicStateForBar(arrangement, blockBarStart + b).bassEnergy;
+            avgBassEnergy /= (float) blockBarCount;
+
+            const float thisScale = densityBase * avgBassEnergy;
+
+            const Block thisBlock = (blockIdx == 0)
+                ? buildBassBlock(rng, thisScale, kickBlock)
+                : deriveOrRebuildBassBlock(rng, previousBlock, thisScale - previousScale, thisScale, params.variation, kickBlock);
+
+            copyBlockDynamic(out, blockBarStart, blockBarCount, numBars, thisBlock);
+
+            previousBlock = thisBlock;
+            previousScale = thisScale;
+        }
 
         return out;
     }

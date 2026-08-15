@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "RackClassification.h"
 #include "StackBrowserComponent.h"
+#include <map>
 #include <vector>
 
 // One sample library entry, classified into a rack (KICK, SNARE, ...).
@@ -85,10 +86,30 @@ public:
     void resized() override;
     void paint(juce::Graphics&) override;
 
+    // Diagnostics for the (temporary) library-scan status label - true
+    // once this scan's classification pass was served entirely from the
+    // cache (see cacheFile()/run()), false if any file needed a fresh
+    // classifySample() call (a first-ever scan, or the library changed).
+    // Message-thread read only; written just before onRacksChanged fires.
+    bool lastScanWasFullyCached() const noexcept { return lastScanFullyCached; }
+    int  lastScanCachedFileCount() const noexcept { return lastScanCachedCount; }
+    int  lastScanChangedFileCount() const noexcept { return lastScanChangedCount; }
+
 private:
     void run() override;
     void applyRacks(std::vector<Rack> newRacks);
     void selectRack(int index);
+
+    // Path+size+mtime-keyed cache of (rackId, duration) so a file that
+    // hasn't changed since the last scan skips classifySample()'s real
+    // cost entirely (a decoder open per file - the dominant cost of a
+    // ~21k-file library scan, confirmed by inspection: this stage had NO
+    // caching at all before, unlike DrumSampleIndex's own already-cached
+    // deeper-analysis stage downstream of it) - mirrors
+    // DrumSampleIndex::cacheFile()/saveCache()'s exact convention.
+    juce::File cacheFile() const;
+    struct CachedClassification { juce::int64 fileSize; juce::int64 mtimeMs; juce::String rackId; double durationSecs; };
+    void saveCache(const std::map<juce::String, CachedClassification>& entries) const;
 
     RackListComponent    rackList;
     RackContentComponent rackContent;
@@ -96,6 +117,10 @@ private:
     juce::File           pendingDir;
     std::vector<Rack>    racks;
     int                  selected = 0;
+
+    bool lastScanFullyCached = false;
+    int  lastScanCachedCount = 0;
+    int  lastScanChangedCount = 0;
 
     static constexpr int kSidebarWidth = 130;
 

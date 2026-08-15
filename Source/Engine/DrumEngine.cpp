@@ -352,17 +352,39 @@ namespace Engine
     // shared RNG stream for the whole composition.
     namespace
     {
-        StageBlocks buildEstablishStage(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
-                                         int stepsPerBar, float overallDensity, float syncopation)
+        // Shared by buildStageFresh and deriveStage's rebuild-fresh path
+        // (see kBigDropRebuildThreshold below) so both compute the
+        // identical percA/percB baseline density scale, not two copies
+        // that could silently drift apart. Calibrated so a SINGLE
+        // percussion voice's realized density lands near the measured
+        // accent-style subset's mean (~4.78 hits/bar) rather than the raw
+        // corpus-wide average (~10.5, which blends in continuous
+        // "*Perc Loop*"-named material - see the PERC density milestone
+        // commit for the full investigation).
+        float percRoleBaseScale()
+        {
+            constexpr float kPercAccentMeanHitsPerBar = 4.78f;
+            constexpr float kPercTouchAmplification   = 0.75f;
+            return kPercAccentMeanHitsPerBar / kPercRhythm.meanOnsetsPerBar * kPercTouchAmplification;
+        }
+
+        // `energy` is a parameter (not hardcoded to kEstablish) so this one
+        // function serves both generateDrop's original fixed 4-stage arc
+        // (called once, with kEstablish, as its stage1) and
+        // generateArrangementDrop's continuous per-4-bar-block chain
+        // (called once per arrangement, for its first block, with that
+        // block's own MusicState-derived energy).
+        StageBlocks buildStageFresh(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
+                                     int stepsPerBar, float overallDensity, float syncopation, const StageEnergy& energy)
         {
             StageBlocks sb;
 
-            const float hatClosedScale = (0.7f + overallDensity * 0.6f) * kEstablish.hatClosed;
+            const float hatClosedScale = (0.7f + overallDensity * 0.6f) * energy.hatClosed;
             sb.hatClosed = buildRoleBlock(rng, kHatRhythm, stepsPerBar, hatClosedScale, syncopation,
                                            { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
                                              { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
 
-            const float hatOpenScale = (0.7f + overallDensity * 0.6f) * kEstablish.hatOpen;
+            const float hatOpenScale = (0.7f + overallDensity * 0.6f) * energy.hatOpen;
             sb.hatOpen = buildRoleBlock(rng, kRideRhythm, stepsPerBar, hatOpenScale, syncopation,
                                         { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
                                           { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
@@ -374,20 +396,18 @@ namespace Engine
             // which blends in continuous "*Perc Loop*"-named material -
             // see the PERC density milestone commit for the full
             // investigation). Both percA and percB share this same
-            // calibrated baseline scale; StageEnergy then modulates each
-            // independently per section.
-            constexpr float kPercAccentMeanHitsPerBar = 4.78f;
-            constexpr float kPercTouchAmplification   = 0.75f;
-            const float percBaseScale = kPercAccentMeanHitsPerBar / kPercRhythm.meanOnsetsPerBar * kPercTouchAmplification;
-
-            const float percAScale = (percBaseScale - 0.15f + overallDensity * 0.3f) * kEstablish.percA;
+            // calibrated baseline scale (percRoleBaseScale, defined below
+            // - shared with deriveStage's own rebuild-fresh path so both
+            // compute the identical baseline); `energy` then modulates
+            // each independently per section.
+            const float percAScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percA;
             sb.percA = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percAScale, syncopation,
                                        { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
                                          { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
                                          { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
                                          { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
 
-            const float percBScale = (percBaseScale - 0.15f + overallDensity * 0.3f) * kEstablish.percB;
+            const float percBScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percB;
             sb.percB = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percBScale, syncopation,
                                        { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
                                          { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
@@ -397,7 +417,36 @@ namespace Engine
             return sb;
         }
 
-        // Same coordination order as buildEstablishStage (hatClosed ->
+        // deriveStageBlock's touch-count formula (energyDelta*6 + variation*2)
+        // was designed for the SMALL deltas between adjacent stages of a
+        // smoothly ramping arc (the old fixed 4-stage table's biggest
+        // adjacent delta was ~0.45, starting from an EMPTY previous block,
+        // where a handful of add-touches is exactly the right amount of
+        // movement). A real arrangement can also produce a much bigger
+        // delta in EITHER direction - most obviously Drop -> Breakdown
+        // (percA/hatClosed/etc. need to go from a busy full-drop pattern
+        // to near-silence in one step - a handful of remove-touches
+        // can't get there, leaving the block still mostly full) and
+        // symmetrically PreDrop -> Drop (jumping from PreDrop's sparse
+        // level up to full-drop density - a handful of add-touches
+        // UNDER-shoots the true target just as badly). Both directions
+        // were caught the same way: inspecting a printed arrangement and
+        // comparing measured density against the expected target, not
+        // assumed. Beyond this threshold (either sign), rebuild fresh at
+        // the new density instead of touch-deriving from the old one - a
+        // genuine section change, not a subtle nudge.
+        constexpr float kBigDeltaRebuildThreshold = 0.3f;
+
+        StepArray deriveOrRebuildRoleBlock(std::mt19937& rng, const StepArray& previousBlock, const RoleRhythmStats& stats,
+                                            int stepsPerBar, float energyDelta, float newAbsoluteScale,
+                                            float syncopation, float variation, const std::vector<CorrelationRef>& refs)
+        {
+            if (std::abs(energyDelta) > kBigDeltaRebuildThreshold)
+                return buildRoleBlock(rng, stats, stepsPerBar, newAbsoluteScale, syncopation, refs);
+            return deriveStageBlock(rng, previousBlock, stats, stepsPerBar, energyDelta, variation, refs);
+        }
+
+        // Same coordination order as buildStageFresh (hatClosed ->
         // hatOpen -> percA -> percB, each referencing every role already
         // finalized for THIS stage) so deriveStageBlock's correlation-aware
         // touches have the right same-stage siblings to check against, not
@@ -405,26 +454,33 @@ namespace Engine
         // few sections' worth of touches have accumulated).
         StageBlocks deriveStage(std::mt19937& rng, const StageBlocks& previous, const StageEnergy& previousEnergy,
                                  const StageEnergy& thisEnergy, const StepArray& kickBlock, const StepArray& clapBlock,
-                                 int stepsPerBar, float variation)
+                                 int stepsPerBar, float overallDensity, float syncopation, float variation)
         {
+            const float hatScaleBase = 0.7f + overallDensity * 0.6f;
+            const float percScaleBase = percRoleBaseScale() - 0.15f + overallDensity * 0.3f;
+
             StageBlocks sb;
-            sb.hatClosed = deriveStageBlock(rng, previous.hatClosed, kHatRhythm, stepsPerBar,
-                                             thisEnergy.hatClosed - previousEnergy.hatClosed, variation,
+            sb.hatClosed = deriveOrRebuildRoleBlock(rng, previous.hatClosed, kHatRhythm, stepsPerBar,
+                                             thisEnergy.hatClosed - previousEnergy.hatClosed,
+                                             hatScaleBase * thisEnergy.hatClosed, syncopation, variation,
                                              { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
                                                { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
-            sb.hatOpen   = deriveStageBlock(rng, previous.hatOpen, kRideRhythm, stepsPerBar,
-                                             thisEnergy.hatOpen - previousEnergy.hatOpen, variation,
+            sb.hatOpen   = deriveOrRebuildRoleBlock(rng, previous.hatOpen, kRideRhythm, stepsPerBar,
+                                             thisEnergy.hatOpen - previousEnergy.hatOpen,
+                                             hatScaleBase * thisEnergy.hatOpen, syncopation, variation,
                                              { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
                                                { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
                                                { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
-            sb.percA     = deriveStageBlock(rng, previous.percA, kPercRhythm, stepsPerBar,
-                                             thisEnergy.percA - previousEnergy.percA, variation,
+            sb.percA     = deriveOrRebuildRoleBlock(rng, previous.percA, kPercRhythm, stepsPerBar,
+                                             thisEnergy.percA - previousEnergy.percA,
+                                             percScaleBase * thisEnergy.percA, syncopation, variation,
                                              { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
                                                { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
                                                { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
                                                { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
-            sb.percB     = deriveStageBlock(rng, previous.percB, kPercRhythm, stepsPerBar,
-                                             thisEnergy.percB - previousEnergy.percB, variation,
+            sb.percB     = deriveOrRebuildRoleBlock(rng, previous.percB, kPercRhythm, stepsPerBar,
+                                             thisEnergy.percB - previousEnergy.percB,
+                                             percScaleBase * thisEnergy.percB, syncopation, variation,
                                              { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
                                                { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
                                                { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
@@ -555,10 +611,10 @@ namespace Engine
             copyBlock(out.clap, grid.numBars - 1, 1, grid.numBars, stepsPerBar, clapBlock);
 
         // ---- HIGH END + GROOVE: the 4-stage energy arc. ----
-        const StageBlocks stage1 = buildEstablishStage(rng, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation);
-        const StageBlocks stage2 = deriveStage(rng, stage1, kEstablish, kDevelop, kickBlock, clapBlock, stepsPerBar, params.variation);
-        const StageBlocks stage3 = deriveStage(rng, stage2, kDevelop, kIncrease, kickBlock, clapBlock, stepsPerBar, params.variation);
-        const StageBlocks stage4 = deriveStage(rng, stage3, kIncrease, kFullDrop, kickBlock, clapBlock, stepsPerBar, params.variation);
+        const StageBlocks stage1 = buildStageFresh(rng, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation, kEstablish);
+        const StageBlocks stage2 = deriveStage(rng, stage1, kEstablish, kDevelop, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation, params.variation);
+        const StageBlocks stage3 = deriveStage(rng, stage2, kDevelop, kIncrease, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation, params.variation);
+        const StageBlocks stage4 = deriveStage(rng, stage3, kIncrease, kFullDrop, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation, params.variation);
 
         copyBlock(out.hatClosed, 0, 4, grid.numBars, stepsPerBar, stage1.hatClosed);
         copyBlock(out.hatOpen,   0, 4, grid.numBars, stepsPerBar, stage1.hatOpen);
@@ -590,6 +646,227 @@ namespace Engine
             copyBlock(out.hatOpen,   lastBar, 1, grid.numBars, stepsPerBar, hoFill);
             copyBlock(out.percA,     lastBar, 1, grid.numBars, stepsPerBar, paFill);
             copyBlock(out.percB,     lastBar, 1, grid.numBars, stepsPerBar, pbFill);
+        }
+
+        return out;
+    }
+
+    namespace
+    {
+        // Extracts exactly kBlockBars bars' worth of content starting at
+        // `barStart` from an already-built full-arrangement StepArray, for
+        // use as a correlation reference (buildRoleBlock/deriveStageBlock
+        // always index a reference block's own bars 0..kBlockBars-1). Bars
+        // past the end of `source` (a partial final block, if the
+        // arrangement's total bar count isn't a multiple of kBlockBars)
+        // are left silent rather than read out of bounds.
+        StepArray sliceBlockReference(const StepArray& source, int barStart, int stepsPerBar, int totalBars)
+        {
+            StepArray block((size_t) (kBlockBars * stepsPerBar));
+            for (int b = 0; b < kBlockBars; ++b)
+            {
+                const int srcBar = barStart + b;
+                if (srcBar >= totalBars)
+                    break;
+                for (int s = 0; s < stepsPerBar; ++s)
+                    block[(size_t) (b * stepsPerBar + s)] = source[(size_t) (srcBar * stepsPerBar + s)];
+            }
+            return block;
+        }
+    }
+
+    DropPattern generateArrangementDrop(const MusicArrangement& arrangement, int stepsPerBar,
+                                         const DrumPatternParams& params)
+    {
+        const int numBars = arrangement.totalBars();
+        const int total = numBars * stepsPerBar;
+        const int stepsPerBeat = std::max(1, stepsPerBar / 4);
+
+        DropPattern out;
+        out.kick      = StepArray((size_t) total);
+        out.clap      = StepArray((size_t) total);
+        out.hatClosed = StepArray((size_t) total);
+        out.hatOpen   = StepArray((size_t) total);
+        out.percA     = StepArray((size_t) total);
+        out.percB     = StepArray((size_t) total);
+
+        std::mt19937 rng = makeRng(params.seed);
+
+        // ---- FOUNDATION: KICK - four-on-the-floor whenever the current
+        // bar's section allows a kick at all (silent during Breakdown -
+        // "remove the kick" - and on the single final bar of PreDrop, the
+        // real "leave space before the drop" pause technique). Otherwise
+        // unchanged from generateDrop's own kick logic - the brief
+        // explicitly says the kick itself doesn't need redesigning, only
+        // to become section-aware about WHEN it plays. isSectionDownbeat
+        // uses each section's OWN first bar (barInSection==0), not the
+        // arrangement's absolute bar count, so every section reads as
+        // starting on a strong beat regardless of how many bars came
+        // before it. ----
+        const auto& kickStats = rhythmStatsForRole(DrumRole::Kick);
+        for (int bar = 0; bar < numBars; ++bar)
+        {
+            const MusicState& state = musicStateForBar(arrangement, bar);
+            const bool kickAllowed = state.section != MusicSection::Breakdown
+                                   && !isPreDropFinalBar(arrangement, bar);
+            if (!kickAllowed)
+                continue;
+
+            const int base = bar * stepsPerBar;
+            const bool isSectionDownbeat = (state.barInSection % 4 == 0);
+            for (int beat = 0; beat < 4; ++beat)
+            {
+                const int stepInBar = beat * stepsPerBeat;
+                float vel = measuredVelocity(kickStats, stepInBar);
+                if (isSectionDownbeat)
+                    vel = clamp01(vel + 0.05f);
+                setHit(out.kick, base + stepInBar, vel);
+            }
+        }
+        // Same "push" accent generateDrop uses at its final bar, applied
+        // here at the arrangement's own final bar (only if a kick is
+        // actually allowed to sound there at all).
+        if (numBars > 0 && params.variation > 0.0f)
+        {
+            const int lastBar = numBars - 1;
+            if (musicStateForBar(arrangement, lastBar).section != MusicSection::Breakdown)
+                setHit(out.kick, lastBar * stepsPerBar + stepsPerBar - 2, 0.85f);
+        }
+
+        // Synthetic always-four-on-the-floor reference block - used only
+        // to build CLAP's own canonical shape (clap's character should
+        // reflect the kick's TRUE pattern, independent of which specific
+        // bars the kick or clap end up gated into - see below).
+        StepArray kickRefBlock((size_t) (kBlockBars * stepsPerBar));
+        for (int bar = 0; bar < kBlockBars; ++bar)
+            for (int beat = 0; beat < 4; ++beat)
+                setHit(kickRefBlock, bar * stepsPerBar + beat * stepsPerBeat, 1.0f);
+
+        // ---- FOUNDATION: CLAP - ONE canonical shape, built once and
+        // never independently varied section to section (the brief's own
+        // "keep it sparse and supportive... don't let random clap
+        // variations destroy the backbeat") - gated on/off per bar purely
+        // by that bar's MusicState::drumEnergy, not regenerated. ----
+        const auto& clapStats = rhythmStatsForRole(DrumRole::Clap);
+        const float clapDensityScale = 0.7f + params.density * 0.6f;
+        const StepArray clapBlock = buildRoleBlock(rng, clapStats, stepsPerBar, clapDensityScale, params.syncopation,
+                                                     { { &kickRefBlock, kCrossRoleCorrelation.kickClap, 0 } });
+        constexpr float kClapEnergyThreshold = 0.3f;
+        for (int bar = 0; bar < numBars; ++bar)
+            if (musicStateForBar(arrangement, bar).drumEnergy >= kClapEnergyThreshold)
+                copyBlock(out.clap, bar, 1, numBars, stepsPerBar, clapBlock);
+
+        // ---- HIGH END + GROOVE: the SAME motif-block-then-develop chain
+        // generateDrop's 4-stage arc uses, generalized to run continuously
+        // across every 4-bar block in the WHOLE arrangement instead of 4
+        // fixed stages over 16 bars. Each block's per-role density scale
+        // is derived from that block's own (averaged) MusicState::
+        // drumEnergy, with the SAME relative shape the old fixed
+        // kEstablish/kDevelop/kIncrease/kFullDrop table had (hatOpen and
+        // percB scale with drumEnergy SQUARED, not linearly, so they stay
+        // disproportionately quiet at low energy and only become a real
+        // presence as drumEnergy approaches 1.0 - reproducing the old
+        // table's ~7.5x hatClosed-vs-hatOpen establish-to-fullDrop ratio
+        // without hardcoding 4 fixed levels).
+        const int numBlocks = (numBars + kBlockBars - 1) / kBlockBars;
+
+        StageBlocks previousBlocks;
+        StageEnergy previousEnergy { 0.0f, 0.0f, 0.0f, 0.0f };
+
+        for (int blockIdx = 0; blockIdx < numBlocks; ++blockIdx)
+        {
+            const int blockBarStart = blockIdx * kBlockBars;
+            const int blockBarCount = std::min(kBlockBars, numBars - blockBarStart);
+
+            float avgDrumEnergy = 0.0f;
+            for (int b = 0; b < blockBarCount; ++b)
+                avgDrumEnergy += musicStateForBar(arrangement, blockBarStart + b).drumEnergy;
+            avgDrumEnergy /= (float) blockBarCount;
+
+            const MusicSection blockSection = musicStateForBar(arrangement, blockBarStart).section;
+
+            // hatOpen's own measured base rate (kRideRhythm.meanOnsetsPerBar
+            // = 7.53) is actually HIGHER than hatClosed's groove-subset
+            // rate (kHatRhythm = 6.86), so the same 0.75 ceiling the old
+            // fixed-4-stage kFullDrop table used (which only ever reaches
+            // its ceiling once, at the very end of a short 16-bar arc)
+            // lets hatOpen's realized density catch up to and even exceed
+            // hatClosed's over a long arrangement, once the energy-squared
+            // suppression stops mattering at energy==1.0 - caught by
+            // measuring section-mean density directly, not assumed. 0.45
+            // keeps real, measured headroom below hatClosed even at full
+            // energy, matching the brief's "should NOT become another
+            // continuous hat layer".
+            StageEnergy thisEnergy;
+            thisEnergy.hatClosed = avgDrumEnergy * 1.05f;
+            thisEnergy.hatOpen   = avgDrumEnergy * avgDrumEnergy * 0.45f;
+            thisEnergy.percA     = avgDrumEnergy * 1.15f;
+            thisEnergy.percB     = avgDrumEnergy * avgDrumEnergy * 1.05f;
+
+            const StepArray kickRef = sliceBlockReference(out.kick, blockBarStart, stepsPerBar, numBars);
+            const StepArray clapRef = sliceBlockReference(out.clap, blockBarStart, stepsPerBar, numBars);
+
+            StageBlocks thisBlocks = (blockIdx == 0)
+                ? buildStageFresh(rng, kickRef, clapRef, stepsPerBar, params.density, params.syncopation, thisEnergy)
+                : deriveStage(rng, previousBlocks, previousEnergy, thisEnergy, kickRef, clapRef, stepsPerBar, params.density, params.syncopation, params.variation);
+
+            // "Remove open hats" in a Breakdown is explicit and absolute
+            // in the brief, unlike closed hat/percussion's "heavily
+            // reduce" - so this is a real, disclosed hard rule on top of
+            // the natural (already very low, since drumEnergy is
+            // near-zero here) probabilistic thinning, not left to chance.
+            if (blockSection == MusicSection::Breakdown)
+                thisBlocks.hatOpen.assign(thisBlocks.hatOpen.size(), Hit{});
+
+            copyBlock(out.hatClosed, blockBarStart, blockBarCount, numBars, stepsPerBar, thisBlocks.hatClosed);
+            copyBlock(out.hatOpen,   blockBarStart, blockBarCount, numBars, stepsPerBar, thisBlocks.hatOpen);
+            copyBlock(out.percA,     blockBarStart, blockBarCount, numBars, stepsPerBar, thisBlocks.percA);
+            copyBlock(out.percB,     blockBarStart, blockBarCount, numBars, stepsPerBar, thisBlocks.percB);
+
+            // TRANSITION: if the bar immediately after this block starts a
+            // genuine "wind down" section (Breakdown or Outro - the only
+            // two sections in the default cycle whose whole job is
+            // reduction, not PreDrop/BreakdownBuild, which have their OWN
+            // internal energy ramp and shouldn't ALSO be pre-emptively
+            // thinned by the section before them - an earlier version of
+            // this check compared raw energy deltas and incorrectly
+            // thinned the end of Build just because PreDrop's own start is
+            // quieter than Build's peak, undercutting Build's own "density
+            // increases toward its end" property), thin THIS block's own
+            // final bar using the same buildTransitionBar mechanism
+            // generateDrop uses for its bar-16 transition - real density/
+            // velocity/omission-driven tension signaling an ending, not a
+            // fill roll. Also applies at the very end of the whole
+            // arrangement (nothing follows).
+            const int nextBar = blockBarStart + blockBarCount;
+            // Must be a real ENTRY into the wind-down section (different
+            // from this block's own section), not a block-to-block
+            // boundary WITHIN Breakdown/Outro itself - otherwise
+            // buildTransitionBar's own accent-hit logic (which adds a
+            // hatOpen hit unconditionally on a variation roll, regardless
+            // of whether the block it's "transitioning" was already
+            // silenced) reintroduces exactly the content Breakdown's
+            // force-mute above just removed. Caught the same way as the
+            // other fixes here: inspecting actual generated output, not
+            // assumed.
+            const bool nextIsWindDown = nextBar < numBars
+                && (musicStateForBar(arrangement, nextBar).section == MusicSection::Breakdown
+                    || musicStateForBar(arrangement, nextBar).section == MusicSection::Outro)
+                && musicStateForBar(arrangement, nextBar).section != blockSection;
+            const bool preceedsQuieterSection = nextBar >= numBars || nextIsWindDown;
+            if (preceedsQuieterSection && blockBarCount > 0)
+            {
+                StepArray hcFill, hoFill, paFill, pbFill;
+                buildTransitionBar(hcFill, hoFill, paFill, pbFill, thisBlocks, stepsPerBar, params.variation, rng);
+                const int transitionBar = blockBarStart + blockBarCount - 1;
+                copyBlock(out.hatClosed, transitionBar, 1, numBars, stepsPerBar, hcFill);
+                copyBlock(out.hatOpen,   transitionBar, 1, numBars, stepsPerBar, hoFill);
+                copyBlock(out.percA,     transitionBar, 1, numBars, stepsPerBar, paFill);
+                copyBlock(out.percB,     transitionBar, 1, numBars, stepsPerBar, pbFill);
+            }
+
+            previousBlocks = thisBlocks;
+            previousEnergy = thisEnergy;
         }
 
         return out;

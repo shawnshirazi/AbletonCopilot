@@ -297,6 +297,18 @@ void AbletonCopilotAudioProcessor::setMelodyPattern(int trackIndex,
     voice.keyRoot = keyRoot;
 }
 
+void AbletonCopilotAudioProcessor::setGeneratedBassPattern(int trackIndex, const std::vector<int8_t>& offsets, int keyRoot)
+{
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
+        return;
+
+    auto& voice = melodyVoices[trackIndex];
+    juce::ScopedLock sl(voice.lock);
+    voice.generatedOffsets    = offsets;
+    voice.generatedTotalSteps = (int) offsets.size();
+    voice.keyRoot             = keyRoot;
+}
+
 void AbletonCopilotAudioProcessor::setMelodyTrackMuted(int trackIndex, bool muted)
 {
     if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
@@ -1016,11 +1028,16 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
             std::array<int8_t, kMelodySteps> localMelody;
             int localMelodyRoot;
+            std::vector<int8_t> localGeneratedOffsets; // empty unless setGeneratedBassPattern is active for this track
+            int localGeneratedTotalSteps = 0;
             {
                 juce::ScopedLock sl(voice.lock);
-                localMelody     = voice.offsets;
-                localMelodyRoot = voice.keyRoot;
+                localMelody             = voice.offsets;
+                localMelodyRoot         = voice.keyRoot;
+                localGeneratedOffsets   = voice.generatedOffsets;
+                localGeneratedTotalSteps = voice.generatedTotalSteps;
             }
+            const bool useGeneratedPattern = !localGeneratedOffsets.empty() && localGeneratedTotalSteps > 0;
 
             // Mute/solo gate only the triggering of new notes — same
             // convention as the drum rows: a note already sounding keeps
@@ -1033,8 +1050,17 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
             if (isPlayingNow)
             {
+                // Arrangement-driven generated patterns are typically much
+                // longer than kMelodySteps (a full multi-section
+                // arrangement vs. a fixed 8 bars) - use their own real
+                // length for the wrap so the whole arrangement plays
+                // through once per loop instead of being truncated to 8
+                // bars. Falls back to the normal offsets/kMelodySteps
+                // behaviour for any track that never called
+                // setGeneratedBassPattern (unchanged from before).
+                const int totalStepsForWrap = useGeneratedPattern ? localGeneratedTotalSteps : kMelodySteps;
                 const int stepFloor   = (int) std::floor(ppq * 4.0);
-                const int wrappedStep = ((stepFloor % kMelodySteps) + kMelodySteps) % kMelodySteps;
+                const int wrappedStep = ((stepFloor % totalStepsForWrap) + totalStepsForWrap) % totalStepsForWrap;
 
                 if (wrappedStep != voice.lastStepIndex)
                 {
@@ -1046,7 +1072,8 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         voice.noteOn = false;
                     }
 
-                    const int8_t offset = localMelody[(size_t) wrappedStep];
+                    const int8_t offset = useGeneratedPattern ? localGeneratedOffsets[(size_t) wrappedStep]
+                                                               : localMelody[(size_t) wrappedStep];
                     if (offset != kMelodyOffValue && audible)
                     {
                         const int pitch = juce::jlimit(0, 127, 36 + localMelodyRoot + offset);

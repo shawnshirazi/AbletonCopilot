@@ -117,13 +117,29 @@ namespace RackClassification
     // filename tokens are only a fallback for files sitting in an
     // unhelpfully-named folder (a flat "Samples" or "One Shots" dump with
     // no per-instrument subfolder).
-    inline juce::String classifySample(const juce::File& file, juce::AudioFormatManager& formatManager)
+    //
+    // outDurationSecs (optional): filled with the same duration this
+    // function already computes internally for the LOOP check (0.0 if the
+    // file couldn't be read at all) - lets a caller that wants to CACHE
+    // duration alongside the classification (see RackBrowserComponent's
+    // own cache) get it without opening the file a second time. Default
+    // nullptr keeps every existing call site source-compatible.
+    inline juce::String classifySample(const juce::File& file, juce::AudioFormatManager& formatManager,
+                                        double* outDurationSecs = nullptr)
     {
+        if (outDurationSecs != nullptr)
+            *outDurationSecs = 0.0;
+
         if (auto reader = std::unique_ptr<juce::AudioFormatReader>(formatManager.createReaderFor(file)))
         {
-            if (reader->sampleRate > 0.0
-                && (double) reader->lengthInSamples / reader->sampleRate >= kLoopDurationThresholdSecs)
-                return "LOOP";
+            if (reader->sampleRate > 0.0)
+            {
+                const double duration = (double) reader->lengthInSamples / reader->sampleRate;
+                if (outDurationSecs != nullptr)
+                    *outDurationSecs = duration;
+                if (duration >= kLoopDurationThresholdSecs)
+                    return "LOOP";
+            }
         }
 
         const auto byDirectory = classifyByDirectory(file);

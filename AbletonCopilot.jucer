@@ -119,6 +119,9 @@
         <FILE id="Eng3hdr" name="DrumEngine.h" compile="0" resource="0" file="Source/Engine/DrumEngine.h"/>
         <FILE id="Bas1cpp" name="BassEngine.cpp" compile="1" resource="0" file="Source/Engine/BassEngine.cpp"/>
         <FILE id="Bas1hdr" name="BassEngine.h" compile="0" resource="0" file="Source/Engine/BassEngine.h"/>
+        <FILE id="Arr1cpp" name="Arrangement.cpp" compile="1" resource="0" file="Source/Engine/Arrangement.cpp"/>
+        <FILE id="Arr1hdr" name="Arrangement.h" compile="0" resource="0" file="Source/Engine/Arrangement.h"/>
+        <FILE id="Mus1hdr" name="MusicState.h" compile="0" resource="0" file="Source/Engine/MusicState.h"/>
         <FILE id="Eng4cpp" name="DrumVoiceSynth.cpp" compile="1" resource="0" file="Source/Engine/DrumVoiceSynth.cpp"/>
         <FILE id="Eng4hdr" name="DrumVoiceSynth.h" compile="0" resource="0" file="Source/Engine/DrumVoiceSynth.h"/>
         <FILE id="Eng5cpp" name="DrumSampleSelection.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleSelection.cpp"/>

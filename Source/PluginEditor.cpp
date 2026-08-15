@@ -1163,28 +1163,74 @@ void AbletonCopilotAudioProcessorEditor::updateLibraryScanStatusLabel()
       << "   Hat candidates: " << hatCandidateCount << "   Perc candidates: " << percCandidateCount << "\n";
     s << "Scan completed: " << (rackScanCompleted ? "yes" : "no") << "\n";
     s << "Completion callback: onRacksChanged=" << (onRacksChangedFired ? "fired" : "not fired")
-      << ", onIndexReady=" << (onIndexReadyFired ? "fired" : "not fired");
+      << ", onIndexReady=" << (onIndexReadyFired ? "fired" : "not fired") << "\n";
+
+    // Rack-classification cache diagnostics (path+size+mtime-keyed, see
+    // RackBrowserComponent::cacheFile) - the fix for the "reopening the
+    // plugin rescans the whole library" issue. "Incremental" means every
+    // file WAS in the cache but at least one had changed since; "Full
+    // Scan" means the cache was empty (first run, or the cache file was
+    // deleted); "Cached" means every single file was served from cache.
+    if (rackScanCompleted)
+    {
+        const int cachedN  = rackBrowser.lastScanCachedFileCount();
+        const int changedN = rackBrowser.lastScanChangedFileCount();
+        const juce::String mode = rackBrowser.lastScanWasFullyCached() ? "Cached"
+                                 : (cachedN > 0 ? "Incremental" : "Full Scan");
+        s << "Library: " << mode << "  (Files: " << (cachedN + changedN)
+          << "  Changed: " << changedN << ")";
+    }
 
     libraryScanStatusLabel.setText(s, juce::dontSendNotification);
 }
 
 void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 {
-    const Engine::StepGridConfig grid; // defaults: 16 steps/bar, 16 bars = 256 steps
     juce::Random rng;
 
-    // ONE shared seed for the WHOLE coordinated composition - kick, clap,
-    // hat, and perc are generated together in a single generateDrop()
-    // call (Source/Engine/DrumEngine.cpp), not from four independent
-    // per-role calls/seeds like before, so there is only one params to
-    // build here.
+    // ONE shared MusicArrangement (Source/Engine/Arrangement.h) drives
+    // BOTH drums and bass from here on - they are explicitly NOT
+    // independently generated (see Engine::MusicState's own comment for
+    // why): both consume the exact same per-bar section/energy/tension
+    // timeline, built once from ONE seed, so a Breakdown bar is a
+    // Breakdown bar for both roles at once, never drums in one section
+    // while bass thinks it's in another. generateBassPatternClicked()
+    // below calls straight into this same function rather than building
+    // its own separate arrangement, for the same reason.
+    Engine::ArrangementConfig arrangementCfg;
+    arrangementCfg.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
+    if (arrangementCfg.bpm <= 0.0)
+        arrangementCfg.bpm = 124.0; // matches the real reference arrangements' own tempo (2 of the 3 measured tracks are 124 BPM) - see melodic_techno_research.md section 3.2
+    const auto [arrangementKeyRoot, arrangementIsMinor] = getSelectedKey();
+    arrangementCfg.rootNote = arrangementKeyRoot;
+    arrangementCfg.seed     = (uint32_t) rng.nextInt();
+    const Engine::MusicArrangement arrangement = Engine::buildArrangement(arrangementCfg);
+
+    constexpr int kStepsPerBar = 16;
+
     Engine::DrumPatternParams params;
     params.density     = 0.5f;
     params.syncopation = 0.3f;
     params.variation   = 0.2f;
-    params.seed        = (uint32_t) rng.nextInt();
+    params.seed        = arrangementCfg.seed;
 
-    const Engine::DropPattern drop = Engine::generateDrop(grid, params);
+    const Engine::DropPattern drop = Engine::generateArrangementDrop(arrangement, kStepsPerBar, params);
+
+    // Bass, from the SAME arrangement/seed (see the comment above) -
+    // reuses the existing melody-voice/hosted-Serum2 path (track 0, the
+    // default "Bass" voice) via the new parallel generated-bass-pattern
+    // mechanism (PluginProcessor::setGeneratedBassPattern), not the
+    // fixed-128-step setMelodyPattern the manual-editing grid still uses.
+    Engine::BassPatternParams bassParams;
+    bassParams.density   = 0.5f;
+    bassParams.variation = 0.2f;
+    bassParams.seed      = arrangementCfg.seed;
+    const std::vector<int8_t> bassPattern = Engine::generateArrangementBassPattern(arrangement, bassParams);
+    processor.setGeneratedBassPattern(0, bassPattern, arrangementKeyRoot);
+    int bassActiveCount = 0;
+    for (auto v : bassPattern)
+        if (v != Engine::kBassOffValue)
+            ++bassActiveCount;
 
     struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
@@ -1256,11 +1302,12 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     }
 
     processor.setGeneratedDrumPattern(processorRoles);
-    generatedDrumGrid.setPattern(std::move(displayRows), grid.stepsPerBar, grid.numBars);
+    generatedDrumGrid.setPattern(std::move(displayRows), kStepsPerBar, arrangement.totalBars());
 
     juce::String status;
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
-           << " total) over " << grid.numBars << " bars.\n";
+           << " total) + bass (" << bassActiveCount << " notes) over " << arrangement.totalBars()
+           << " bars: Intro/Establish/Build/PreDrop/Drop/Breakdown/BreakdownBuild/FinalDrop/Outro.\n";
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
 
@@ -1294,47 +1341,36 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     }
 
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
+
+    // Bass status - see the Serum-preset-identification investigation
+    // (MLPipeline/musical_target/melodic_techno_spec.md's appendix): no
+    // preset NAME is recoverable from either the live Serum 2 state or a
+    // .SerumPreset file, so this states that plainly instead of pretending
+    // to know it. getMelodyTrackStatus(0) reports whatever the hosted
+    // Serum2 instance's own load status actually is (e.g. "Serum 2
+    // loaded"), never a fabricated preset name.
+    juce::String bassStatus;
+    bassStatus << "Generated - " << bassActiveCount << " notes over " << arrangement.totalBars() << " bars (same arrangement as the drums above).\n";
+    bassStatus << "Bass: Serum 2 / Preset: Unknown (host state) - start Ableton's transport to hear it.\n";
+    bassStatus << processor.getMelodyTrackStatus(0) << "\n";
+    bassStatus << "To use one of your own melodic-techno Serum 2 bass presets: open Serum 2 on the "
+                  "Bass track, browse to a preset by ear, then click that track's Capture button - "
+                  "captured sounds can be cycled with the </> buttons. (Serum 2's own preset files "
+                  "can't be loaded automatically - see the investigation notes for why.)";
+    bassPatternStatusLabel.setText(bassStatus, juce::dontSendNotification);
 }
 
 void AbletonCopilotAudioProcessorEditor::generateBassPatternClicked()
 {
-    juce::Random rng;
-
-    Engine::BassPatternParams params;
-    params.density   = 0.5f;
-    params.variation = 0.2f;
-    params.seed      = (uint32_t) rng.nextInt();
-
-    const auto pattern = Engine::generateBassPattern(params);
-
-    // Same key context every other melody track already uses (see
-    // exportMelodyPattern) - the bass isn't a separately-keyed voice.
-    const auto [keyRoot, isMinor] = getSelectedKey();
-
-    // Track 0 is always the "Bass" voice (see its setup in the
-    // constructor) with its own hosted Serum2 instance already loading/
-    // loaded - this hands the generated pattern straight to the SAME
-    // trigger path setMelodyPattern always uses (PluginProcessor.cpp's
-    // melody-voice block), no new Serum-loading or MIDI-triggering code.
-    processor.setMelodyPattern(0, pattern, keyRoot);
-    for (int step = 0; step < (int) pattern.size(); ++step)
-        melodyGrid.setStepOffset(0, step, pattern[(size_t) step]); // keeps the (currently hidden - see kShowFullUI) melody grid in sync, same convention as every other melody-pattern write
-
-    int activeCount = 0;
-    for (auto v : pattern)
-        if (v != Engine::kBassOffValue)
-            ++activeCount;
-
-    juce::String status;
-    status << "Generated - " << activeCount << " notes over 8 bars.\n";
-    status << "Playing through the \"Bass\" Serum 2 voice (track 1 below) - "
-              "start Ableton's transport to hear it.\n";
-    status << processor.getMelodyTrackStatus(0) << "\n";
-    status << "To use one of your own melodic-techno Serum 2 bass presets: open Serum 2 on the "
-              "Bass track, browse to a preset by ear, then click that track's Capture button - "
-              "captured sounds can be cycled with the </> buttons. (Serum 2's own preset files "
-              "can't be loaded automatically - see the investigation notes for why.)";
-    bassPatternStatusLabel.setText(status, juce::dontSendNotification);
+    // Drums and bass are explicitly NOT generated independently (see
+    // MusicState's own comment, and the "share musical context"
+    // requirement this satisfies) - both buttons drive the exact same
+    // combined arrangement generation, so clicking either one always
+    // produces a fully synchronized result, never two separately-seeded
+    // patterns that happen to overlap in time. generateDrumPatternClicked
+    // builds ONE MusicArrangement and updates both the drum pattern and
+    // (via processor.setGeneratedBassPattern) the bass pattern from it.
+    generateDrumPatternClicked();
 }
 
 void AbletonCopilotAudioProcessorEditor::buildMelodyEditSuggestions()

@@ -175,10 +175,38 @@ void RackBrowserComponent::setLibraryDir(const juce::File& dir)
     startThread();
 }
 
+juce::File RackBrowserComponent::cacheFile() const
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+               .getChildFile("AbletonCopilot/rack_classification_cache.json");
+}
+
+void RackBrowserComponent::saveCache(const std::map<juce::String, CachedClassification>& entries) const
+{
+    juce::Array<juce::var> arr;
+    for (auto& kv : entries)
+    {
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty("path",         kv.first);
+        obj->setProperty("fileSize",     kv.second.fileSize);
+        obj->setProperty("mtimeMs",      kv.second.mtimeMs);
+        obj->setProperty("rackId",       kv.second.rackId);
+        obj->setProperty("durationSecs", kv.second.durationSecs);
+        arr.add(juce::var(obj));
+    }
+
+    auto f = cacheFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText(juce::JSON::toString(juce::var(arr)));
+}
+
 void RackBrowserComponent::run()
 {
     auto dir = pendingDir;
     std::vector<Rack> built;
+    bool fullyCached = true;
+    int  cachedCount = 0;
+    int  changedCount = 0;
 
     if (dir.isDirectory())
     {
@@ -188,6 +216,43 @@ void RackBrowserComponent::run()
         std::map<juce::String, Rack> byId;
         for (auto& d : kRackDefs)
             byId[d.id] = Rack{ d.id, d.display, {} };
+
+        // Load the previous scan's cache (path+size+mtime -> rackId) once,
+        // up front - the dominant cost of scanning a large library is
+        // classifySample()'s decoder-open-per-file, and this stage
+        // previously had NO caching at all (unlike DrumSampleIndex's own
+        // already-cached deeper-analysis stage downstream of it), so
+        // reopening the plugin re-paid that full cost on every load
+        // regardless of whether the library had changed - a confirmed
+        // root cause, not a guess (see the library-cache milestone).
+        std::map<juce::String, CachedClassification> cached;
+        {
+            auto cacheF = cacheFile();
+            if (cacheF.existsAsFile())
+            {
+                auto parsed = juce::JSON::parse(cacheF);
+                if (parsed.isArray())
+                {
+                    for (auto& entryVar : *parsed.getArray())
+                    {
+                        if (threadShouldExit())
+                            return;
+                        auto* obj = entryVar.getDynamicObject();
+                        if (obj == nullptr)
+                            continue;
+                        const juce::String path = obj->getProperty("path").toString();
+                        if (path.isEmpty())
+                            continue;
+                        CachedClassification rec;
+                        rec.fileSize     = (juce::int64) (double) obj->getProperty("fileSize");
+                        rec.mtimeMs      = (juce::int64) (double) obj->getProperty("mtimeMs");
+                        rec.rackId       = obj->getProperty("rackId").toString();
+                        rec.durationSecs = (double) obj->getProperty("durationSecs");
+                        cached[path] = rec;
+                    }
+                }
+            }
+        }
 
         auto files = dir.findChildFiles(juce::File::findFiles, true,
                                          "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
@@ -199,14 +264,44 @@ void RackBrowserComponent::run()
             juce::MessageManager::callAsync([callback, count] { callback(count); });
         }
 
+        std::map<juce::String, CachedClassification> nextCache;
+
         for (auto& f : files)
         {
             if (threadShouldExit())
                 return;
 
-            auto id = RackClassification::classifySample(f, formatManager);
+            const juce::String path  = f.getFullPathName();
+            const juce::int64  size  = f.getSize();
+            const juce::int64  mtime = f.getLastModificationTime().toMilliseconds();
+
+            juce::String id;
+            double durationSecs = 0.0;
+
+            auto it = cached.find(path);
+            if (it != cached.end() && it->second.fileSize == size && it->second.mtimeMs == mtime)
+            {
+                // Unchanged since the last scan - reuse the cached
+                // classification instead of opening the file again.
+                id            = it->second.rackId;
+                durationSecs  = it->second.durationSecs;
+                ++cachedCount;
+            }
+            else
+            {
+                id = RackClassification::classifySample(f, formatManager, &durationSecs);
+                ++changedCount;
+                fullyCached = false;
+            }
+
             byId[id].samples.push_back({ f.getFileNameWithoutExtension(), f });
+            nextCache[path] = { size, mtime, id, durationSecs };
         }
+
+        if (threadShouldExit())
+            return;
+
+        saveCache(nextCache);
 
         for (auto& d : kRackDefs)
         {
@@ -224,10 +319,15 @@ void RackBrowserComponent::run()
         return;
 
     juce::Component::SafePointer<RackBrowserComponent> safeThis(this);
-    juce::MessageManager::callAsync([safeThis, built]() mutable
+    juce::MessageManager::callAsync([safeThis, built, fullyCached, cachedCount, changedCount]() mutable
     {
         if (auto* comp = safeThis.getComponent())
+        {
+            comp->lastScanFullyCached = fullyCached;
+            comp->lastScanCachedCount = cachedCount;
+            comp->lastScanChangedCount = changedCount;
             comp->applyRacks(std::move(built));
+        }
     });
 }
 
