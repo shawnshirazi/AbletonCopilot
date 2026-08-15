@@ -1,5 +1,6 @@
 #include "DrumSampleSelector.h"
 #include "Engine/DrumSampleSelection.h" // Engine::selectSampleIndex
+#include "Engine/DrumSamplePackTier.h"  // Engine::classifyPackTier - Part C genre-aware ranking
 #include <algorithm>
 
 namespace
@@ -21,6 +22,22 @@ namespace
                 }
         }
         return out;
+    }
+
+    // Combines the sample's own measured-character score
+    // (Engine::scoreForRole) with a confidence multiplier for the PACK it
+    // came from (Engine::classifyPackTier) - two samples can measure
+    // almost identically on duration/attack/ZCR/etc. while one is real
+    // Melodic Techno material and the other is Tech House that happens to
+    // share those numbers; pack identity is real information the DSP
+    // features alone can't see. See Source/Engine/DrumSamplePackTier.h
+    // for the tier weights and the actual pack-name evidence they're
+    // drawn from.
+    float combinedScore(Engine::DrumRole role, const IndexedSample& sample, double bpm)
+    {
+        const float dspScore  = Engine::scoreForRole(role, sample.features, bpm);
+        const float tierScore = Engine::tierWeight(Engine::classifyPackTier(sample.file.getFullPathName().toStdString()).tier);
+        return dspScore * tierScore;
     }
 
     // exclude: when non-null, drops any candidate whose file matches it
@@ -53,7 +70,7 @@ namespace
 
         std::sort(candidates.begin(), candidates.end(), [&](const IndexedSample* a, const IndexedSample* b)
         {
-            return Engine::scoreForRole(role, a->features, bpm) > Engine::scoreForRole(role, b->features, bpm);
+            return combinedScore(role, *a, bpm) > combinedScore(role, *b, bpm);
         });
 
         // Top-ranked shortlist: at least 1, at most 5, and never more
@@ -67,7 +84,7 @@ namespace
 
         const int idx = Engine::selectSampleIndex(role, seed, shortlistSize);
         choice.file  = candidates[(size_t) idx]->file;
-        choice.score = Engine::scoreForRole(role, candidates[(size_t) idx]->features, bpm);
+        choice.score = combinedScore(role, *candidates[(size_t) idx], bpm);
         return choice;
     }
 }

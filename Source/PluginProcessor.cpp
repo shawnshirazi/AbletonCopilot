@@ -375,6 +375,26 @@ juce::String AbletonCopilotAudioProcessor::getMelodyTrackStatus(int trackIndex) 
     return voice.statusMessage;
 }
 
+AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
+    AbletonCopilotAudioProcessor::getMelodyVoiceDiagnostics(int trackIndex) const
+{
+    MelodyVoiceDiagnostics d;
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
+        return d;
+
+    auto& voice = melodyVoices[trackIndex];
+    d.serumInstanceLoaded = voice.instance.load(std::memory_order_acquire) != nullptr;
+    d.noteOnEventsSent    = voice.noteOnEventsSent.load(std::memory_order_relaxed);
+    d.lastBlockPeakOut    = voice.lastBlockPeakOut.load(std::memory_order_relaxed);
+    d.suppressOwnPlayback = suppressOwnPlayback.load(std::memory_order_relaxed);
+    {
+        juce::ScopedLock sl(voice.lock);
+        d.generatedTotalSteps    = voice.generatedTotalSteps;
+        d.generatedPatternActive = !voice.generatedOffsets.empty() && voice.generatedTotalSteps > 0;
+    }
+    return d;
+}
+
 bool AbletonCopilotAudioProcessor::isMelodyTrackLoaded(int trackIndex) const
 {
     if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
@@ -1080,6 +1100,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         serumMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), 0);
                         voice.noteOn        = true;
                         voice.soundingPitch = pitch;
+                        voice.noteOnEventsSent.fetch_add(1, std::memory_order_relaxed);
                     }
                 }
             }
@@ -1094,6 +1115,25 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             voice.scratch.setSize(2, numSamples, false, false, true);
             voice.scratch.clear();
             serum->processBlock(voice.scratch, serumMidi);
+
+            // Runtime proof for getMelodyVoiceDiagnostics(): the peak
+            // level of Serum2's OWN raw output for this block, measured
+            // BEFORE the EQ/suppression/mix stage below - this is what
+            // actually distinguishes "Serum2 is receiving MIDI but its
+            // loaded patch is genuinely silent" from "Serum2 is producing
+            // real signal that isn't reaching the main output" (a
+            // suppression/mixing bug) - the two have identical symptoms
+            // ("I hear nothing") but completely different fixes.
+            {
+                float blockPeak = 0.0f;
+                for (int ch = 0; ch < voice.scratch.getNumChannels(); ++ch)
+                {
+                    const float* data = voice.scratch.getReadPointer(ch);
+                    for (int n = 0; n < numSamples; ++n)
+                        blockPeak = std::max(blockPeak, std::abs(data[n]));
+                }
+                voice.lastBlockPeakOut.store(blockPeak, std::memory_order_relaxed);
+            }
 
             // Static, role-based default EQ - shapes this voice's own tone
             // before it's mixed with anything else, regardless of whether

@@ -18,5 +18,6 @@ namespace Engine
         float  attackTimeMs      = 0.0f;  // time from start to 90% of peak - lower = sharper/stronger transient
         float  zeroCrossingRate  = 0.0f;  // crossings/sec - cheap, FFT-free proxy for spectral brightness
         float  estimatedPitchHz  = 0.0f;  // 0 = no clear pitch found (typical/expected for noise-heavy hats/percs)
+        float  spectralCentroidHz = 0.0f; // magnitude-weighted mean frequency (direct DFT, see DrumSampleAnalysis.cpp) - a real "brightness" measurement, not the same thing as zeroCrossingRate's proxy
     };
 }

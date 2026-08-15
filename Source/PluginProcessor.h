@@ -152,6 +152,23 @@ public:
     bool loadCapturedPreset(int trackIndex, const juce::File& captureFile);
 
     juce::String getMelodyTrackStatus(int trackIndex) const;
+
+    // Real runtime proof for the bass-audibility investigation - every
+    // field is read from state actually set by processBlock/
+    // setGeneratedBassPattern, never inferred or assumed. noteOnEventsSent
+    // and lastBlockPeakOut only advance while the host transport is
+    // running (processBlock only runs then) - see PluginEditor's own
+    // status text for that caveat.
+    struct MelodyVoiceDiagnostics
+    {
+        bool    serumInstanceLoaded    = false; // voice.instance != nullptr right now
+        bool    generatedPatternActive = false; // setGeneratedBassPattern has a non-empty pattern stored for this track
+        int     generatedTotalSteps    = 0;
+        int64_t noteOnEventsSent       = 0;     // cumulative count of real noteOn events queued into this voice's Serum2 instance
+        float   lastBlockPeakOut       = 0.0f;  // peak |sample| in this voice's own scratch buffer AFTER serum->processBlock(), BEFORE any downstream suppression/mixing gate - proves whether Serum's own output is silent independent of whether it reaches the main mix
+        bool    suppressOwnPlayback    = false; // the shared gate that silences ALL melody-voice (and drum) output when true - see setSuppressOwnPlayback
+    };
+    MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
 
     // --- Deterministic drum-MIDI output (Phase 1 engine, Source/Engine/) ---
@@ -280,6 +297,19 @@ private:
         // (see processBlock's melody-voice trigger loop) until cleared.
         std::vector<int8_t>                        generatedOffsets;
         int                                         generatedTotalSteps = 0;
+
+        // Runtime proof for getMelodyVoiceDiagnostics() - written from the
+        // audio thread in processBlock, read from the message thread.
+        // noteOnEventsSent counts real noteOn MIDI events actually queued
+        // into this voice's Serum2 instance (not just "would have been
+        // sent if audible"); lastBlockPeakOut is the peak |sample| in this
+        // voice's own scratch buffer straight out of
+        // serum->processBlock(), before the EQ/suppression/mix stage - so
+        // it proves whether SERUM'S OWN OUTPUT is silent, independent of
+        // whether anything downstream would have blocked it from reaching
+        // the main output.
+        std::atomic<int64_t> noteOnEventsSent { 0 };
+        std::atomic<float>   lastBlockPeakOut { 0.0f };
 
         // Audio-thread-only playback state.
         int  lastStepIndex  = -1;

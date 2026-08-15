@@ -106,6 +106,53 @@ namespace
 
         return (float) (sampleRate / (double) bestLag);
     }
+
+    // Magnitude-weighted mean frequency over the sample's first ~93ms
+    // (4096 samples at 44.1kHz) - a real, direct DFT (not the Cooley-
+    // Tukey FFT algorithm, since this file deliberately has no juce_dsp/
+    // FFT-module dependency - see the header comment), evaluated at a
+    // modest 128 linearly-spaced bins up to Nyquist. Run only once per
+    // sample on the background analysis thread (see DrumSampleIndex),
+    // never the audio thread, so the O(N*K) cost here is negligible even
+    // for a large library. This is the genuine spectral-centroid
+    // "brightness" measurement Part D's per-candidate diagnostics need -
+    // zeroCrossingRate above is a cheaper, different proxy for the same
+    // rough idea and the two are not interchangeable.
+    float computeSpectralCentroidHz(const std::vector<float>& mono, double sampleRate)
+    {
+        if (sampleRate <= 0.0)
+            return 0.0f;
+
+        const int windowSamples = std::min((int) mono.size(), 4096);
+        if (windowSamples < 64)
+            return 0.0f;
+
+        constexpr int kNumBins = 128;
+        const double nyquist = sampleRate * 0.5;
+
+        double weightedSum = 0.0;
+        double magSum      = 0.0;
+
+        for (int k = 1; k <= kNumBins; ++k)
+        {
+            const double freq  = nyquist * (double) k / (double) kNumBins;
+            const double omega = -2.0 * juce::MathConstants<double>::pi * freq / sampleRate;
+
+            double real = 0.0, imag = 0.0;
+            for (int n = 0; n < windowSamples; ++n)
+            {
+                const double phase = omega * (double) n;
+                real += (double) mono[(size_t) n] * std::cos(phase);
+                imag += (double) mono[(size_t) n] * std::sin(phase);
+            }
+
+            const double mag = std::sqrt(real * real + imag * imag);
+            weightedSum += freq * mag;
+            magSum      += mag;
+        }
+
+        return magSum > 1e-9 ? (float) (weightedSum / magSum) : 0.0f;
+    }
 }
 
 Engine::DrumSampleFeatures analyzeDrumSample(const juce::File& file)

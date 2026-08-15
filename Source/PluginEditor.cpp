@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "UIStyle.h"
+#include "Engine/DrumSamplePackTier.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -1188,15 +1189,20 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 {
     juce::Random rng;
 
-    // ONE shared MusicArrangement (Source/Engine/Arrangement.h) drives
-    // BOTH drums and bass from here on - they are explicitly NOT
-    // independently generated (see Engine::MusicState's own comment for
-    // why): both consume the exact same per-bar section/energy/tension
-    // timeline, built once from ONE seed, so a Breakdown bar is a
-    // Breakdown bar for both roles at once, never drums in one section
-    // while bass thinks it's in another. generateBassPatternClicked()
-    // below calls straight into this same function rather than building
-    // its own separate arrangement, for the same reason.
+    // Drums and bass each get their OWN independently-seeded
+    // MusicArrangement (Source/Engine/Arrangement.h) and this click only
+    // ever touches drum state - see generateBassPatternClicked() below,
+    // which is the mirror image. They are deliberately NOT coupled
+    // together anymore: an earlier version of this code had "Generate
+    // Bass" call straight into this function (to keep them on one shared
+    // arrangement/seed), which meant clicking Generate Bass silently
+    // regenerated and replaced the entire drum pattern too - a real,
+    // confirmed bug (drum rack state changing when only bass was asked
+    // for), not the intended "share musical context" behaviour. Both
+    // still use the exact same Engine::buildArrangement/MusicState
+    // machinery - the SHAPE of the arrangement (section order, energy/
+    // tension curve) is structurally identical either way - they just no
+    // longer force each other to regenerate on every click.
     Engine::ArrangementConfig arrangementCfg;
     arrangementCfg.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
     if (arrangementCfg.bpm <= 0.0)
@@ -1215,22 +1221,6 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     params.seed        = arrangementCfg.seed;
 
     const Engine::DropPattern drop = Engine::generateArrangementDrop(arrangement, kStepsPerBar, params);
-
-    // Bass, from the SAME arrangement/seed (see the comment above) -
-    // reuses the existing melody-voice/hosted-Serum2 path (track 0, the
-    // default "Bass" voice) via the new parallel generated-bass-pattern
-    // mechanism (PluginProcessor::setGeneratedBassPattern), not the
-    // fixed-128-step setMelodyPattern the manual-editing grid still uses.
-    Engine::BassPatternParams bassParams;
-    bassParams.density   = 0.5f;
-    bassParams.variation = 0.2f;
-    bassParams.seed      = arrangementCfg.seed;
-    const std::vector<int8_t> bassPattern = Engine::generateArrangementBassPattern(arrangement, bassParams);
-    processor.setGeneratedBassPattern(0, bassPattern, arrangementKeyRoot);
-    int bassActiveCount = 0;
-    for (auto v : bassPattern)
-        if (v != Engine::kBassOffValue)
-            ++bassActiveCount;
 
     struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
@@ -1266,6 +1256,7 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     const uint32_t sampleSeed = (uint32_t) rng.nextInt();
     const double   bpmForSelection = (double) processor.currentBpm.load(std::memory_order_relaxed);
     const DrumSampleSelection sampleSel = selectDrumSamples(latestSampleIndex, sampleSeed, bpmForSelection);
+    logPercussionCandidateDiagnostics(latestSampleIndex, sampleSel, bpmForSelection);
 
     auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
     {
@@ -1306,8 +1297,9 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 
     juce::String status;
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
-           << " total) + bass (" << bassActiveCount << " notes) over " << arrangement.totalBars()
-           << " bars: Intro/Establish/Build/PreDrop/Drop/Breakdown/BreakdownBuild/FinalDrop/Outro.\n";
+           << " total) over " << arrangement.totalBars()
+           << " bars: Intro/Establish/Build/PreDrop/Drop/Breakdown/BreakdownBuild/FinalDrop/Outro. "
+              "(Bass is generated separately - see the Generate Bass button/status below.)\n";
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
 
@@ -1341,36 +1333,153 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
     }
 
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
+}
 
-    // Bass status - see the Serum-preset-identification investigation
-    // (MLPipeline/musical_target/melodic_techno_spec.md's appendix): no
-    // preset NAME is recoverable from either the live Serum 2 state or a
-    // .SerumPreset file, so this states that plainly instead of pretending
-    // to know it. getMelodyTrackStatus(0) reports whatever the hosted
-    // Serum2 instance's own load status actually is (e.g. "Serum 2
-    // loaded"), never a fabricated preset name.
+void AbletonCopilotAudioProcessorEditor::logPercussionCandidateDiagnostics(
+    const std::vector<IndexedSample>& indexed, const DrumSampleSelection& sel, double bpm)
+{
+    // Same pool percA/percB actually draw from - see
+    // DrumSampleSelector.cpp's candidatesForRackIds(indexed, { "PERC" }).
+    // Deliberately re-filtered here rather than threaded through from
+    // selectDrumSamples() so this stays a read-only diagnostic with zero
+    // chance of influencing the real selection.
+    struct Row
+    {
+        const IndexedSample*        sample;
+        float                       dspScore;
+        Engine::PackClassification  pack;
+        float                       tierWeight;
+        float                       combined;
+    };
+
+    std::vector<Row> rows;
+    for (auto& s : indexed)
+    {
+        if (s.rackId != "PERC" || !s.features.valid)
+            continue;
+        Row r;
+        r.sample     = &s;
+        r.dspScore   = Engine::scoreForRole(Engine::DrumRole::PercA, s.features, bpm);
+        r.pack       = Engine::classifyPackTier(s.file.getFullPathName().toStdString());
+        r.tierWeight = Engine::tierWeight(r.pack.tier);
+        r.combined   = r.dspScore * r.tierWeight;
+        rows.push_back(r);
+    }
+
+    std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.combined > b.combined; });
+
+    auto tierName = [](Engine::PackTier t) -> const char*
+    {
+        switch (t)
+        {
+            case Engine::PackTier::MelodicTechno:    return "Tier1-MelodicTechno";
+            case Engine::PackTier::AdjacentTechno:   return "Tier2-AdjacentTechno";
+            case Engine::PackTier::OtherElectronic:  return "Tier3-OtherElectronic";
+            case Engine::PackTier::OffGenreFallback: return "Tier4-OffGenreFallback";
+        }
+        return "?";
+    };
+
+    juce::String report;
+    report << "=== Percussion (PERC) candidate diagnostics - " << juce::Time::getCurrentTime().toString(true, true) << " ===\n";
+    report << "Pool size: " << (int) rows.size() << " analyzed PERC candidates (out of "
+           << (int) indexed.size() << " total analyzed samples).\n";
+    report << "Chosen percA: " << (sel.percA.file.existsAsFile() ? sel.percA.file.getFullPathName() : juce::String("(none)")) << "\n";
+    report << "Chosen percB: " << (sel.percB.file.existsAsFile() ? sel.percB.file.getFullPathName() : juce::String("(none)")) << "\n\n";
+    report << "Top " << juce::jmin(10, (int) rows.size()) << " candidates, ranked by combined score "
+              "(dspScore x packTierWeight):\n";
+
+    const int topN = juce::jmin(10, (int) rows.size());
+    for (int i = 0; i < topN; ++i)
+    {
+        const Row& r = rows[(size_t) i];
+        const auto& f = r.sample->features;
+        const bool isPercA = r.sample->file == sel.percA.file;
+        const bool isPercB = r.sample->file == sel.percB.file;
+
+        report << (i + 1) << ". " << r.sample->file.getFullPathName()
+               << (isPercA ? "  [SELECTED percA]" : "") << (isPercB ? "  [SELECTED percB]" : "") << "\n";
+        report << "   pack=" << (r.pack.packName.empty() ? std::string("(unclassified)") : r.pack.packName)
+               << "  tier=" << tierName(r.pack.tier) << "  classification=" << r.sample->rackId << "\n";
+        report << "   duration=" << juce::String(f.durationSec, 3) << "s"
+               << "  peak=" << juce::String(f.peakAmplitude, 3)
+               << "  rms=" << juce::String(f.rms, 3)
+               << "  attack=" << juce::String(f.attackTimeMs, 1) << "ms"
+               << "  spectralCentroid=" << juce::String(f.spectralCentroidHz, 0) << "Hz"
+               << "  zcr=" << juce::String(f.zeroCrossingRate, 0) << "/s"
+               << "  pitch=" << juce::String(f.estimatedPitchHz, 0) << "Hz\n";
+        report << "   dspScore=" << juce::String(r.dspScore, 4)
+               << "  packTierWeight=" << juce::String(r.tierWeight, 2)
+               << "  combinedScore=" << juce::String(r.combined, 4) << "\n";
+    }
+
+    auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("AbletonCopilot");
+    dir.createDirectory();
+    dir.getChildFile("percussion_selection_debug.txt").replaceWithText(report);
+}
+
+void AbletonCopilotAudioProcessorEditor::generateBassPatternClicked()
+{
+    juce::Random rng;
+
+    // Its own independently-seeded MusicArrangement - see
+    // generateDrumPatternClicked's comment above for why this click no
+    // longer touches drum state at all (a real, confirmed bug: it used to
+    // call straight into generateDrumPatternClicked, which regenerated
+    // and replaced the ENTIRE drum pattern every time Generate Bass was
+    // clicked).
+    Engine::ArrangementConfig arrangementCfg;
+    arrangementCfg.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
+    if (arrangementCfg.bpm <= 0.0)
+        arrangementCfg.bpm = 124.0;
+    const auto [arrangementKeyRoot, arrangementIsMinor] = getSelectedKey();
+    arrangementCfg.rootNote = arrangementKeyRoot;
+    arrangementCfg.seed     = (uint32_t) rng.nextInt();
+    const Engine::MusicArrangement arrangement = Engine::buildArrangement(arrangementCfg);
+
+    Engine::BassPatternParams bassParams;
+    bassParams.density   = 0.5f;
+    bassParams.variation = 0.2f;
+    bassParams.seed      = arrangementCfg.seed;
+    const std::vector<int8_t> bassPattern = Engine::generateArrangementBassPattern(arrangement, bassParams);
+
+    // Only ever touches track 0's generated-bass state (see
+    // PluginProcessor::setGeneratedBassPattern) - never
+    // setGeneratedDrumPattern, never the manual drum grid/rack state.
+    processor.setGeneratedBassPattern(0, bassPattern, arrangementKeyRoot);
+
+    int bassActiveCount = 0;
+    for (auto v : bassPattern)
+        if (v != Engine::kBassOffValue)
+            ++bassActiveCount;
+
+    // Runtime diagnostics (Part A of the bass-runtime-bug investigation):
+    // reports what PluginProcessor can actually PROVE happened at the
+    // moment of the click - notes stored, whether track 0's Serum2
+    // instance is loaded right now, and (once the transport has run for
+    // at least one block) how many note-on events have actually been
+    // sent to it and whether its own audio output is non-silent. This is
+    // queried fresh each time, not cached/assumed - see
+    // AbletonCopilotAudioProcessor::getMelodyVoiceDiagnostics.
+    const auto diag = processor.getMelodyVoiceDiagnostics(0);
+
     juce::String bassStatus;
-    bassStatus << "Generated - " << bassActiveCount << " notes over " << arrangement.totalBars() << " bars (same arrangement as the drums above).\n";
+    bassStatus << "Generated - " << bassActiveCount << " notes stored over " << arrangement.totalBars() << " bars.\n";
     bassStatus << "Bass: Serum 2 / Preset: Unknown (host state) - start Ableton's transport to hear it.\n";
     bassStatus << processor.getMelodyTrackStatus(0) << "\n";
+    bassStatus << "Runtime: serumLoaded=" << (diag.serumInstanceLoaded ? "yes" : "NO")
+               << "  generatedPatternActive=" << (diag.generatedPatternActive ? "yes" : "no")
+               << " (" << diag.generatedTotalSteps << " steps)"
+               << "  noteOnEventsSent=" << (juce::int64) diag.noteOnEventsSent
+               << "  lastBlockPeakOut=" << juce::String(diag.lastBlockPeakOut, 5)
+               << "  suppressOwnPlayback=" << (diag.suppressOwnPlayback ? "YES (would silence everything)" : "no") << "\n";
+    bassStatus << "(noteOnEventsSent/lastBlockPeakOut only update while Ableton's transport is running - "
+                  "press play, wait a moment, then reopen this to see real numbers.)\n";
     bassStatus << "To use one of your own melodic-techno Serum 2 bass presets: open Serum 2 on the "
                   "Bass track, browse to a preset by ear, then click that track's Capture button - "
                   "captured sounds can be cycled with the </> buttons. (Serum 2's own preset files "
                   "can't be loaded automatically - see the investigation notes for why.)";
     bassPatternStatusLabel.setText(bassStatus, juce::dontSendNotification);
-}
-
-void AbletonCopilotAudioProcessorEditor::generateBassPatternClicked()
-{
-    // Drums and bass are explicitly NOT generated independently (see
-    // MusicState's own comment, and the "share musical context"
-    // requirement this satisfies) - both buttons drive the exact same
-    // combined arrangement generation, so clicking either one always
-    // produces a fully synchronized result, never two separately-seeded
-    // patterns that happen to overlap in time. generateDrumPatternClicked
-    // builds ONE MusicArrangement and updates both the drum pattern and
-    // (via processor.setGeneratedBassPattern) the bass pattern from it.
-    generateDrumPatternClicked();
 }
 
 void AbletonCopilotAudioProcessorEditor::buildMelodyEditSuggestions()

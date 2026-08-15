@@ -129,6 +129,8 @@
         <FILE id="Eng6hdr" name="DrumSampleFeatures.h" compile="0" resource="0" file="Source/Engine/DrumSampleFeatures.h"/>
         <FILE id="Eng7cpp" name="DrumSampleScoring.cpp" compile="1" resource="0" file="Source/Engine/DrumSampleScoring.cpp"/>
         <FILE id="Eng7hdr" name="DrumSampleScoring.h" compile="0" resource="0" file="Source/Engine/DrumSampleScoring.h"/>
+        <FILE id="Eng8cpp" name="DrumSamplePackTier.cpp" compile="1" resource="0" file="Source/Engine/DrumSamplePackTier.cpp"/>
+        <FILE id="Eng8hdr" name="DrumSamplePackTier.h" compile="0" resource="0" file="Source/Engine/DrumSamplePackTier.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

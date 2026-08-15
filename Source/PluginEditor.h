@@ -74,6 +74,22 @@ private:
     // emits the pattern as MIDI, kept only as an optional secondary output.
     void generateDrumPatternClicked();
 
+    // Part D of the bass-runtime-bug + sample-selection investigation:
+    // "why did the selector think this was a good Melodic Techno
+    // percussion sound?" - writes the full PERC candidate pool (every
+    // field DrumSampleSelector.cpp's ranking actually used: path, pack/
+    // source tier, DSP features, and the individual score components),
+    // ranked, top 10 only, to
+    // ~/Library/AbletonCopilot/percussion_selection_debug.txt so the
+    // real ranking behind percA/percB's actual choice can be inspected
+    // after every Generate Drum Pattern click - not a one-off report,
+    // always current. sel/pool/seed/bpm are exactly what
+    // generateDrumPatternClicked() already computed for this click - see
+    // its own call to selectDrumSamples().
+    static void logPercussionCandidateDiagnostics(const std::vector<IndexedSample>& indexed,
+                                                    const DrumSampleSelection& sel,
+                                                    double bpm);
+
     // Melodic Techno DROP bassline (Source/Engine/BassEngine.h) - reuses
     // the EXISTING melody-voice/hosted-Serum2 path (track 0, "Bass" by
     // default - see its setup at construction below) rather than a new
