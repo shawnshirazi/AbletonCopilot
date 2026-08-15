@@ -44,7 +44,7 @@ int main()
     // =====================================================================
     {
         DrumSampleFeatures invalid; // valid = false by default
-        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed, DrumRole::PercA })
             CHECK(scoreForRole(role, invalid, 124.0) == 0.0f);
     }
 
@@ -92,7 +92,7 @@ int main()
     {
         auto crisp = makeFeatures(0.12, 1.5f, 5000.0f);
         auto dull  = makeFeatures(0.9,  20.0f, 400.0f);
-        CHECK(scoreForRole(DrumRole::Hat, crisp, 124.0) > scoreForRole(DrumRole::Hat, dull, 124.0));
+        CHECK(scoreForRole(DrumRole::HatClosed, crisp, 124.0) > scoreForRole(DrumRole::HatClosed, dull, 124.0));
     }
 
     // =====================================================================
@@ -102,7 +102,7 @@ int main()
     {
         auto restrained = makeFeatures(0.15, 4.0f, 2500.0f, 0.5f);
         auto dominant    = makeFeatures(1.0,  4.0f, 2500.0f, 0.99f);
-        CHECK(scoreForRole(DrumRole::Perc, restrained, 124.0) > scoreForRole(DrumRole::Perc, dominant, 124.0));
+        CHECK(scoreForRole(DrumRole::PercA, restrained, 124.0) > scoreForRole(DrumRole::PercA, dominant, 124.0));
     }
 
     // =====================================================================
@@ -121,7 +121,7 @@ int main()
     // =====================================================================
     {
         auto f = makeFeatures(0.25, 3.0f, 2000.0f, 0.6f, 50.0f);
-        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed, DrumRole::PercA })
             CHECK(scoreForRole(role, f, 124.0) == scoreForRole(role, f, 124.0));
     }
 
@@ -130,7 +130,7 @@ int main()
     // =====================================================================
     {
         auto extreme = makeFeatures(50.0, 5000.0f, 100000.0f, 5.0f, 5000.0f); // absurd out-of-range values
-        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed, DrumRole::PercA })
         {
             const float s = scoreForRole(role, extreme, 124.0);
             CHECK(s >= 0.0f);
@@ -152,8 +152,8 @@ int main()
         const RoleFp roleFps[] = {
             { DrumRole::Kick, targetFingerprintForRole(DrumRole::Kick) },
             { DrumRole::Clap, targetFingerprintForRole(DrumRole::Clap) },
-            { DrumRole::Hat,  targetFingerprintForRole(DrumRole::Hat) },
-            { DrumRole::Perc, targetFingerprintForRole(DrumRole::Perc) },
+            { DrumRole::HatClosed,  targetFingerprintForRole(DrumRole::HatClosed) },
+            { DrumRole::PercA, targetFingerprintForRole(DrumRole::PercA) },
         };
         for (auto& rf : roleFps)
         {
@@ -181,9 +181,9 @@ int main()
     // =====================================================================
     {
         auto kickIdeal = makeFeaturesAtFingerprintOffset(targetFingerprintForRole(DrumRole::Kick), 0.0f);
-        auto hatIdeal  = makeFeaturesAtFingerprintOffset(targetFingerprintForRole(DrumRole::Hat), 0.0f);
+        auto hatIdeal  = makeFeaturesAtFingerprintOffset(targetFingerprintForRole(DrumRole::HatClosed), 0.0f);
         CHECK(scoreForRole(DrumRole::Kick, kickIdeal, 90.0) > scoreForRole(DrumRole::Kick, hatIdeal, 90.0));
-        CHECK(scoreForRole(DrumRole::Hat, hatIdeal, 90.0) > scoreForRole(DrumRole::Hat, kickIdeal, 90.0));
+        CHECK(scoreForRole(DrumRole::HatClosed, hatIdeal, 90.0) > scoreForRole(DrumRole::HatClosed, kickIdeal, 90.0));
     }
 
     // =====================================================================
@@ -195,7 +195,7 @@ int main()
     // KICK as acoustically identical).
     // =====================================================================
     {
-        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+        for (auto role : { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed, DrumRole::PercA })
         {
             const auto& fp = targetFingerprintForRole(role);
             CHECK(fp.durationSec.stddev > 0.0f);
@@ -206,7 +206,7 @@ int main()
             CHECK(fp.rms.stddev > 0.0f);
         }
         const auto& kickFp = targetFingerprintForRole(DrumRole::Kick);
-        const auto& hatFp  = targetFingerprintForRole(DrumRole::Hat);
+        const auto& hatFp  = targetFingerprintForRole(DrumRole::HatClosed);
         CHECK(std::abs(kickFp.zeroCrossingHz.mean - hatFp.zeroCrossingHz.mean) > 1000.0f); // real kicks measure far darker than real hats
     }
 

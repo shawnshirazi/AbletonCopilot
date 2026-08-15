@@ -1166,13 +1166,17 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 
     struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
-    // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Side Stick) so this lines up
-    // with most drum racks/instruments by default.
+    // (Bass Drum 1, Hand Clap, Closed Hi-Hat, Open Hi-Hat, Side Stick, Open
+    // Hi Conga) so this lines up with most drum racks/instruments by
+    // default. Order matches Engine::DrumRole (Kick, Clap, HatClosed,
+    // HatOpen, PercA, PercB).
     std::vector<RoleExport> roles;
-    roles.push_back({ "KICK", 36, UIStyle::kKick,  drop.kick });
-    roles.push_back({ "CLAP", 39, UIStyle::kClap,  drop.clap });
-    roles.push_back({ "HAT",  42, UIStyle::kHihat, drop.hat  });
-    roles.push_back({ "PERC", 37, UIStyle::kPerc,  drop.perc });
+    roles.push_back({ "KICK",       36, UIStyle::kKick,     drop.kick      });
+    roles.push_back({ "CLAP",       39, UIStyle::kClap,     drop.clap      });
+    roles.push_back({ "HAT_CLOSED", 42, UIStyle::kHihat,     drop.hatClosed });
+    roles.push_back({ "HAT_OPEN",   46, UIStyle::kHihatOpen, drop.hatOpen   });
+    roles.push_back({ "PERC_A",     37, UIStyle::kPerc,      drop.percA    });
+    roles.push_back({ "PERC_B",     63, UIStyle::kPercAlt,   drop.percB    });
 
     // Hand the pattern straight to the processor - it plays it back as real
     // audio (DrumVoiceSynth, see PluginProcessor.cpp) and, secondarily, as
@@ -1197,10 +1201,12 @@ void AbletonCopilotAudioProcessorEditor::generateDrumPatternClicked()
 
     auto choiceForRole = [&](const char* name) -> const DrumSampleChoice&
     {
-        if (juce::String(name) == "KICK") return sampleSel.kick;
-        if (juce::String(name) == "CLAP") return sampleSel.clap;
-        if (juce::String(name) == "HAT")  return sampleSel.hat;
-        return sampleSel.perc;
+        if (juce::String(name) == "KICK")       return sampleSel.kick;
+        if (juce::String(name) == "CLAP")       return sampleSel.clap;
+        if (juce::String(name) == "HAT_CLOSED") return sampleSel.hatClosed;
+        if (juce::String(name) == "HAT_OPEN")   return sampleSel.hatOpen;
+        if (juce::String(name) == "PERC_A")     return sampleSel.percA;
+        return sampleSel.percB;
     };
 
     for (auto& role : roles)

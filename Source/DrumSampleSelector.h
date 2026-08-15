@@ -18,16 +18,27 @@ struct DrumSampleChoice
     float      score        = 0.0f; // the chosen sample's own score, for diagnostics/reporting
 };
 
+// Six functional roles - one choice per Engine::DrumRole value (see
+// DrumVoiceSynth.h) - up from the earlier four-role (kick/clap/hat/perc)
+// design. hatClosed/hatOpen are two DIFFERENT sample pools (a "good" closed
+// hat is not necessarily right for the open-hat/ride accent role); percA
+// and percB are two independently-selected candidates from the SAME PERC
+// pool, deliberately forced apart (see selectDrumSamples) so two real
+// library samples can play complementary motifs rather than one role
+// being silently duplicated onto two voices.
 struct DrumSampleSelection
 {
-    DrumSampleChoice kick, clap, hat, perc;
+    DrumSampleChoice kick, clap, hatClosed, hatOpen, percA, percB;
 };
 
 // indexed = whatever DrumSampleIndex last analyzed (PluginEditor's
 // latestSampleIndex). Clap draws from the CLAP and SNARE racks combined -
 // melodic techno productions use them close to interchangeably for this
-// role. Kick/Hat/Perc each draw from their own single rack only, never
-// borrowing from an unrelated category. bpm is passed straight to
+// role. hatOpen draws from OPEN_HAT and RIDE combined (both are real,
+// measured "open, ringing, longer-decay" material - see
+// MLPipeline/drum_grammar/analyze_drum_grammar.py's ONESHOT_CORPUS).
+// Kick/hatClosed/percA/percB each draw from their own single rack only,
+// never borrowing from an unrelated category. bpm is passed straight to
 // Engine::scoreForRole (Kick only actually uses it - see
 // Engine/DrumSampleScoring.h).
 DrumSampleSelection selectDrumSamples(const std::vector<IndexedSample>& indexed, uint32_t seed, double bpm);

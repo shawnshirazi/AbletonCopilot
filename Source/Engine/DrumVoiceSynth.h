@@ -10,30 +10,39 @@
 // integration (timing, triggering from the sequencer or incoming MIDI, and
 // mixing the rendered audio into the output buffer).
 //
-// No bundled samples - Kick is a pitched/decaying sine, Clap/Hat/Perc are
-// filtered noise bursts. Simple and parametric on purpose (real sample
-// playback and richer sound design are later upgrades, not this milestone).
+// No bundled samples - Kick is a pitched/decaying sine, everything else is
+// a filtered noise burst (shaped per role below). Simple and parametric on
+// purpose (real sample playback and richer sound design are later
+// upgrades, not this milestone).
 
 namespace Engine
 {
-    // The four roles DrumEngine generates patterns for (see DrumEngine.h).
+    // The six roles DrumEngine generates patterns for (see DrumEngine.h) -
+    // expanded from the earlier four-role (Kick/Clap/Hat/Perc) design into
+    // a layered hat hierarchy (closed pulse vs. open/ride accent) and two
+    // independent percussion voices (so two different library samples can
+    // play complementary, non-duplicate motifs - see DrumSampleSelector.h).
     // Values double as array indices - Count is the number of roles, not a
     // real role.
     enum class DrumRole
     {
-        Kick  = 0,
-        Clap  = 1,
-        Hat   = 2,
-        Perc  = 3,
-        Count = 4
+        Kick      = 0,
+        Clap      = 1,
+        HatClosed = 2,
+        HatOpen   = 3,
+        PercA     = 4,
+        PercB     = 5,
+        Count     = 6
     };
 
-    // Maps a General MIDI drum-map note number to a DrumRole, using the same
-    // convention already used for this plugin's MIDI output (Kick=36,
-    // Clap=39, Hat=42, Perc=37). Returns false (outRole untouched) if the
-    // note isn't one of these four - lets PluginProcessor drive the exact
-    // same voices from either the generated pattern or real incoming MIDI
-    // note-ons.
+    // Maps a General MIDI drum-map note number to a DrumRole, using real GM
+    // drum-map assignments throughout (Kick=36 Bass Drum 1, Clap=39 Hand
+    // Clap, HatClosed=42 Closed Hi-Hat, HatOpen=46 Open Hi-Hat, PercA=37
+    // Side Stick, PercB=63 Open Hi Conga) so this lines up with most drum
+    // racks/instruments by default. Returns false (outRole untouched) if
+    // the note isn't one of these six - lets PluginProcessor drive the
+    // exact same voices from either the generated pattern or real
+    // incoming MIDI note-ons.
     bool drumRoleForGmNote(int midiNote, DrumRole& outRole);
 
     // Runtime state for a single drum voice (one per role). All state a
@@ -50,11 +59,11 @@ namespace Engine
 
         double   phase          = 0.0;     // Kick only - running sine phase
 
-        uint32_t noiseState     = 1;       // Clap/Hat/Perc only - xorshift32 state
+        uint32_t noiseState     = 1;       // everything except Kick - xorshift32 state
 
-        // One-pole filter state (Clap/Hat/Perc only). Clap/Perc cascade
-        // highpass -> lowpass for a band-passed character; Hat uses only
-        // the highpass stage.
+        // One-pole filter state (everything except Kick). Clap/PercA/PercB
+        // cascade highpass -> lowpass for a band-passed character;
+        // HatClosed/HatOpen use only the highpass stage.
         float hpPrevX = 0.0f, hpPrevY = 0.0f;
         float lpPrevY = 0.0f;
     };

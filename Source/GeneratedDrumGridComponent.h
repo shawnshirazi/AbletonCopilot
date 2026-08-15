@@ -13,11 +13,11 @@
 // here would either have nowhere to show anything (no local Kick/Clap/Hat/
 // Perc samples) or make a cell mean two different things at once.
 //
-// Four fixed rows (Kick/Clap/Hat/Perc, matching Engine::DrumRole /
-// DrumVoiceSynth 1:1) are always shown regardless of the user's sample
-// library. Velocity is shown as cell shade: darker = stronger, lighter =
-// softer (see GridContent::paint) - a small legend along the bottom
-// explains the scale.
+// Six fixed rows (Kick/Clap/HatClosed/HatOpen/PercA/PercB, matching
+// Engine::DrumRole / DrumVoiceSynth 1:1) are always shown regardless of
+// the user's sample library. Velocity is shown as cell shade: darker =
+// stronger, lighter = softer (see GridContent::paint) - a small legend
+// along the bottom explains the scale.
 class GeneratedDrumGridComponent : public juce::Component
 {
 public:
@@ -57,9 +57,10 @@ public:
     static constexpr int kHeaderWidth  = 62;
     static constexpr int kLegendHeight = 22;
 
-    // Total height needed for a fixed number of rows (4 - Kick/Clap/Hat/
-    // Perc) plus the legend, for the owner's layout code.
-    static constexpr int kFixedRowCount     = 4;
+    // Total height needed for a fixed number of rows (6 - Kick/Clap/
+    // HatClosed/HatOpen/PercA/PercB) plus the legend, for the owner's
+    // layout code.
+    static constexpr int kFixedRowCount     = 6;
     static constexpr int kRequiredHeight    = kRowHeight * kFixedRowCount + kLegendHeight;
 
 private:

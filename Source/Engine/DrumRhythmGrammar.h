@@ -19,6 +19,7 @@
 // CLAP: n=26 loop files, 176 onsets, 73 bars analyzed, packs: PML Mirage, PML Mystique
 // HAT: n=94 loop files, 3058 onsets, 240 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique
 // PERC: n=56 loop files, 1590 onsets, 163 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage, PML Mystique
+// RIDE: n=19 loop files, 352 onsets, 47 bars analyzed, packs: Odd Frequency Exo, Odd Frequency Exo2, PML Mirage
 
 #include "DrumVoiceSynth.h" // DrumRole
 
@@ -43,9 +44,16 @@ namespace Engine
     // 16-step hit-probability vectors (corpus-wide, not tied to one song) -
     // positive means the two roles tend to favor the same positions,
     // negative means one favors positions the other avoids.
+    // kickRide/clapRide/hatRide/percRide let HatOpen (whose position
+    // shape comes from kRideRhythm) weigh its placement against every
+    // role generated before it, the same way HAT/PERC already do for
+    // their own roles - real measured numbers, not assumed (e.g.
+    // HAT<->RIDE is a very strong 0.93 - both genuinely favor the same
+    // offbeat-8th positions in the corpus).
     struct CrossRoleCorrelation
     {
         float kickClap, kickHat, kickPerc, clapHat, clapPerc, hatPerc;
+        float kickRide, clapRide, hatRide, percRide;
     };
 
     constexpr RoleRhythmStats kKickRhythm {
@@ -72,19 +80,35 @@ namespace Engine
         0.225200f, 0.287400f, 0.487400f, 0.570100f, 10.486607f
     };
 
-    constexpr CrossRoleCorrelation kCrossRoleCorrelation {
-        0.639100f, 0.075800f, -0.448800f, 0.150900f, -0.425000f, 0.475800f
+    constexpr RoleRhythmStats kRideRhythm {
+        { 0.059700f, 0.062500f, 0.122200f, 0.011400f, 0.059700f, 0.051100f, 0.122200f, 0.011400f, 0.054000f, 0.068200f, 0.122200f, 0.011400f, 0.059700f, 0.051100f, 0.122200f, 0.011400f },
+        { 0.310500f, 0.151600f, 0.887900f, 0.147000f, 0.241300f, 0.152500f, 0.875000f, 0.159500f, 0.247200f, 0.163000f, 0.887700f, 0.155600f, 0.254800f, 0.137300f, 0.895000f, 0.159500f },
+        0.233000f, 0.488600f, 0.278400f, 0.821400f, 7.526316f
     };
 
+    constexpr CrossRoleCorrelation kCrossRoleCorrelation {
+        0.639100f, 0.075800f, -0.448800f, 0.150900f, -0.425000f, 0.475800f,
+        -0.062000f, 0.001800f, 0.929000f, 0.337900f
+    };
+
+    // RIDE (kRideRhythm above) is real measured data but not one of
+    // DrumRole's own roles - it's a distinct instrument category in the
+    // corpus (ride cymbal / "top" loops), consulted directly by name from
+    // DrumEngine.cpp to shape the OPEN HAT role's placement (a real, measured
+    // stand-in for "open hat / ride / top" material, per the corpus - see
+    // DrumEngine.cpp's hat-hierarchy comment for the reasoning), so it has no
+    // case below.
     inline const RoleRhythmStats& rhythmStatsForRole(DrumRole role)
     {
         switch (role)
         {
-            case DrumRole::Kick:  return kKickRhythm;
-            case DrumRole::Clap:  return kClapRhythm;
-            case DrumRole::Hat:   return kHatRhythm;
-            case DrumRole::Perc:  return kPercRhythm;
-            case DrumRole::Count: return kKickRhythm;
+            case DrumRole::Kick:      return kKickRhythm;
+            case DrumRole::Clap:      return kClapRhythm;
+            case DrumRole::HatClosed: return kHatRhythm;
+            case DrumRole::HatOpen:   return kRideRhythm;
+            case DrumRole::PercA:     return kPercRhythm;
+            case DrumRole::PercB:     return kPercRhythm;
+            case DrumRole::Count:     return kKickRhythm;
         }
         return kKickRhythm;
     }

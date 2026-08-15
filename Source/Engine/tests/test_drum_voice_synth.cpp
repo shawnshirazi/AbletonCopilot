@@ -56,7 +56,8 @@ namespace
         return true;
     }
 
-    const DrumRole kAllRoles[4] = { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc };
+    const DrumRole kAllRoles[6] = { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed,
+                                     DrumRole::HatOpen, DrumRole::PercA, DrumRole::PercB };
     const double   kSampleRate  = 44100.0;
 }
 
@@ -69,8 +70,10 @@ int main()
         DrumRole role;
         CHECK(drumRoleForGmNote(36, role) && role == DrumRole::Kick);
         CHECK(drumRoleForGmNote(39, role) && role == DrumRole::Clap);
-        CHECK(drumRoleForGmNote(42, role) && role == DrumRole::Hat);
-        CHECK(drumRoleForGmNote(37, role) && role == DrumRole::Perc);
+        CHECK(drumRoleForGmNote(42, role) && role == DrumRole::HatClosed);
+        CHECK(drumRoleForGmNote(46, role) && role == DrumRole::HatOpen);
+        CHECK(drumRoleForGmNote(37, role) && role == DrumRole::PercA);
+        CHECK(drumRoleForGmNote(63, role) && role == DrumRole::PercB);
         CHECK(!drumRoleForGmNote(60, role)); // arbitrary unrelated note
         CHECK(!drumRoleForGmNote(-1, role));
     }

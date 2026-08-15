@@ -63,9 +63,13 @@ mean onsets/bar: 7.53
 - KICK<->CLAP: r = 0.6391
 - KICK<->HAT: r = 0.0758
 - KICK<->PERC: r = -0.4488
+- KICK<->RIDE: r = -0.062
 - CLAP<->HAT: r = 0.1509
 - CLAP<->PERC: r = -0.425
+- CLAP<->RIDE: r = 0.0018
 - HAT<->PERC: r = 0.4758
+- HAT<->RIDE: r = 0.929
+- PERC<->RIDE: r = 0.3379
 
 ### Direct co-occurrence on matched same-BPM/same-theme companion loops (n=40 matched pairs total)
 - KICK->CLAP: 8 pairs, 32/32 of role B's onsets land on a role A step (100.0%)
@@ -118,6 +122,17 @@ mean onsets/bar: 7.53
 - zero_crossing_rate_hz: mean=2048.114, stddev=2109.665
 - estimated_pitch_hz: mean=77.981, stddev=111.846
 - sub_bass_fraction_20_100hz: mean=0.024, stddev=0.074
+
+### OPEN_HAT (n=56)
+- duration_ms: mean=580.236, stddev=392.865
+- attack_ms: mean=5.177, stddev=4.878
+- decay_ms_to_minus40db: mean=0.987, stddev=0.939
+- peak: mean=0.811, stddev=0.144
+- rms: mean=0.089, stddev=0.035
+- spectral_centroid_hz: mean=8260.986, stddev=1395.271
+- zero_crossing_rate_hz: mean=5998.18, stddev=2008.427
+- estimated_pitch_hz: mean=10.196, stddev=38.412
+- sub_bass_fraction_20_100hz: mean=0.0, stddev=0.0
 
 ## Representative real patterns (ASCII, from actual analyzed files)
 

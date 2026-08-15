@@ -74,7 +74,8 @@ namespace RackClassification
             || (tokens.contains("open") && has({ "hat", "hats", "hihat", "hihats", "hh" })))
             return juce::String("OPEN_HAT");
         if (has({ "hihat", "hihats", "hat", "hats", "hh", "chh" }))               return juce::String("HIHAT");
-        if (has({ "cymbal", "cymbals", "crash", "ride" }))                        return juce::String("CYMBAL");
+        if (has({ "ride", "rides" }))                                             return juce::String("RIDE");
+        if (has({ "cymbal", "cymbals", "crash" }))                                return juce::String("CYMBAL");
         if (has({ "perc", "percs", "percussion", "shaker", "conga", "bongo" }))   return juce::String("PERC");
         if (has({ "bass", "sub", "808" }))                                        return juce::String("BASS");
         if (has({ "fx", "riser", "impact", "sweep", "noise" }))                   return juce::String("FX");

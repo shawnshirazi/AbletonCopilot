@@ -35,8 +35,10 @@ namespace UIStyle
     static const juce::Colour kClap   { 0xfff15fa6 };
     static const juce::Colour kClapAlt{ 0xffc23f81 }; // layered "CLP2" variant row
     static const juce::Colour kHihat  { 0xffe0b039 };
+    static const juce::Colour kHihatOpen{ 0xfff2cf6b }; // lighter/warmer than kHihat - same family, "opener" variant
     static const juce::Colour kCymbal { 0xff3ecf6e };
     static const juce::Colour kPerc   { 0xff29c4d9 };
+    static const juce::Colour kPercAlt{ 0xff1f8fa3 }; // darker/cooler than kPerc - second percussion voice (PercB)
     static const juce::Colour kBass   { 0xff9d6bff };
     static const juce::Colour kFx     { 0xffff6ec7 };
     static const juce::Colour kVocal  { 0xffffa64d };

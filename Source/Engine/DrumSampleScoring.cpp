@@ -30,11 +30,11 @@ namespace Engine
         // what separates a kick from a thud) and less on zero-crossing
         // rate (kick brightness varies far more across the measured corpus
         // - see DrumSampleFingerprint.h's kKickFingerprint.zeroCrossingHz
-        // stddev - than it discriminates). Clap/hat/perc share one profile:
-        // duration+attack+zcr dominate (the three dimensions that most
-        // separate "closed hat" from "clap" from "perc" in the measured
-        // data), pitch/peak/rms are minor tie-breakers. Weights sum to 1.0
-        // in both profiles.
+        // stddev - than it discriminates). Every other role shares one
+        // profile: duration+attack+zcr dominate (the three dimensions that
+        // most separate "closed hat" from "open hat" from "clap" from
+        // "perc" in the measured data), pitch/peak/rms are minor
+        // tie-breakers. Weights sum to 1.0 in both profiles.
         constexpr Weights kKickWeights    { 0.25f, 0.20f, 0.15f, 0.30f, 0.05f, 0.05f };
         constexpr Weights kDefaultWeights { 0.30f, 0.25f, 0.25f, 0.10f, 0.05f, 0.05f };
 
@@ -77,10 +77,12 @@ namespace Engine
 
                 return s;
             }
-            case DrumRole::Clap:  return scoreAgainstFingerprint(features, fp, kDefaultWeights);
-            case DrumRole::Hat:   return scoreAgainstFingerprint(features, fp, kDefaultWeights);
-            case DrumRole::Perc:  return scoreAgainstFingerprint(features, fp, kDefaultWeights);
-            case DrumRole::Count: return 0.0f;
+            case DrumRole::Clap:      return scoreAgainstFingerprint(features, fp, kDefaultWeights);
+            case DrumRole::HatClosed: return scoreAgainstFingerprint(features, fp, kDefaultWeights);
+            case DrumRole::HatOpen:   return scoreAgainstFingerprint(features, fp, kDefaultWeights);
+            case DrumRole::PercA:     return scoreAgainstFingerprint(features, fp, kDefaultWeights);
+            case DrumRole::PercB:     return scoreAgainstFingerprint(features, fp, kDefaultWeights);
+            case DrumRole::Count:     return 0.0f;
         }
         return 0.0f;
     }

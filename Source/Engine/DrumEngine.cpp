@@ -11,10 +11,10 @@ namespace Engine
     namespace
     {
         // ONE shared RNG stream drives the WHOLE coordinated composition -
-        // kick, clap, hat, and perc are no longer generated independently
-        // (see generateDrop below), so there is no longer a per-role salt.
-        constexpr uint32_t kDropSalt = 0x44524F50u; // 'DROP'
-        constexpr int      kBlockBars = 4;
+        // no role is generated independently (see generateDrop below), so
+        // there is no per-role salt.
+        constexpr uint32_t kDropSalt   = 0x44524F50u; // 'DROP'
+        constexpr int       kBlockBars = 4;
 
         std::mt19937 makeRng(uint32_t seed) { return std::mt19937(seed ^ kDropSalt); }
 
@@ -43,39 +43,28 @@ namespace Engine
             return (stepInBar % stepsPerBeat) == (stepsPerBeat - 1);
         }
 
-        bool isBeatPosition(int stepInBar, int stepsPerBar)
-        {
-            const int stepsPerBeat = std::max(1, stepsPerBar / 4);
-            return (stepInBar % stepsPerBeat) == 0;
-        }
-
         // ------------------------------------------------------------------
         // The core data-driven mechanism this whole engine is built on:
         // convert a role's MEASURED per-position statistics
-        // (DrumRhythmGrammar.h) into a per-position activation PROBABILITY,
-        // not a guessed range.
-        //
+        // (DrumRhythmGrammar.h) into a per-position activation PROBABILITY.
         // step16Probability[pos] is a normalized distribution (sums to 1.0
-        // across all 16 positions - "of this role's onsets, what fraction
-        // landed here"), so it isn't directly usable as a per-bar
-        // activation chance. Multiplying by meanOnsetsPerBar converts it:
-        // activation[pos] = step16Probability[pos] * meanOnsetsPerBar is
-        // exactly the expected number of times position `pos` is hit per
-        // bar, which for a single 16th-note slot is a real, derivable
-        // activation probability (verified directly against the measured
-        // KICK table: step16Probability[0]=0.25, meanOnsetsPerBar=4.0 ->
-        // activation=1.0 - i.e. "always active", which is exactly what a
-        // 100%-four-on-the-floor corpus should produce).
+        // - "of this role's onsets, what fraction landed here"), so
+        // multiplying by meanOnsetsPerBar converts it into the expected
+        // number of hits at that position per bar, which for a single
+        // 16th-note slot is a real, derivable activation probability
+        // (verified against the measured KICK table: step16Probability[0]
+        // =0.25, meanOnsetsPerBar=4.0 -> activation=1.0, exactly matching
+        // the corpus's 100%-four-on-the-floor finding).
         float measuredActivation(const RoleRhythmStats& stats, int stepInBar)
         {
             return clamp01(stats.step16Probability[stepInBar] * stats.meanOnsetsPerBar);
         }
 
-        // Any measured velocity of exactly 0 means the corpus never
-        // recorded an onset there - if density/syncopation/correlation
-        // still pushes this position active, it needs SOME audible
-        // velocity rather than a silent (effectively vel=0) "hit", so it
-        // falls back to a low, ghost-appropriate level instead of 0.
+        // A measured velocity of exactly 0 means the corpus never recorded
+        // an onset there - if density/correlation still pushes this
+        // position active, it needs SOME audible velocity rather than a
+        // silent (effectively vel=0) "hit", so it falls back to a low,
+        // ghost-appropriate level instead of 0.
         float measuredVelocity(const RoleRhythmStats& stats, int stepInBar)
         {
             const float v = stats.step16RelativeVelocity[stepInBar];
@@ -83,8 +72,7 @@ namespace Engine
         }
 
         // syncopation knob, layered ON TOP of the measured base rate (not
-        // replacing it) - biases toward the weakest 16th in each beat,
-        // same shape as the previous milestone's knob.
+        // replacing it) - biases toward the weakest 16th in each beat.
         float applySyncopation(float activation, int stepInBar, int stepsPerBar, float syncopation)
         {
             const float bias = isWeakPosition(stepInBar, stepsPerBar)
@@ -97,86 +85,76 @@ namespace Engine
         // adjustment: a position already occupied by a role this one
         // correlates POSITIVELY with becomes more likely; NEGATIVELY
         // correlated, less likely. This is "percussion responds to where
-        // kick/clap/hat already sound" implemented directly from
-        // DrumRhythmGrammar.h's measured CrossRoleCorrelation, not an
-        // arbitrary avoidance rule.
+        // kick/clap/hat/ride already sound" implemented directly from
+        // DrumRhythmGrammar.h's measured CrossRoleCorrelation.
         float correlationFactor(float corr, bool otherOccupied)
         {
             return otherOccupied ? std::max(0.0f, 1.0f + corr) : 1.0f;
         }
 
-        bool occupiedAt(const StepArray& roleBlock, int bar, int stepInBar, int stepsPerBar)
+        bool occupiedAt(const StepArray& block, int bar, int stepInBar, int stepsPerBar)
         {
             const size_t idx = (size_t) (bar * stepsPerBar + stepInBar);
-            return idx < roleBlock.size() && roleBlock[idx].active;
+            return idx < block.size() && block[idx].active;
         }
 
-        // One reference role (already built for this same relative bar)
-        // and its measured correlation with the role currently being
-        // built - buildCanonicalPosition below takes up to two of these
-        // (hat references kick+clap; perc references kick+clap+hat).
+        // One already-built role block this decision correlates against,
+        // and the real (or - for percA<->percB, see buildStage - a
+        // disclosed, non-measured) correlation coefficient to apply.
         struct CorrelationRef
         {
-            const StepArray* block;     // nullptr = no reference (kick uses a static predicate instead, see kickOccupied)
+            const StepArray* block;
             float             corr;
-            int               bar;      // which relative bar of *block to check
+            int               bar; // which relative bar of *block to check
         };
 
-        // Decides ONE position for ONE role at ONE relative bar: measured
-        // base rate -> syncopation -> cross-role correlation against every
-        // supplied reference -> a single weighted coin flip. This is the
-        // one place density/syncopation/correlation/randomness actually
-        // meet - everything above it is data, everything below it is
-        // musical rules laid out this milestone's own header (motif
-        // build-then-copy, phrase structure), not more probability logic.
+        // Decides ONE position for ONE role: measured base rate ->
+        // syncopation -> cross-role correlation against every supplied
+        // reference -> a single weighted coin flip. This is the one place
+        // density/syncopation/correlation/randomness actually meet -
+        // everything above it is data, everything below it is the
+        // arrangement structure (phrase energy arc, hat hierarchy, motif
+        // build-then-copy/develop) documented above generateDrop.
         bool decidePosition(std::mt19937& rng, const RoleRhythmStats& stats, int stepInBar, int stepsPerBar,
-                             float densityScale, float syncopation, bool kickOccupied, float kickCorr,
-                             const CorrelationRef* ref1, const CorrelationRef* ref2, float& outVelocity)
+                             float densityScale, float syncopation,
+                             const std::vector<CorrelationRef>& refs, float& outVelocity)
         {
             float activation = measuredActivation(stats, stepInBar) * densityScale;
             activation = applySyncopation(activation, stepInBar, stepsPerBar, syncopation);
-            activation *= correlationFactor(kickCorr, kickOccupied);
-            if (ref1 != nullptr && ref1->block != nullptr)
-                activation *= correlationFactor(ref1->corr, occupiedAt(*ref1->block, ref1->bar, stepInBar, stepsPerBar));
-            if (ref2 != nullptr && ref2->block != nullptr)
-                activation *= correlationFactor(ref2->corr, occupiedAt(*ref2->block, ref2->bar, stepInBar, stepsPerBar));
+            for (auto& ref : refs)
+                if (ref.block != nullptr)
+                    activation *= correlationFactor(ref.corr, occupiedAt(*ref.block, ref.bar, stepInBar, stepsPerBar));
             activation = clamp01(activation);
 
             outVelocity = measuredVelocity(stats, stepInBar);
             return uniform01(rng) < activation;
         }
 
-        // Builds one role's full kBlockBars-bar block. Bar 0 is the
-        // canonical shape (fresh weighted decision per position, see
-        // decidePosition). Bars 1-3 either literally repeat bar 0 (with
+        // Builds one role's full kBlockBars-bar block from scratch. Bar 0
+        // is the canonical shape (fresh weighted decision per position,
+        // see decidePosition, referencing every role already placed via
+        // `refs`). Bars 1-3 either literally repeat bar 0 (with
         // probability = the role's OWN measured adjacentBarsIdentical
-        // fraction - a real corpus number, not a guess) or apply 1-2
-        // small "touches" (repositioned/added-or-removed hits, re-decided
-        // with the same formula) - controlled bar-to-bar movement inside
-        // one 4-bar idea, matching what the corpus actually shows (these
-        // roles are NOT 100% identical bar-to-bar, but they're not fully
-        // independent either).
+        // fraction - a real corpus number) or apply 1-2 small "touches"
+        // (a position toggled on/off, using the role's own measured
+        // velocity when adding) - controlled bar-to-bar movement inside
+        // one 4-bar idea, matching what the corpus actually shows (not
+        // 100% identical bar-to-bar, but not independent either).
         StepArray buildRoleBlock(std::mt19937& rng, const RoleRhythmStats& stats, int stepsPerBar,
-                                  float densityScale, float syncopation,
-                                  const char* kickOccupied, float kickCorr,
-                                  const CorrelationRef* ref1, const CorrelationRef* ref2)
+                                  float densityScale, float syncopation, const std::vector<CorrelationRef>& refs)
         {
             StepArray block((size_t) (kBlockBars * stepsPerBar));
 
             for (int s = 0; s < stepsPerBar; ++s)
             {
                 float vel = 0.0f;
-                CorrelationRef r1 = ref1 != nullptr ? CorrelationRef{ ref1->block, ref1->corr, 0 } : CorrelationRef{ nullptr, 0.0f, 0 };
-                CorrelationRef r2 = ref2 != nullptr ? CorrelationRef{ ref2->block, ref2->corr, 0 } : CorrelationRef{ nullptr, 0.0f, 0 };
-                if (decidePosition(rng, stats, s, stepsPerBar, densityScale, syncopation,
-                                    kickOccupied != nullptr && kickOccupied[s], kickCorr,
-                                    ref1 != nullptr ? &r1 : nullptr, ref2 != nullptr ? &r2 : nullptr, vel))
+                if (decidePosition(rng, stats, s, stepsPerBar, densityScale, syncopation, refs, vel))
                     setHit(block, s, vel);
             }
 
             const float identicalFraction = stats.adjacentBarsIdenticalFraction >= 0.0f
                                                  ? stats.adjacentBarsIdenticalFraction
-                                                 : 0.7f; // unmeasured (e.g. mostly-1-bar corpus) - a reasonable, documented default, not a real measurement
+                                                 : 0.7f; // unmeasured fallback (not used by any role in this engine - every role here has real multi-bar data)
 
             for (int bar = 1; bar < kBlockBars; ++bar)
             {
@@ -184,20 +162,13 @@ namespace Engine
                 for (int s = 0; s < stepsPerBar; ++s)
                     block[(size_t) (base + s)] = block[(size_t) s]; // start from bar 0's canonical shape
 
+                if (densityScale <= 0.0f)
+                    continue; // genuinely silent role at this scale (e.g. percB before it enters) - a touch can't introduce content from nothing without contradicting its own zero density
+
                 if (uniform01(rng) < identicalFraction)
                     continue; // literal repeat of bar 0 - matches the corpus's own measured repetition rate
 
-                // A "touch" TOGGLES a position (add if currently silent,
-                // remove if currently active) rather than re-running the
-                // full weighted decision - re-deciding would often just
-                // re-confirm the same (usually low-probability, usually
-                // silent) outcome and produce an invisible "variation"
-                // that never actually changes the pattern. A guaranteed
-                // toggle is what makes this bar-to-bar movement audible,
-                // while still only touching 1-2 positions (never a full
-                // re-roll) and still using the role's own measured
-                // velocity when adding a hit.
-                const int touches = 1 + (uniform01(rng) < 0.5f ? 0 : 1); // 1 or 2 positions touched
+                const int touches = 1 + (uniform01(rng) < 0.5f ? 0 : 1); // 1 or 2 positions touched, never a full re-roll
                 for (int t = 0; t < touches; ++t)
                 {
                     const int s = (int) (uniform01(rng) * (float) stepsPerBar);
@@ -212,12 +183,74 @@ namespace Engine
             return block;
         }
 
+        // Derives a role's block for a LATER phrase section from the
+        // PREVIOUS section's block for the same role - "develop existing
+        // motifs rather than replacing everything", not a fresh
+        // independent pattern. `touches` toggles (add a hit where it was
+        // silent using the role's measured velocity, remove one where it
+        // was active) are applied across the whole kBlockBars-bar block,
+        // scaled by how much this section's energy actually changed from
+        // the previous one (see the StageEnergy table in generateDrop) and
+        // by params.variation - a bigger jump in energy, or a higher
+        // variation setting, means more (and more audible) movement.
+        //
+        // ADD-type touches still consult `refs` (the same cross-role
+        // correlations the fresh build used) before committing to a
+        // position - up to 5 candidates are tried, and if NONE clears the
+        // weight floor the touch is skipped entirely rather than forced
+        // onto a bad position. Without this, a touch could land percussion
+        // directly on the kick's beat purely because that's where the RNG
+        // pointed, silently contradicting the measured negative
+        // correlation the fresh build already respects - "no impossible/
+        // overlapping role behavior" is a real, checked property, not
+        // just true by luck. REMOVE-type touches (the position was
+        // already active) never need this check - removing a hit can't
+        // violate a negative correlation.
+        StepArray deriveStageBlock(std::mt19937& rng, const StepArray& previousBlock, const RoleRhythmStats& stats,
+                                    int stepsPerBar, float energyDelta, float variation,
+                                    const std::vector<CorrelationRef>& refs)
+        {
+            StepArray block = previousBlock;
+            const int touches = std::max(1, (int) std::lround(std::abs(energyDelta) * 6.0f + variation * 2.0f));
+            for (int t = 0; t < touches; ++t)
+            {
+                const int bar = (int) (uniform01(rng) * (float) kBlockBars);
+                int chosenStep = -1;
+                for (int attempt = 0; attempt < 5; ++attempt)
+                {
+                    const int s = (int) (uniform01(rng) * (float) stepsPerBar);
+                    const size_t idx = (size_t) (bar * stepsPerBar + s);
+                    if (block[idx].active)
+                    {
+                        chosenStep = s; // removing is always fine - no correlation concern
+                        break;
+                    }
+                    float weight = 1.0f;
+                    for (auto& ref : refs)
+                        if (ref.block != nullptr)
+                            weight *= correlationFactor(ref.corr, occupiedAt(*ref.block, ref.bar, s, stepsPerBar));
+                    if (weight > 0.6f) // a position not strongly negatively correlated with anything already occupied
+                    {
+                        chosenStep = s;
+                        break;
+                    }
+                }
+                if (chosenStep < 0)
+                    continue; // no acceptable ADD position found in 5 tries - skip this touch rather than force a bad one
+
+                const size_t idx = (size_t) (bar * stepsPerBar + chosenStep);
+                if (block[idx].active)
+                    block[idx] = Hit{};
+                else
+                    setHit(block, bar * stepsPerBar + chosenStep, measuredVelocity(stats, chosenStep));
+            }
+            return block;
+        }
+
         // Copies one full kBlockBars-bar block literally into `barCount`
         // consecutive destination bars (wrapping through the block's own
-        // bars if barCount exceeds kBlockBars, e.g. the 3-bar
-        // maintain-section copy) - this is what makes a repeat group
-        // byte-identical to its source block, rather than each
-        // destination bar re-deriving its own version.
+        // bars if barCount exceeds kBlockBars) - this is what makes a
+        // repeat group byte-identical to its source block.
         void copyBlock(StepArray& steps, int destBarStart, int barCount, int numBars, int stepsPerBar,
                         const StepArray& block)
         {
@@ -235,76 +268,225 @@ namespace Engine
             }
         }
 
-        // The developed block starts as a copy of the establish block's
-        // corresponding role, then applies a handful of TOGGLES (add a
-        // hit where it was silent, using the role's own measured
-        // velocity; remove one where it was active) so bars 9-12 are
-        // recognizably the SAME idea as 1-4 with real, controlled,
-        // AUDIBLE movement, not a fresh independent pattern. The touch
-        // count scales continuously with params.variation (1 at the
-        // lowest non-zero setting, up to 4 at variation=1) rather than a
-        // single coin-flip gate that could skip development for an
-        // entire role - variation=0 is the only setting where the block
-        // is left completely unchanged.
-        StepArray developRoleBlock(std::mt19937& rng, const StepArray& establishBlock, const RoleRhythmStats& stats,
-                                    int stepsPerBar, float variation)
-        {
-            StepArray block = establishBlock;
-            if (variation <= 0.0f)
-                return block;
+        // Per-phrase-section relative weight (multiplied by each role's own
+        // measured/calibrated density scale, see generateDrop) - the real
+        // ENERGY ARC: establish stays restrained, develop nudges up,
+        // increase pushes further, fullDrop is the strongest sustained
+        // version. hatOpen's own numbers ramp far more steeply than
+        // hatClosed's (0.10 -> 0.75, nearly 7.5x) so it's genuinely
+        // near-absent in bars 1-4 and only becomes a real presence from
+        // bars 9 on, matching "don't make it constant from bar 1... consider
+        // introducing it later, especially bars 9-15". percB is silent
+        // (0.0) in the establish section entirely - a real "this layer
+        // hasn't entered yet" arrangement decision, not a density
+        // rounding-to-zero accident - and enters at moderate presence from
+        // the develop section.
+        struct StageEnergy { float hatClosed, hatOpen, percA, percB; };
+        constexpr StageEnergy kEstablish { 0.55f, 0.10f, 0.65f, 0.00f };
+        constexpr StageEnergy kDevelop   { 0.70f, 0.25f, 0.85f, 0.45f };
+        constexpr StageEnergy kIncrease  { 0.90f, 0.55f, 1.00f, 0.80f };
+        constexpr StageEnergy kFullDrop  { 1.05f, 0.75f, 1.15f, 1.05f };
 
-            const int touches = std::max(1, (int) std::lround(variation * 4.0f)); // 1-4 touches, scaled by how much development is asked for
-            for (int t = 0; t < touches; ++t)
-            {
-                const int bar = (int) (uniform01(rng) * (float) kBlockBars);
-                const int s   = (int) (uniform01(rng) * (float) stepsPerBar);
-                const size_t idx = (size_t) (bar * stepsPerBar + s);
-                if (block[idx].active)
-                    block[idx] = Hit{};
-                else
-                    setHit(block, bar * stepsPerBar + s, measuredVelocity(stats, s));
-            }
-            return block;
-        }
+        struct StageBlocks { StepArray hatClosed, hatOpen, percA, percB; };
+
+        // percA<->percB is NOT a measured correlation - the corpus has no
+        // second percussion instrument category to measure. This is a
+        // disclosed, deliberate arrangement rule ("avoid simply
+        // duplicating" the other percussion voice), applied through the
+        // exact same correlationFactor mechanism as every measured
+        // correlation, just with a stated-not-measured coefficient.
+        constexpr float kPercBAvoidsPercA = -0.5f;
     }
 
     // ----------------------------------------------------------------------
-    // generateDrop - the coordinated 16-bar Melodic Techno drop.
+    // generateDrop - the coordinated, arranged 16-bar Melodic Techno drop.
     //
-    // Sourced rhythmic principles this engine encodes as MEASURED data
-    // (DrumRhythmGrammar.h), not hand-picked genre lore - see that file's
-    // header for the exact corpus:
-    //   - kick: 100% of measured onsets land exactly on the four beats
-    //     (uncompromising four-on-the-floor) - built directly from that
-    //     number, not assumed.
-    //   - clap: measured ~84% on-beat, overwhelmingly concentrated at
-    //     beats 2 and 4 (the backbeat), ~81% adjacent-bar repetition.
-    //   - hat: measured offbeat-8th positions (steps 2/6/10/14) carry
-    //     roughly double the velocity of the surrounding 16th activity -
-    //     the real "strong pulse, quieter filler" hierarchy, applied
-    //     directly from the measured per-position velocity table.
-    //   - percussion: built from its OWN measured position distribution,
-    //     THEN reweighted by the real measured correlation with kick
-    //     (-0.45), clap (-0.43, both "percussion tends to avoid these
-    //     roles' positions") and hat (+0.48, "percussion tends to share
-    //     hat's busier positions") - genuine cross-role coordination, not
-    //     independent placement.
+    // FOUNDATION (Kick, Clap) is built first and stays essentially constant
+    // through the whole 16 bars - the corpus measured kick at 100% on-beat
+    // placement and clap at ~81% adjacent-bar repetition, i.e. real
+    // melodic-techno drops don't meaningfully vary these two roles bar to
+    // bar; every other role is generated with awareness of where they
+    // already sound (kickClap/kickHat/kickPerc/kickRide, clapHat/clapPerc/
+    // clapRide correlations from DrumRhythmGrammar.h).
     //
-    // Coordination order (matches the brief's own diagram): kick is built
-    // first and is the one role every other role can reference; clap is
-    // built next (referencing kick); hat next (referencing kick + clap);
-    // percussion last (referencing kick + clap + hat). One shared RNG
-    // stream for the whole composition - there is no per-role seed
-    // anymore, because generating each role from an independent stream is
-    // exactly what made them independent instead of coordinated.
+    // HIGH END is a real hierarchy, not one hat role:
+    //   - hatClosed carries the measured offbeat-8th pulse (roughly double
+    //     the velocity of its own supporting 16th movement - the real
+    //     "strong pulse, quieter ghost" relationship, read directly off
+    //     kHatRhythm.step16RelativeVelocity) plus that quieter secondary
+    //     16th movement, in ONE role/one sample (see DrumEngine.h for why).
+    //   - hatOpen is a SEPARATE role/sample, shaped by the corpus's real
+    //     RIDE measurements (kRideRhythm) - ride cymbals and open hats
+    //     share the same "open, ringing, offbeat-favoring" acoustic
+    //     character in real production, and no other one-shot corpus in
+    //     this library distinguishes them. Its presence is scaled by the
+    //     StageEnergy table above so it's genuinely near-absent early in
+    //     the phrase and only becomes prominent from bars 9-15, per the
+    //     brief's explicit "don't make it constant from bar 1".
     //
-    // Phrase structure (unchanged shape from the previous milestone, now
-    // filled with measured-data-driven content): bars 1-4 establish the
-    // block, 5-8 repeat it literally (byte-identical - see copyBlock),
-    // 9-12 develop it (developRoleBlock, gated by params.variation),
-    // 13-15 repeat the developed block, bar 16 is a restrained
-    // phrase-ending fill built from the establish block plus a single
-    // variation-gated accent - never a busy roll.
+    // GROOVE is two independent percussion voices (percA, percB - see
+    // Source/DrumSampleSelector.h for how two different real samples get
+    // picked). Both use the corpus's measured PERC position/velocity shape
+    // (kPercRhythm) and both are reweighted by the real measured
+    // kickPerc/clapPerc/hatPerc/percRide correlations - genuine "negative
+    // space" (percussion measurably avoids kick/clap's positions and
+    // favors hat/ride's, per the signs of those correlations) rather than
+    // an absolute exclusion rule. percB is ADDITIONALLY reweighted away
+    // from percA's own occupied positions (a disclosed, NOT separately
+    // measured rule - the corpus doesn't distinguish two percussion
+    // instrument categories - see kPercBAvoidsPercA below) so the two
+    // voices play complementary parts instead of doubling each other.
+    // percB is also the one role that's genuinely silent in the establish
+    // section (see StageEnergy) - a real "this layer hasn't entered yet"
+    // decision, not every layer firing on every generation.
+    //
+    // TRANSITIONS: bar 16 is built by THINNING the full-drop section's own
+    // material (keep hatClosed's strong pulse, drop most of its ghost
+    // layer; keep at most one hatOpen/percA/percB hit each) rather than
+    // adding anything - real density/velocity/omission-driven tension, not
+    // a fill roll - see buildTransitionBar below.
+    //
+    // Coordination order within every section: kick/clap (built once,
+    // shared by every section) -> hatClosed -> hatOpen -> percA -> percB,
+    // each referencing every role already placed in THAT section. One
+    // shared RNG stream for the whole composition.
+    namespace
+    {
+        StageBlocks buildEstablishStage(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
+                                         int stepsPerBar, float overallDensity, float syncopation)
+        {
+            StageBlocks sb;
+
+            const float hatClosedScale = (0.7f + overallDensity * 0.6f) * kEstablish.hatClosed;
+            sb.hatClosed = buildRoleBlock(rng, kHatRhythm, stepsPerBar, hatClosedScale, syncopation,
+                                           { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
+                                             { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
+
+            const float hatOpenScale = (0.7f + overallDensity * 0.6f) * kEstablish.hatOpen;
+            sb.hatOpen = buildRoleBlock(rng, kRideRhythm, stepsPerBar, hatOpenScale, syncopation,
+                                        { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
+                                          { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
+                                          { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
+
+            // Calibrated so a SINGLE percussion voice's realized density
+            // lands near the measured accent-style subset's mean (~4.78
+            // hits/bar) rather than the raw corpus-wide average (~10.5,
+            // which blends in continuous "*Perc Loop*"-named material -
+            // see the PERC density milestone commit for the full
+            // investigation). Both percA and percB share this same
+            // calibrated baseline scale; StageEnergy then modulates each
+            // independently per section.
+            constexpr float kPercAccentMeanHitsPerBar = 4.78f;
+            constexpr float kPercTouchAmplification   = 0.75f;
+            const float percBaseScale = kPercAccentMeanHitsPerBar / kPercRhythm.meanOnsetsPerBar * kPercTouchAmplification;
+
+            const float percAScale = (percBaseScale - 0.15f + overallDensity * 0.3f) * kEstablish.percA;
+            sb.percA = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percAScale, syncopation,
+                                       { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                         { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                         { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                         { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
+
+            const float percBScale = (percBaseScale - 0.15f + overallDensity * 0.3f) * kEstablish.percB;
+            sb.percB = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percBScale, syncopation,
+                                       { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                         { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                         { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                         { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
+                                         { &sb.percA, kPercBAvoidsPercA, 0 } });
+            return sb;
+        }
+
+        // Same coordination order as buildEstablishStage (hatClosed ->
+        // hatOpen -> percA -> percB, each referencing every role already
+        // finalized for THIS stage) so deriveStageBlock's correlation-aware
+        // touches have the right same-stage siblings to check against, not
+        // last stage's (which could have quite different content once a
+        // few sections' worth of touches have accumulated).
+        StageBlocks deriveStage(std::mt19937& rng, const StageBlocks& previous, const StageEnergy& previousEnergy,
+                                 const StageEnergy& thisEnergy, const StepArray& kickBlock, const StepArray& clapBlock,
+                                 int stepsPerBar, float variation)
+        {
+            StageBlocks sb;
+            sb.hatClosed = deriveStageBlock(rng, previous.hatClosed, kHatRhythm, stepsPerBar,
+                                             thisEnergy.hatClosed - previousEnergy.hatClosed, variation,
+                                             { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
+                                               { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
+            sb.hatOpen   = deriveStageBlock(rng, previous.hatOpen, kRideRhythm, stepsPerBar,
+                                             thisEnergy.hatOpen - previousEnergy.hatOpen, variation,
+                                             { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
+                                               { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
+                                               { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
+            sb.percA     = deriveStageBlock(rng, previous.percA, kPercRhythm, stepsPerBar,
+                                             thisEnergy.percA - previousEnergy.percA, variation,
+                                             { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                               { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                               { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                               { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
+            sb.percB     = deriveStageBlock(rng, previous.percB, kPercRhythm, stepsPerBar,
+                                             thisEnergy.percB - previousEnergy.percB, variation,
+                                             { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                               { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                               { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                               { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
+                                               { &sb.percA, kPercBAvoidsPercA, 0 } });
+            return sb;
+        }
+
+        // Bar 16: THINS the full-drop section's own bar-0 material rather
+        // than adding anything - real density/velocity/omission-driven
+        // tension ("the phrase is ending"), never a fill roll. hatClosed
+        // keeps only its strong pulse (velocity above the midpoint between
+        // the measured pulse and ghost levels); hatOpen/percA/percB keep
+        // at most their single loudest hit each. A single accent (elevated
+        // velocity, on hatOpen, gated by variation so variation=0 leaves
+        // even that out) marks the transition itself.
+        void buildTransitionBar(StepArray& hatClosedOut, StepArray& hatOpenOut, StepArray& percAOut, StepArray& percBOut,
+                                 const StageBlocks& fullDrop, int stepsPerBar, float variation, std::mt19937& rng)
+        {
+            hatClosedOut.assign((size_t) stepsPerBar, Hit{});
+            hatOpenOut.assign((size_t) stepsPerBar, Hit{});
+            percAOut.assign((size_t) stepsPerBar, Hit{});
+            percBOut.assign((size_t) stepsPerBar, Hit{});
+
+            const float hatClosedKeepThreshold = 0.55f; // strictly between the measured ghost (~0.3-0.4) and pulse (~0.75-0.9) levels
+            for (int s = 0; s < stepsPerBar; ++s)
+            {
+                const auto& h = fullDrop.hatClosed[(size_t) s];
+                if (h.active && h.velocity >= hatClosedKeepThreshold)
+                    setHit(hatClosedOut, s, h.velocity);
+            }
+
+            auto keepLoudestOnly = [stepsPerBar](StepArray& out, const StepArray& src)
+            {
+                int bestStep = -1;
+                float bestVel = -1.0f;
+                for (int s = 0; s < stepsPerBar; ++s)
+                    if (src[(size_t) s].active && src[(size_t) s].velocity > bestVel)
+                    {
+                        bestVel = src[(size_t) s].velocity;
+                        bestStep = s;
+                    }
+                if (bestStep >= 0)
+                    setHit(out, bestStep, bestVel);
+            };
+            keepLoudestOnly(hatOpenOut, fullDrop.hatOpen);
+            keepLoudestOnly(percAOut, fullDrop.percA);
+            keepLoudestOnly(percBOut, fullDrop.percB);
+
+            // Transition accent: a single elevated-velocity push near the
+            // end of the bar, driving into the loop restart - gated by
+            // variation (0 = the thinning above is the whole transition,
+            // no extra accent) rather than always firing.
+            if (variation > 0.0f && uniform01(rng) < variation)
+            {
+                const int accentStep = std::max(1, stepsPerBar / 8);
+                if (!hatOpenOut[(size_t) accentStep].active)
+                    setHit(hatOpenOut, accentStep, 0.9f);
+            }
+        }
+    }
+
     DropPattern generateDrop(const StepGridConfig& grid, const DrumPatternParams& params, DrumSection section)
     {
         switch (section)
@@ -312,26 +494,24 @@ namespace Engine
             case DrumSection::Drop: break; // only section implemented so far
         }
 
-        const int total       = totalSteps(grid);
-        const int stepsPerBar = grid.stepsPerBar;
+        const int total        = totalSteps(grid);
+        const int stepsPerBar  = grid.stepsPerBar;
         const int stepsPerBeat = std::max(1, stepsPerBar / 4);
 
         DropPattern out;
-        out.kick = StepArray((size_t) total);
-        out.clap = StepArray((size_t) total);
-        out.hat  = StepArray((size_t) total);
-        out.perc = StepArray((size_t) total);
+        out.kick      = StepArray((size_t) total);
+        out.clap      = StepArray((size_t) total);
+        out.hatClosed = StepArray((size_t) total);
+        out.hatOpen   = StepArray((size_t) total);
+        out.percA     = StepArray((size_t) total);
+        out.percB     = StepArray((size_t) total);
 
         std::mt19937 rng = makeRng(params.seed);
 
-        // ---- KICK: deterministic, no RNG - the measured corpus showed
-        // 100% on-beat placement, so there is no probability to roll.
-        // Velocity uses the MEASURED per-beat-position relative velocity
-        // (the corpus shows beat 1 hitting marginally harder than beats
-        // 2-4), layered with a phrase-downbeat accent (every 4th bar
-        // slightly hotter) - a real structural device, not contradicted
-        // by the single/double-bar corpus data, which can't itself speak
-        // to 16-bar phrase position. ----
+        // ---- FOUNDATION: KICK - deterministic, no RNG (100% measured
+        // on-beat placement). Velocity uses the MEASURED per-beat-position
+        // relative velocity, layered with a phrase-downbeat accent (every
+        // 4th bar sits marginally hotter). ----
         const auto& kickStats = rhythmStatsForRole(DrumRole::Kick);
         for (int bar = 0; bar < grid.numBars; ++bar)
         {
@@ -346,127 +526,70 @@ namespace Engine
                 setHit(out.kick, base + stepInBar, vel);
             }
         }
-        // Bar 16 restrained phrase-ending push, gated by variation (0 =
-        // kick stays perfectly steady through the last bar too).
         if (grid.numBars > 0 && params.variation > 0.0f)
         {
             const int lastBar = grid.numBars - 1;
             setHit(out.kick, lastBar * stepsPerBar + stepsPerBar - 2, 0.85f);
         }
 
-        // Static per-position predicate (kick's shape never varies bar to
-        // bar) - every other role's correlation lookup against kick uses
-        // this instead of a per-block StepArray.
-        std::vector<char> kickOccupied((size_t) stepsPerBar, 0); // char, not vector<bool> - needs a real .data() pointer below
-        for (int s = 0; s < stepsPerBar; ++s)
-            kickOccupied[(size_t) s] = isBeatPosition(s, stepsPerBar) ? 1 : 0;
+        // Synthetic 4-bar kick block (every real 4-bar group in a 16-bar
+        // grid starts on a phrase downbeat, so one static shape - built
+        // once - is valid as a correlation reference for every section).
+        StepArray kickBlock((size_t) (kBlockBars * stepsPerBar));
+        for (int bar = 0; bar < kBlockBars; ++bar)
+            for (int beat = 0; beat < 4; ++beat)
+                setHit(kickBlock, bar * stepsPerBar + beat * stepsPerBeat, 1.0f);
 
+        // ---- FOUNDATION: CLAP - built ONCE, stable through the whole
+        // phrase (measured ~81% adjacent-bar repetition - real drops don't
+        // meaningfully vary the backbeat bar to bar). ----
         const auto& clapStats = rhythmStatsForRole(DrumRole::Clap);
-        const auto& hatStats  = rhythmStatsForRole(DrumRole::Hat);
-        const auto& percStats = rhythmStatsForRole(DrumRole::Perc);
-
-        // density knob: 0.5 tracks the measured corpus average for each
-        // role (scale = 1.0); hat and clap track their own measured
-        // density fairly directly (comparable, single-role corpus
-        // material).
         const float clapDensityScale = 0.7f + params.density * 0.6f;
-        const float hatDensityScale  = 0.7f + params.density * 0.6f;
+        const StepArray clapBlock = buildRoleBlock(rng, clapStats, stepsPerBar, clapDensityScale, params.syncopation,
+                                                     { { &kickBlock, kCrossRoleCorrelation.kickClap, 0 } });
+        copyBlock(out.clap, 0, 4, grid.numBars, stepsPerBar, clapBlock);
+        copyBlock(out.clap, 4, 4, grid.numBars, stepsPerBar, clapBlock);
+        copyBlock(out.clap, 8, 4, grid.numBars, stepsPerBar, clapBlock);
+        copyBlock(out.clap, 12, 3, grid.numBars, stepsPerBar, clapBlock);
+        if (grid.numBars > 0)
+            copyBlock(out.clap, grid.numBars - 1, 1, grid.numBars, stepsPerBar, clapBlock);
 
-        // Percussion's raw corpus mean (kPercRhythm.meanOnsetsPerBar,
-        // ~10.49 hits/bar) blends two structurally different kinds of
-        // material - verified directly by inspecting the per-file loop
-        // distribution (56 files, see MLPipeline/drum_grammar/), not
-        // assumed: files the vendors literally name "*Perc Loop*" /
-        // "*Perc_Loop*" (41 of 56) average 12.57 hits/bar and are
-        // continuous, rolling percussion textures - 7 of them contain
-        // MORE onsets than 16th-grid positions exist in their own length,
-        // direct technical evidence of overlapping/layered material, not
-        // a single hand-placed instrument. Files WITHOUT "Loop" in the
-        // name (15 of 56 - mostly PML Mirage's individually-numbered
-        // Perc_0XX one-shots placed sparsely across a bar) average 4.78
-        // hits/bar and look exactly like what a single accent role in a
-        // 4-role composition should produce.
-        //
-        // The generator targets that second group's mean (~4.78
-        // hits/bar) at density=0.5, not the corpus-wide average - this is
-        // why the scale factor below is much smaller than hat/clap's. The
-        // measured POSITION SHAPE and cross-role correlation (kPercRhythm,
-        // kCrossRoleCorrelation) are unchanged - only how many of those
-        // positions get used is scaled, and the scale itself is derived
-        // from a real subset of the corpus, not picked to sound right.
-        constexpr float kPercAccentMeanHitsPerBar = 4.78f; // mean hits/bar of the 15 non-"Loop"-named PERC files
-        // The canonical-bar activation sum (probability * meanOnsetsPerBar
-        // * scale) undercounts the REALIZED per-bar hit count, because the
-        // bar-to-bar "touch" mechanism (buildRoleBlock/developRoleBlock)
-        // and the positive HAT correlation both add extra hits on top of
-        // that base canonical shape - verified empirically (a plain
-        // scale=kPercAccentMeanHitsPerBar/meanOnsetsPerBar produced ~6.3
-        // measured hits/bar, not the intended ~4.78), not assumed. This
-        // calibration factor corrects for that measured gap so the
-        // REALIZED average - not just the base canonical bar's - lands on
-        // the derived target.
-        constexpr float kPercTouchAmplification = 0.75f;
-        const float percDensityScaleAtDefault = kPercAccentMeanHitsPerBar / percStats.meanOnsetsPerBar * kPercTouchAmplification; // ~0.342
-        const float percDensityScale = percDensityScaleAtDefault - 0.15f + params.density * 0.3f; // density knob still meaningful, centered on the calibrated target
+        // ---- HIGH END + GROOVE: the 4-stage energy arc. ----
+        const StageBlocks stage1 = buildEstablishStage(rng, kickBlock, clapBlock, stepsPerBar, params.density, params.syncopation);
+        const StageBlocks stage2 = deriveStage(rng, stage1, kEstablish, kDevelop, kickBlock, clapBlock, stepsPerBar, params.variation);
+        const StageBlocks stage3 = deriveStage(rng, stage2, kDevelop, kIncrease, kickBlock, clapBlock, stepsPerBar, params.variation);
+        const StageBlocks stage4 = deriveStage(rng, stage3, kIncrease, kFullDrop, kickBlock, clapBlock, stepsPerBar, params.variation);
 
-        auto buildEstablish = [&](std::mt19937& localRng, StepArray& clapBlock, StepArray& hatBlock, StepArray& percBlock)
-        {
-            clapBlock = buildRoleBlock(localRng, clapStats, stepsPerBar, clapDensityScale, params.syncopation,
-                                        kickOccupied.data(), kCrossRoleCorrelation.kickClap, nullptr, nullptr);
+        copyBlock(out.hatClosed, 0, 4, grid.numBars, stepsPerBar, stage1.hatClosed);
+        copyBlock(out.hatOpen,   0, 4, grid.numBars, stepsPerBar, stage1.hatOpen);
+        copyBlock(out.percA,     0, 4, grid.numBars, stepsPerBar, stage1.percA);
+        copyBlock(out.percB,     0, 4, grid.numBars, stepsPerBar, stage1.percB);
 
-            CorrelationRef hatRefClap{ &clapBlock, kCrossRoleCorrelation.clapHat, 0 };
-            hatBlock = buildRoleBlock(localRng, hatStats, stepsPerBar, hatDensityScale, params.syncopation,
-                                       kickOccupied.data(), kCrossRoleCorrelation.kickHat, &hatRefClap, nullptr);
+        copyBlock(out.hatClosed, 4, 4, grid.numBars, stepsPerBar, stage2.hatClosed);
+        copyBlock(out.hatOpen,   4, 4, grid.numBars, stepsPerBar, stage2.hatOpen);
+        copyBlock(out.percA,     4, 4, grid.numBars, stepsPerBar, stage2.percA);
+        copyBlock(out.percB,     4, 4, grid.numBars, stepsPerBar, stage2.percB);
 
-            CorrelationRef percRefClap{ &clapBlock, kCrossRoleCorrelation.clapPerc, 0 };
-            CorrelationRef percRefHat{ &hatBlock, kCrossRoleCorrelation.hatPerc, 0 };
-            percBlock = buildRoleBlock(localRng, percStats, stepsPerBar, percDensityScale, params.syncopation,
-                                        kickOccupied.data(), kCrossRoleCorrelation.kickPerc, &percRefClap, &percRefHat);
-        };
+        copyBlock(out.hatClosed, 8, 4, grid.numBars, stepsPerBar, stage3.hatClosed);
+        copyBlock(out.hatOpen,   8, 4, grid.numBars, stepsPerBar, stage3.hatOpen);
+        copyBlock(out.percA,     8, 4, grid.numBars, stepsPerBar, stage3.percA);
+        copyBlock(out.percB,     8, 4, grid.numBars, stepsPerBar, stage3.percB);
 
-        StepArray establishClap, establishHat, establishPerc;
-        buildEstablish(rng, establishClap, establishHat, establishPerc);
-        copyBlock(out.clap, 0, 4, grid.numBars, stepsPerBar, establishClap);
-        copyBlock(out.clap, 4, 4, grid.numBars, stepsPerBar, establishClap);
-        copyBlock(out.hat, 0, 4, grid.numBars, stepsPerBar, establishHat);
-        copyBlock(out.hat, 4, 4, grid.numBars, stepsPerBar, establishHat);
-        copyBlock(out.perc, 0, 4, grid.numBars, stepsPerBar, establishPerc);
-        copyBlock(out.perc, 4, 4, grid.numBars, stepsPerBar, establishPerc);
+        copyBlock(out.hatClosed, 12, 3, grid.numBars, stepsPerBar, stage4.hatClosed);
+        copyBlock(out.hatOpen,   12, 3, grid.numBars, stepsPerBar, stage4.hatOpen);
+        copyBlock(out.percA,     12, 3, grid.numBars, stepsPerBar, stage4.percA);
+        copyBlock(out.percB,     12, 3, grid.numBars, stepsPerBar, stage4.percB);
 
-        // Develop block: each role's establish shape, touched (see
-        // developRoleBlock) - order doesn't matter for correlation here
-        // since touches don't re-run the cross-role activation formula,
-        // just toggle a position and use that role's own measured
-        // velocity, so clap/hat/perc can develop in any order.
-        const auto developClap = developRoleBlock(rng, establishClap, clapStats, stepsPerBar, params.variation);
-        const auto developHat  = developRoleBlock(rng, establishHat,  hatStats,  stepsPerBar, params.variation);
-        const auto developPerc = developRoleBlock(rng, establishPerc, percStats, stepsPerBar, params.variation);
-
-        copyBlock(out.clap, 8, 4, grid.numBars, stepsPerBar, developClap);
-        copyBlock(out.clap, 12, 3, grid.numBars, stepsPerBar, developClap);
-        copyBlock(out.hat, 8, 4, grid.numBars, stepsPerBar, developHat);
-        copyBlock(out.hat, 12, 3, grid.numBars, stepsPerBar, developHat);
-        copyBlock(out.perc, 8, 4, grid.numBars, stepsPerBar, developPerc);
-        copyBlock(out.perc, 12, 3, grid.numBars, stepsPerBar, developPerc);
-
-        // Bar 16: restrained phrase-ending fill - the establish block's
-        // own bar 0 for every role, plus at most one small variation-
-        // gated accent (never a busy roll, per the brief's explicit
-        // caution against "fill spam").
+        // ---- TRANSITIONS: bar 16, thinned from the full-drop section. ----
         if (grid.numBars > 0)
         {
+            StepArray hcFill, hoFill, paFill, pbFill;
+            buildTransitionBar(hcFill, hoFill, paFill, pbFill, stage4, stepsPerBar, params.variation, rng);
             const int lastBar = grid.numBars - 1;
-            copyBlock(out.clap, lastBar, 1, grid.numBars, stepsPerBar, establishClap);
-            copyBlock(out.hat, lastBar, 1, grid.numBars, stepsPerBar, establishHat);
-            copyBlock(out.perc, lastBar, 1, grid.numBars, stepsPerBar, establishPerc);
-
-            if (params.variation > 0.0f && uniform01(rng) < params.variation)
-            {
-                const int base = lastBar * stepsPerBar;
-                const int accentStep = base + std::max(1, stepsPerBar / 8);
-                if (!out.hat[(size_t) accentStep].active)
-                    setHit(out.hat, accentStep, 0.6f);
-            }
+            copyBlock(out.hatClosed, lastBar, 1, grid.numBars, stepsPerBar, hcFill);
+            copyBlock(out.hatOpen,   lastBar, 1, grid.numBars, stepsPerBar, hoFill);
+            copyBlock(out.percA,     lastBar, 1, grid.numBars, stepsPerBar, paFill);
+            copyBlock(out.percB,     lastBar, 1, grid.numBars, stepsPerBar, pbFill);
         }
 
         return out;

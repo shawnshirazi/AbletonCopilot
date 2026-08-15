@@ -123,6 +123,21 @@ ONESHOT_CORPUS = {
         ("Odd Frequency Exo",  EXO / "Drums/Percs"),
         ("Odd Frequency Exo2", EXO2 / "Drums/Percs"),
     ],
+    # Added for the layered hat-hierarchy milestone (OPEN HAT is now its
+    # own DrumRole, distinct from closed HAT - see Source/Engine/
+    # DrumVoiceSynth.h). Odd Frequency Exo/Exo2 both have a dedicated
+    # "Open Hats" one-shot folder; PML Mirage/Mystique don't split open
+    # hats out separately, but their RIDES one-shot folders are real,
+    # genre-relevant "open, ringing, longer-decay high-frequency
+    # percussion" material - the same acoustic character an open hat/ride
+    # accent needs, so they're included here as a legitimate stand-in
+    # rather than leaving OPEN_HAT with zero measured target data.
+    "OPEN_HAT": [
+        ("Odd Frequency Exo",  EXO / "Drums/Open Hats"),
+        ("Odd Frequency Exo2", EXO2 / "Drums/Open Hats"),
+        ("PML Mirage",   MIRAGE / "ONESHOTS/RIDES"),
+        ("PML Mystique", MYSTIQUE / "One Shots/Rides"),
+    ],
 }
 
 BPM_RE = re.compile(r"(\d{2,3})\s*bpm", re.IGNORECASE)
@@ -362,7 +377,12 @@ def co_occurrence_for_pairs(pairs):
 
 
 def aggregate_vector_correlation(role_stats):
-    roles = [r for r in ("KICK", "CLAP", "HAT", "PERC") if role_stats.get(r, {}).get("total_onsets")]
+    # RIDE included (added for the layered hat-hierarchy milestone) so the
+    # HatOpen role - whose position/velocity shape comes from RIDE, see
+    # generate_rhythm_grammar_header.py - has real measured cross-role
+    # correlation against kick/clap/hat/perc too, not just its own
+    # position shape in isolation.
+    roles = [r for r in ("KICK", "CLAP", "HAT", "PERC", "RIDE") if role_stats.get(r, {}).get("total_onsets")]
     out = {}
     for i, a in enumerate(roles):
         for b in roles[i + 1:]:

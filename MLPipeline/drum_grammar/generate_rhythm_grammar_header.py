@@ -20,8 +20,8 @@ from pathlib import Path
 JSON_PATH = Path(__file__).parent / "output" / "drum_grammar.json"
 HEADER_PATH = Path(__file__).parents[2] / "Source" / "Engine" / "DrumRhythmGrammar.h"
 
-ROLES = ["KICK", "CLAP", "HAT", "PERC"]
-VAR_NAME = {"KICK": "kKickRhythm", "CLAP": "kClapRhythm", "HAT": "kHatRhythm", "PERC": "kPercRhythm"}
+ROLES = ["KICK", "CLAP", "HAT", "PERC", "RIDE"]
+VAR_NAME = {"KICK": "kKickRhythm", "CLAP": "kClapRhythm", "HAT": "kHatRhythm", "PERC": "kPercRhythm", "RIDE": "kRideRhythm"}
 
 
 def fmt16(values):
@@ -79,9 +79,16 @@ def main():
     lines.append("    // 16-step hit-probability vectors (corpus-wide, not tied to one song) -")
     lines.append("    // positive means the two roles tend to favor the same positions,")
     lines.append("    // negative means one favors positions the other avoids.")
+    lines.append("    // kickRide/clapRide/hatRide/percRide let HatOpen (whose position")
+    lines.append("    // shape comes from kRideRhythm) weigh its placement against every")
+    lines.append("    // role generated before it, the same way HAT/PERC already do for")
+    lines.append("    // their own roles - real measured numbers, not assumed (e.g.")
+    lines.append("    // HAT<->RIDE is a very strong 0.93 - both genuinely favor the same")
+    lines.append("    // offbeat-8th positions in the corpus).")
     lines.append("    struct CrossRoleCorrelation")
     lines.append("    {")
     lines.append("        float kickClap, kickHat, kickPerc, clapHat, clapPerc, hatPerc;")
+    lines.append("        float kickRide, clapRide, hatRide, percRide;")
     lines.append("    };")
     lines.append("")
 
@@ -99,19 +106,30 @@ def main():
 
     lines.append(f"    constexpr CrossRoleCorrelation kCrossRoleCorrelation {{")
     lines.append(f"        {corr['KICK<->CLAP']:.6f}f, {corr['KICK<->HAT']:.6f}f, {corr['KICK<->PERC']:.6f}f, "
-                  f"{corr['CLAP<->HAT']:.6f}f, {corr['CLAP<->PERC']:.6f}f, {corr['HAT<->PERC']:.6f}f")
+                  f"{corr['CLAP<->HAT']:.6f}f, {corr['CLAP<->PERC']:.6f}f, {corr['HAT<->PERC']:.6f}f,")
+    lines.append(f"        {corr['KICK<->RIDE']:.6f}f, {corr['CLAP<->RIDE']:.6f}f, "
+                  f"{corr['HAT<->RIDE']:.6f}f, {corr['PERC<->RIDE']:.6f}f")
     lines.append("    };")
     lines.append("")
 
+    lines.append("    // RIDE (kRideRhythm above) is real measured data but not one of")
+    lines.append("    // DrumRole's own roles - it's a distinct instrument category in the")
+    lines.append("    // corpus (ride cymbal / \"top\" loops), consulted directly by name from")
+    lines.append("    // DrumEngine.cpp to shape the OPEN HAT role's placement (a real, measured")
+    lines.append("    // stand-in for \"open hat / ride / top\" material, per the corpus - see")
+    lines.append("    // DrumEngine.cpp's hat-hierarchy comment for the reasoning), so it has no")
+    lines.append("    // case below.")
     lines.append("    inline const RoleRhythmStats& rhythmStatsForRole(DrumRole role)")
     lines.append("    {")
     lines.append("        switch (role)")
     lines.append("        {")
-    lines.append(f"            case DrumRole::Kick:  return {VAR_NAME['KICK']};")
-    lines.append(f"            case DrumRole::Clap:  return {VAR_NAME['CLAP']};")
-    lines.append(f"            case DrumRole::Hat:   return {VAR_NAME['HAT']};")
-    lines.append(f"            case DrumRole::Perc:  return {VAR_NAME['PERC']};")
-    lines.append(f"            case DrumRole::Count: return {VAR_NAME['KICK']};")
+    lines.append(f"            case DrumRole::Kick:      return {VAR_NAME['KICK']};")
+    lines.append(f"            case DrumRole::Clap:      return {VAR_NAME['CLAP']};")
+    lines.append(f"            case DrumRole::HatClosed: return {VAR_NAME['HAT']};")
+    lines.append(f"            case DrumRole::HatOpen:   return {VAR_NAME['RIDE']};")
+    lines.append(f"            case DrumRole::PercA:     return {VAR_NAME['PERC']};")
+    lines.append(f"            case DrumRole::PercB:     return {VAR_NAME['PERC']};")
+    lines.append(f"            case DrumRole::Count:     return {VAR_NAME['KICK']};")
     lines.append("        }")
     lines.append(f"        return {VAR_NAME['KICK']};")
     lines.append("    }")

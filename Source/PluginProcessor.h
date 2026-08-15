@@ -146,7 +146,7 @@ public:
     // from whatever grid the pattern was generated with (Engine::totalSteps),
     // not tied to the fixed kDrumSteps=128 (8-bar) grid above - this is how
     // the product default became 16 bars without hardcoding it here too.
-    static constexpr int kMaxGeneratedDrumRoles = 4;
+    static constexpr int kMaxGeneratedDrumRoles = 6;
 
     struct GeneratedDrumRole
     {

@@ -18,6 +18,7 @@
 // CLAP: n=61 one-shot samples analyzed
 // HAT: n=85 one-shot samples analyzed
 // PERC: n=86 one-shot samples analyzed
+// OPEN_HAT: n=56 one-shot samples analyzed
 
 #include "DrumVoiceSynth.h" // DrumRole
 
@@ -75,15 +76,32 @@ namespace Engine
         { 0.0770f, 0.0410f },   // rms
     };
 
+    constexpr DrumRoleFingerprint kOpenHatFingerprint {
+        { 0.580236f, 0.392865f },   // durationSec
+        { 5.1770f, 4.8780f },   // attackMs
+        { 5998.180f, 2008.427f },   // zeroCrossingHz
+        { 10.196f, 38.412f },   // estimatedPitchHz
+        { 0.8110f, 0.1440f },   // peak
+        { 0.0890f, 0.0350f },   // rms
+    };
+
+    // PercB has no separately-measured fingerprint (the corpus doesn't
+    // distinguish a second percussion instrument category) - it reuses
+    // PercA's real measured target, since both draw from the same
+    // corpus percussion one-shot material; what makes them functionally
+    // different is which specific file the selector picks (see
+    // Source/DrumSampleSelector.cpp), not a different sound target.
     inline const DrumRoleFingerprint& targetFingerprintForRole(DrumRole role)
     {
         switch (role)
         {
-            case DrumRole::Kick:  return kKickFingerprint;
-            case DrumRole::Clap:  return kClapFingerprint;
-            case DrumRole::Hat:   return kHatFingerprint;
-            case DrumRole::Perc:  return kPercFingerprint;
-            case DrumRole::Count: return kKickFingerprint;
+            case DrumRole::Kick:      return kKickFingerprint;
+            case DrumRole::Clap:      return kClapFingerprint;
+            case DrumRole::HatClosed: return kHatFingerprint;
+            case DrumRole::HatOpen:   return kOpenHatFingerprint;
+            case DrumRole::PercA:     return kPercFingerprint;
+            case DrumRole::PercB:     return kPercFingerprint;
+            case DrumRole::Count:     return kKickFingerprint;
         }
         return kKickFingerprint;
     }

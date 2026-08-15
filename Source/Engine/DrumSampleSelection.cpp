@@ -14,11 +14,13 @@ namespace Engine
         {
             switch (role)
             {
-                case DrumRole::Kick:  return 0x53414D50u ^ 0x4B49434Bu; // 'SAMP' ^ 'KICK'
-                case DrumRole::Clap:  return 0x53414D50u ^ 0x434C4150u; // 'SAMP' ^ 'CLAP'
-                case DrumRole::Hat:   return 0x53414D50u ^ 0x48415420u; // 'SAMP' ^ 'HAT '
-                case DrumRole::Perc:  return 0x53414D50u ^ 0x50455243u; // 'SAMP' ^ 'PERC'
-                case DrumRole::Count: return 0x53414D50u;
+                case DrumRole::Kick:      return 0x53414D50u ^ 0x4B49434Bu; // 'SAMP' ^ 'KICK'
+                case DrumRole::Clap:      return 0x53414D50u ^ 0x434C4150u; // 'SAMP' ^ 'CLAP'
+                case DrumRole::HatClosed: return 0x53414D50u ^ 0x48415443u; // 'SAMP' ^ 'HATC'
+                case DrumRole::HatOpen:   return 0x53414D50u ^ 0x48415445u; // 'SAMP' ^ 'HATE' (distinct from HATC)
+                case DrumRole::PercA:     return 0x53414D50u ^ 0x50455243u; // 'SAMP' ^ 'PERC'
+                case DrumRole::PercB:     return 0x53414D50u ^ 0x50455242u; // 'SAMP' ^ 'PERB' (distinct from PERC, see DrumSampleSelector.cpp for how A/B are additionally forced apart when they'd still collide)
+                case DrumRole::Count:     return 0x53414D50u;
             }
             return 0x53414D50u;
         }

@@ -65,18 +65,39 @@ namespace Engine
             constexpr double hpHz            = 1000.0;
             constexpr double lpHz            = 6000.0;
         }
-        namespace Hat
+        namespace HatClosed
         {
             constexpr double ampTauSec   = 0.012;
             constexpr double durationSec = 0.06;
             constexpr double hpHz        = 6000.0;
         }
-        namespace Perc
+        namespace HatOpen
+        {
+            // Longer decay, slightly lower cutoff than HatClosed - an
+            // "open"/ringing character rather than the closed pulse's
+            // tight tick, the same distinction real open vs. closed hi-hat
+            // samples have.
+            constexpr double ampTauSec   = 0.09;
+            constexpr double durationSec = 0.28;
+            constexpr double hpHz        = 5000.0;
+        }
+        namespace PercA
         {
             constexpr double ampTauSec   = 0.02;
             constexpr double durationSec = 0.08;
             constexpr double hpHz        = 1500.0;
             constexpr double lpHz        = 3500.0;
+        }
+        namespace PercB
+        {
+            // Lower/warmer band than PercA - a deliberately different
+            // synth-fallback timbre so the two percussion voices stay
+            // audibly distinct even without real samples loaded, matching
+            // the "two complementary percussion voices" role split.
+            constexpr double ampTauSec   = 0.035;
+            constexpr double durationSec = 0.12;
+            constexpr double hpHz        = 700.0;
+            constexpr double lpHz        = 2200.0;
         }
 
         // Fixed per-role noise seeds - deterministic (never time-based), so
@@ -85,11 +106,13 @@ namespace Engine
         {
             switch (role)
             {
-                case DrumRole::Clap:  return 0xC1A9F00Du;
-                case DrumRole::Hat:   return 0x4A570001u;
-                case DrumRole::Perc:  return 0xBE9CAEE0u;
+                case DrumRole::Clap:      return 0xC1A9F00Du;
+                case DrumRole::HatClosed: return 0x4A570001u;
+                case DrumRole::HatOpen:   return 0x4A570002u;
+                case DrumRole::PercA:     return 0xBE9CAEE0u;
+                case DrumRole::PercB:     return 0xBE9CAEE1u;
                 case DrumRole::Kick:
-                case DrumRole::Count: return 1u;
+                case DrumRole::Count:     return 1u;
             }
             return 1u;
         }
@@ -98,11 +121,13 @@ namespace Engine
         {
             switch (role)
             {
-                case DrumRole::Kick:  return Kick::durationSec;
-                case DrumRole::Clap:  return Clap::durationSec;
-                case DrumRole::Hat:   return Hat::durationSec;
-                case DrumRole::Perc:  return Perc::durationSec;
-                case DrumRole::Count: return 0.0;
+                case DrumRole::Kick:      return Kick::durationSec;
+                case DrumRole::Clap:      return Clap::durationSec;
+                case DrumRole::HatClosed: return HatClosed::durationSec;
+                case DrumRole::HatOpen:   return HatOpen::durationSec;
+                case DrumRole::PercA:     return PercA::durationSec;
+                case DrumRole::PercB:     return PercB::durationSec;
+                case DrumRole::Count:     return 0.0;
             }
             return 0.0;
         }
@@ -132,20 +157,37 @@ namespace Engine
             return (float) (v.velocity * amp) * bp;
         }
 
-        float renderHatSample(DrumVoiceState& v, double t)
+        float renderHatClosedSample(DrumVoiceState& v, double t)
         {
-            const double amp   = std::exp(-t / Hat::ampTauSec);
+            const double amp   = std::exp(-t / HatClosed::ampTauSec);
             const float  noise = whiteNoise(v.noiseState);
-            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, Hat::hpHz, v.sampleRate);
+            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, HatClosed::hpHz, v.sampleRate);
             return (float) (v.velocity * amp) * hp;
         }
 
-        float renderPercSample(DrumVoiceState& v, double t)
+        float renderHatOpenSample(DrumVoiceState& v, double t)
         {
-            const double amp   = std::exp(-t / Perc::ampTauSec);
+            const double amp   = std::exp(-t / HatOpen::ampTauSec);
             const float  noise = whiteNoise(v.noiseState);
-            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, Perc::hpHz, v.sampleRate);
-            const float  bp    = lowpass(hp, v.lpPrevY, Perc::lpHz, v.sampleRate);
+            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, HatOpen::hpHz, v.sampleRate);
+            return (float) (v.velocity * amp) * hp;
+        }
+
+        float renderPercASample(DrumVoiceState& v, double t)
+        {
+            const double amp   = std::exp(-t / PercA::ampTauSec);
+            const float  noise = whiteNoise(v.noiseState);
+            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, PercA::hpHz, v.sampleRate);
+            const float  bp    = lowpass(hp, v.lpPrevY, PercA::lpHz, v.sampleRate);
+            return (float) (v.velocity * amp) * bp;
+        }
+
+        float renderPercBSample(DrumVoiceState& v, double t)
+        {
+            const double amp   = std::exp(-t / PercB::ampTauSec);
+            const float  noise = whiteNoise(v.noiseState);
+            const float  hp    = highpass(noise, v.hpPrevX, v.hpPrevY, PercB::hpHz, v.sampleRate);
+            const float  bp    = lowpass(hp, v.lpPrevY, PercB::lpHz, v.sampleRate);
             return (float) (v.velocity * amp) * bp;
         }
     }
@@ -154,10 +196,12 @@ namespace Engine
     {
         switch (midiNote)
         {
-            case 36: outRole = DrumRole::Kick; return true;
-            case 39: outRole = DrumRole::Clap; return true;
-            case 42: outRole = DrumRole::Hat;  return true;
-            case 37: outRole = DrumRole::Perc; return true;
+            case 36: outRole = DrumRole::Kick;      return true;
+            case 39: outRole = DrumRole::Clap;      return true;
+            case 42: outRole = DrumRole::HatClosed; return true;
+            case 46: outRole = DrumRole::HatOpen;   return true;
+            case 37: outRole = DrumRole::PercA;     return true;
+            case 63: outRole = DrumRole::PercB;     return true;
             default: return false;
         }
     }
@@ -202,11 +246,13 @@ namespace Engine
 
             switch (voice.role)
             {
-                case DrumRole::Kick:  out[i] = renderKickSample(voice, t); break;
-                case DrumRole::Clap:  out[i] = renderClapSample(voice, t); break;
-                case DrumRole::Hat:   out[i] = renderHatSample (voice, t); break;
-                case DrumRole::Perc:  out[i] = renderPercSample(voice, t); break;
-                case DrumRole::Count: out[i] = 0.0f; break;
+                case DrumRole::Kick:      out[i] = renderKickSample(voice, t);      break;
+                case DrumRole::Clap:      out[i] = renderClapSample(voice, t);      break;
+                case DrumRole::HatClosed: out[i] = renderHatClosedSample(voice, t); break;
+                case DrumRole::HatOpen:   out[i] = renderHatOpenSample(voice, t);   break;
+                case DrumRole::PercA:     out[i] = renderPercASample(voice, t);     break;
+                case DrumRole::PercB:     out[i] = renderPercBSample(voice, t);     break;
+                case DrumRole::Count:     out[i] = 0.0f; break;
             }
 
             ++voice.elapsedSamples;

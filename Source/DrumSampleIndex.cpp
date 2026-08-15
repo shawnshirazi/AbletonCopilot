@@ -6,14 +6,14 @@ namespace
     // pattern (see DrumSampleSelector.h) - loops, FX, vocals, bass, toms,
     // cymbals, and misc are skipped entirely, so a 20k-file library only
     // ever yields a few hundred/thousand analysis candidates, not tens of
-    // thousands. OPEN_HAT is included alongside HIHAT because
-    // DrumSampleSelector's HAT role draws from both (see its
-    // candidatesForRackIds call) - TOM is deliberately excluded, it isn't
-    // a role DrumEngine generates for.
+    // thousands. RIDE is included alongside OPEN_HAT/HIHAT because
+    // DrumSampleSelector's HatOpen role draws from both OPEN_HAT and RIDE
+    // (see its candidatesForRackIds call) - TOM and CYMBAL are
+    // deliberately excluded, neither is a role DrumEngine generates for.
     bool isDrumRoleRack(const juce::String& rackId)
     {
         return rackId == "KICK" || rackId == "SNARE" || rackId == "CLAP"
-            || rackId == "HIHAT" || rackId == "OPEN_HAT" || rackId == "PERC";
+            || rackId == "HIHAT" || rackId == "OPEN_HAT" || rackId == "RIDE" || rackId == "PERC";
     }
 }
 

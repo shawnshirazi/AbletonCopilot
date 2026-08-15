@@ -13,6 +13,7 @@ namespace
         { "HIHAT",    "Hi-Hats" },
         { "OPEN_HAT", "Open Hats" },
         { "TOM",      "Toms" },
+        { "RIDE",     "Rides" },
         { "CYMBAL",   "Cymbals" },
         { "PERC",     "Percussion" },
         { "BASS",     "Bass" },

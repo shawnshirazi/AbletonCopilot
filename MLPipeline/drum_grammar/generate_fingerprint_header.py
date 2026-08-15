@@ -27,7 +27,7 @@ from pathlib import Path
 JSON_PATH = Path(__file__).parent / "output" / "drum_grammar.json"
 HEADER_PATH = Path(__file__).parents[2] / "Source" / "Engine" / "DrumSampleFingerprint.h"
 
-ROLES = ["KICK", "CLAP", "HAT", "PERC"]
+ROLES = ["KICK", "CLAP", "HAT", "PERC", "OPEN_HAT"]
 
 
 def dim(fp, key_ms_or_hz, scale=1.0):
@@ -80,7 +80,8 @@ def main():
     lines.append("    };")
     lines.append("")
 
-    role_to_var = {"KICK": "kKickFingerprint", "CLAP": "kClapFingerprint", "HAT": "kHatFingerprint", "PERC": "kPercFingerprint"}
+    role_to_var = {"KICK": "kKickFingerprint", "CLAP": "kClapFingerprint", "HAT": "kHatFingerprint",
+                   "PERC": "kPercFingerprint", "OPEN_HAT": "kOpenHatFingerprint"}
 
     for role in ROLES:
         fp = fingerprints[role]
@@ -109,15 +110,23 @@ def main():
         lines.append("    };")
         lines.append("")
 
+    lines.append("    // PercB has no separately-measured fingerprint (the corpus doesn't")
+    lines.append("    // distinguish a second percussion instrument category) - it reuses")
+    lines.append("    // PercA's real measured target, since both draw from the same")
+    lines.append("    // corpus percussion one-shot material; what makes them functionally")
+    lines.append("    // different is which specific file the selector picks (see")
+    lines.append("    // Source/DrumSampleSelector.cpp), not a different sound target.")
     lines.append("    inline const DrumRoleFingerprint& targetFingerprintForRole(DrumRole role)")
     lines.append("    {")
     lines.append("        switch (role)")
     lines.append("        {")
-    lines.append(f"            case DrumRole::Kick:  return {role_to_var['KICK']};")
-    lines.append(f"            case DrumRole::Clap:  return {role_to_var['CLAP']};")
-    lines.append(f"            case DrumRole::Hat:   return {role_to_var['HAT']};")
-    lines.append(f"            case DrumRole::Perc:  return {role_to_var['PERC']};")
-    lines.append(f"            case DrumRole::Count: return {role_to_var['KICK']};")
+    lines.append(f"            case DrumRole::Kick:      return {role_to_var['KICK']};")
+    lines.append(f"            case DrumRole::Clap:      return {role_to_var['CLAP']};")
+    lines.append(f"            case DrumRole::HatClosed: return {role_to_var['HAT']};")
+    lines.append(f"            case DrumRole::HatOpen:   return {role_to_var['OPEN_HAT']};")
+    lines.append(f"            case DrumRole::PercA:     return {role_to_var['PERC']};")
+    lines.append(f"            case DrumRole::PercB:     return {role_to_var['PERC']};")
+    lines.append(f"            case DrumRole::Count:     return {role_to_var['KICK']};")
     lines.append("        }")
     lines.append(f"        return {role_to_var['KICK']};")
     lines.append("    }")

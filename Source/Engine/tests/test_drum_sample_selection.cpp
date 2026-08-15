@@ -5,7 +5,8 @@ using namespace Engine;
 
 namespace
 {
-    const DrumRole kAllRoles[4] = { DrumRole::Kick, DrumRole::Clap, DrumRole::Hat, DrumRole::Perc };
+    const DrumRole kAllRoles[6] = { DrumRole::Kick, DrumRole::Clap, DrumRole::HatClosed,
+                                     DrumRole::HatOpen, DrumRole::PercA, DrumRole::PercB };
 }
 
 int main()
@@ -89,7 +90,7 @@ int main()
         for (uint32_t seed = 0; seed < 20 && !anyRoleDiffersFromKick; ++seed)
         {
             const int kickIdx = selectSampleIndex(DrumRole::Kick, seed, 40);
-            for (auto role : { DrumRole::Clap, DrumRole::Hat, DrumRole::Perc })
+            for (auto role : { DrumRole::Clap, DrumRole::HatClosed, DrumRole::HatOpen, DrumRole::PercA, DrumRole::PercB })
             {
                 if (selectSampleIndex(role, seed, 40) != kickIdx)
                 {

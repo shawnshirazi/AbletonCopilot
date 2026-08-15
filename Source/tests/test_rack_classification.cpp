@@ -83,6 +83,7 @@ int main()
         CHECK(classifyByDirectory(juce::File("/lib/Pack/Drums/Open Hats/x.wav")) == "OPEN_HAT");
         CHECK(classifyByDirectory(juce::File("/lib/Pack/Drums/Percs/x.wav")) == "PERC");
         CHECK(classifyByDirectory(juce::File("/lib/Pack/Drums/Toms/x.wav")) == "TOM");
+        CHECK(classifyByDirectory(juce::File("/lib/Pack/Drums/Rides/x.wav")) == "RIDE");
     }
 
     // =========================================================================
