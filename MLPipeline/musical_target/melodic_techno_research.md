@@ -501,6 +501,259 @@ fingerprint distance, blind to which pack a file came from.
 
 ---
 
+## 9. Reference-analysis pass 2 — Serum2 diagnosis, clip-level breakdown evidence, Breakdown Grammar
+
+Status: research only, per explicit instruction — no `DrumEngine.cpp`/
+`BassEngine.cpp` musical logic was touched to produce this section (a small,
+disclosed diagnostic/status-panel change in `PluginEditor.cpp` was made
+alongside it — see §9.1, not a generation change). Every claim below is
+labeled **[LIBRARY]** (measured directly from files in `/Users/shawnshirazi/
+shawn music stuff`), **[WEB]** (a named external source), **[CODE]** (traced
+directly from this repository's own source), or **[INTERPRETATION]** (a
+judgment call, flagged as such) — never asserted as fact without one of
+these tags.
+
+### 9.1 Part 1 — What Serum 2 is actually playing **[CODE]**
+
+Traced directly, not assumed, by reading `PluginProcessor.cpp`'s Serum
+loader and trigger paths:
+
+- **Which instance loads**: confirmed via the real, dated
+  `~/Library/AbletonCopilot/serum_load_log.txt` —
+  `createInstanceFromDescription("Serum 2")` (not "Serum 2 FX") succeeds for
+  both track 0 (Bass) and track 1 (Melody).
+- **What state it's in immediately after construction**: `PluginProcessor.
+  cpp`'s loader callback only ever calls `inst->setStateInformation(...)` when
+  `voice.pendingState.getSize() > 0`. `pendingState` is populated in exactly
+  two places: `setStateInformation` (the HOST restoring a previously-saved
+  Ableton project) and `loadCapturedPreset` (a direct result of the user
+  clicking Capture or cycling `</>` in the UI). **Neither has ever happened
+  in this environment** — `~/Library/AbletonCopilot/CapturedPresets/` does
+  not exist on disk. **Conclusion: every note heard so far has been played
+  by Serum 2's own built-in factory "Init" patch, not any Melodic Techno
+  preset and not any captured state.** This was previously suspected but not
+  proven; it is now proven by code trace + a real absence-of-file check, not
+  inferred.
+- **Does Generate Bass change Serum's state?** No — confirmed by reading
+  every call site of `setStateInformation`/`loadCapturedPreset`; nothing in
+  `generateLoopClicked`/`applyRenderMode` touches Serum2 state, only MIDI
+  note data.
+- **Can Serum 2's own preset library be selected by index/name via the host
+  API?** No — re-confirmed, not re-tested, via the existing dated
+  `serum_program_list_debug.txt` diagnostic already in this repo:
+  `getNumPrograms()` returns a dummy list ("Prog 1".."Prog 128"), and
+  `setCurrentProgram(1)` provably does not change `getStateInformation()`'s
+  bytes ("dead end"). Capture (real VST3 state bytes, round-tripped exactly)
+  remains the only legitimate mechanism — this conclusion is unchanged, just
+  re-verified against real evidence rather than assumed to still be true.
+- **Where the octave jump actually comes from** — traced through the exact
+  pitch computation in `PluginProcessor.cpp`'s melody-voice trigger loop:
+  `pitch = jlimit(0, 127, 36 + keyRoot + offset)`. `keyRoot` is
+  `getSelectedKey()`'s root semitone, confirmed bounded to **0–11** (`(selId
+  - 1) / 2` over a 24-item major/minor picker). `offset` is bounded to
+  **-7..+7** semitones — confirmed by reading `BassRhythmGrammar.h`'s
+  `kBassPitchOffsets` table directly (root 0, then ±2/±3/±4/±5/±7, never
+  ±12) and `BassArchetype.cpp`'s five templates (root, +3, or +7 only,
+  matching the same measured table). **Neither the archetype system nor the
+  measured interval table can produce a full octave (±12) jump on its own.**
+  The real mechanism is different: because `keyRoot` and `offset` both add
+  into the SAME fixed base (36), the bass's absolute register drifts by as
+  much as `11 + 7 = 18` semitones (1.5 octaves) purely from KEY CHOICE
+  interacting with interval choice — e.g. key=C (root 0) keeps the bass
+  between MIDI 29–43 (F1–G2), while key=B (root 11) pushes it to 36–54
+  (C2–F#3) for the exact same archetype and seed. **This is a real,
+  provable register-drift bug, not a generation-randomness issue**: nothing
+  currently clamps the bass to a fixed target octave independent of key.
+- **Instrumentation added this pass** (`PluginEditor.cpp`, `applyRenderMode`
+  - a status-panel change, not a generation change): the Bass/Melody status
+  labels now say `"Serum 2 preset: factory Init patch (no capture performed
+  yet - ...)"` instead of a vaguer "(no captured sound)", and a new **"Bass
+  MIDI range: <low> - <high>"** label computes the real min/max MIDI note of
+  whatever was just generated, using `juce::MidiMessage::getMidiNoteName`
+  (real output, not estimated) via the exact same `36 + keyRoot + offset`
+  formula the audio-thread trigger loop uses.
+- **Real preset candidates on disk** (re-confirmed from the previous pass,
+  not re-searched): 370 `.fxp` files in PML Mirage alone, real bass-role
+  names like `PML BS Rolling Close.fxp`, `PML BS Sub Particles.fxp`, `PML BS
+  Reese Fall.fxp`, `PML BS Main Lake.fxp`; Odd Frequency Exo2 adds `BS -
+  Artion.fxp`, `BS - Flow.fxp`. `.fxp` is a VST2 chunk format Serum 2 (VST3)
+  cannot load through the host API (established in a previous session's
+  investigation) — these remain real, named, `Capture`-workflow suggestions,
+  never auto-loaded, never claimed as active unless actually captured.
+
+### 9.2 Part 3/4 — Clip-level breakdown evidence from the user's own reference arrangements **[LIBRARY]**
+
+Section 3.2-3.4 (above) already extracted and tabulated the real Locator
+structure of the three complete `.als` reference arrangements in `PML -
+Complete Arrangement Academy (PML361)`. This pass goes one level deeper:
+parsing individual **track clip start/end times** within the "Arrangement
+Analysis" project (124 BPM) to see what's actually SOUNDING during each
+labeled section, not just the section names.
+
+**Real track roster found in this one project** (53 tracks, grouped) - a
+genuine vocabulary of what a real melodic techno arrangement actually
+contains, useful evidence on its own for Part 5/6:
+`KICK/BASS` (Kick, Tom) · `BASSLINE & STABS` (Sub Bass) · `BASS` (Bass Stab,
+Percussion Element) · `BASSY LEAD` (Side Bassy Lead, Pluck, Side Bassy Lead
+Layer) · `DRUMS` (Woodblock, Ride, Ride 2, Stick, Fast Hat Bright, Hat, Top)
+· `SHAKER GROUP` (Shaker 1, Shaker 2, Shakers) · `INSTRUMENTS` (Synth, Main
+Loop Synth ×2) · `PADS/SYNTHS` (**Pad Break**, Serum Lead Atmos, Pad Fast
+Tremolo, Pad, Pad 2) · `VOCALS` · `FX` (Long Noise Transition, Noise
+Transition Down, Noise Fx, Fx 1-4, Reverse Cymbal, FX Cymbal, Ambience).
+
+**Clip-level activity around the Pre-Break(120)→Break(128)→Buildup(144)→
+Drop2(152) region:**
+
+| Track | Active bars | Relative to sections |
+|---|---|---|
+| **Kick** | ...112–118, **120–128**, *silent 128–152*, 152–160... | Kick plays through Pre-Break, then is fully silent for the ENTIRE Break **and** Buildup (24 bars) - does not return early into the Buildup the way generic EDM formulas assume. Same clip data also shows Kick silent 182–192 - the "Melodic Break" section too. |
+| **Hat / Fast Hat Bright** | ...112–120, *silent 120–144*, **144–151**, 152–184... | Hats are silent through Pre-Break **and** Break, then are exactly what comes back at the start of Buildup (bar 144) - hats mark the buildup, not the break. |
+| **Pad Break** | *silent elsewhere*, **184–192 only** | A track literally named "Pad Break" has exactly ONE clip in the whole ~240-bar arrangement, and it exactly matches the "Melodic Break" locator (184-192). This is the single clearest, most literal piece of evidence in this whole investigation for "what replaces the kick's energy in a breakdown": a dedicated atmospheric pad, gated to play *only* during the break. |
+| Sub Bass / Bass Stab | one continuous clip spans nearly the whole track (bar 48-232/240) | **[INTERPRETATION - inconclusive]**: clip-level data alone can't distinguish "still playing notes, just filtered/automated" from "silent within the clip" - a note-level query this session returned a note count too dense to trust without further validation (see caveat below). No volume/filter automation envelope was found directly on either track. Whether the sub bass is sequenced-silent or filtered-quiet during the Break is **not yet verified** and should not be asserted either way. |
+
+**Caveat, stated plainly**: the Sub Bass/Bass Stab note-level query in this
+session returned an implausibly high note count (3001 events for an ~184-bar
+part), which does not match a real bassline and was not resolved before
+time ran out on this pass - flagged as **not yet verified**, not silently
+treated as either "bass continues" or "bass is silent."
+
+### 9.3 Part 2 — External research (bounded, supplementary to §9.2's stronger library evidence) **[WEB]**
+
+Per the user's own instruction to prioritize library evidence, this was a
+bounded pass (a handful of searches), not exhaustive - no stems or audio of
+copyrighted commercial tracks are accessible to this session by any
+legitimate means, so external evidence here is structural/technique-level,
+corroborating rather than leading:
+
+- Layton Giordani's "Dragonfly" breakdown: **cuts the low end, introduces
+  other synths/melodic lines, and filters out the low end during a 16-bar
+  section while the melody plays more frequently** [Beatportal-adjacent
+  production coverage] - independently matches this session's own measured
+  16-24 bar "Break" length and the kick/bass-reduction pattern in §9.2,
+  found without being asked to match it.
+- Real Beatport data for Giordani's own catalogue: peak-time/driving techno
+  releases run 129-135 BPM, while tracks tagged "Melodic House & Techno"
+  specifically (e.g. "Alto" w/ Adam Beyer) sit at 129 BPM - slightly above
+  the 120-125 pocket this document's §2 previously assumed as a hard
+  ceiling. **[INTERPRETATION]**: treat 120-129 BPM as the real target range,
+  not 120-125.
+- Reverb-tail automation: **reverb send increased +3 to +6dB over 16-32
+  bars** during a breakdown is a named, sourced technique (independent
+  production guide) - concrete enough to implement later as a real DSP
+  automation curve, not vague "add reverb" advice.
+- Breakdown structure independently described elsewhere as **"3x 8-bar
+  sections"** - consistent with this session's own measured 16-24 bar Break
+  lengths (2-3 concatenated 8-bar units), not contradicting it.
+- AFTR:HRS/VER:WEST specific track-level BPM/key data was **not obtainable**
+  through this session's search access - Beatport/1001Tracklists list
+  releases but didn't surface individual technical metadata for this
+  specific alias in the time available. This is a real, disclosed gap, not
+  papered over.
+
+### 9.4 Breakdown Grammar - deriving explicit MusicState phases from §9.2's evidence
+
+The existing `MusicSection` enum (`Source/Engine/MusicState.h`) already has
+real, evidence-derived section names (`PreDrop`, `Breakdown`,
+`BreakdownBuild`, ...) from the *first* research pass - **this is closer to
+what the user is asking for in Part 4 than a fresh design would be**. What's
+missing, per §9.2's NEW clip-level evidence, is encoding WHAT HAPPENS in
+each phase as distinct, named sub-behaviour rather than one
+`drumEnergy`/`bassEnergy` scalar per bar:
+
+```
+Breakdown Entry   (= "Pre-Break", measured 4-8 bars)
+  kick: fading out (still present at entry, gone by the end - §9.2's Kick
+        clip data shows it present through bar 120-128, i.e. still active
+        for the FIRST few bars of what's labeled Pre-Break, then gone)
+  hats: already reduced/gone (measured: hats were already silent by 120)
+  bass: [not yet verified - see §9.2 caveat]
+
+Breakdown Body    (= "Break", measured 16-24 bars)
+  kick: OFF (measured: zero Kick clip coverage for the full 128-144 span)
+  hats: OFF (measured: zero Hat coverage for the same span)
+  melody/pad: EXPOSED - a real, dedicated "Pad Break" track activates
+              (measured: Pad Break's only clip in the whole project is
+              exactly this section)
+
+Breakdown Development / Pre-drop (= "Buildup", measured 4-8 bars)
+  kick: still OFF (measured: Kick doesn't return until Drop, not Buildup)
+  hats: RETURN here specifically (measured: Fast Hat Bright's first
+        post-break clip starts exactly at bar 144, the Buildup boundary)
+  tension: this is where §9.3's reverb-tail/filter-automation technique
+           would apply (not yet implemented - a DSP feature, not sequencing)
+
+Drop              (kick + bass + full hat/perc groove all return together,
+                    matching the existing DROP/BREAKDOWN RenderedLoop model)
+```
+
+**Proposed architecture (not yet implemented, for the next pass)**: extend
+`MusicState`/`RenderMode` with a third value or a `BreakdownPhase` enum
+{Entry, Body, Development} instead of one boolean, so hats and kick can
+re-enter at DIFFERENT bars (hats at the Development boundary, kick only at
+the Drop) - directly implementing what §9.2 measured, not inventing a new
+shape. This is a bigger change than the current two-mode
+(Drop/Breakdown) `RenderMode` and needs its own design pass.
+
+### 9.5 Parts 5/6/7 - preliminary findings tied to this evidence (not yet implemented)
+
+- **Percussion vocabulary [LIBRARY]**: the real track roster in §9.2
+  confirms Woodblock, Ride (×2), Stick, Shaker (×2 MIDI + 1 audio), "Top" as
+  real, currently-used melodic-techno percussion voices - broader than this
+  plugin's current PercA/PercB two-voice model. A future pass could
+  cross-reference this vocabulary against the user's own pack contents
+  (Odd Frequency/PML PERC-classified files) to see how many of these
+  specific timbres are actually available.
+- **Bass register [CODE + INTERPRETATION]**: §9.1's register-drift finding
+  is the highest-confidence, most actionable finding in this whole pass.
+  Proposed fix direction (not implemented): clamp the bass's absolute
+  register to a fixed target octave (e.g. always resolve `offset` around a
+  FIXED anchor pitch class near the root, then transpose the whole pattern
+  by octaves - not semitones - to land in a chosen target range like
+  C1-C2), so key selection changes which NOTE plays, never which OCTAVE the
+  part sits in, unless an archetype explicitly calls for a real octave
+  displacement (none currently do - all 5 archetypes stay within ±7
+  semitones, confirmed in §9.1).
+- **Sample selection [unchanged]**: `DrumSamplePackTier` (previous pass) is
+  the general, non-hardcoded genre-confidence mechanism the user is asking
+  for in Part 6 - already built, already tested (46/46). No new evidence
+  this pass suggests changing it; re-verified as still the right mechanism,
+  not re-implemented.
+
+### 9.6 Proposed single cohesive target (Part 8) - for review, not yet built
+
+Per the user's "one convincing style, not five mediocre ones": the
+evidence in this section converges on one real, specific, repeatedly-
+measured shape, not an invented one:
+
+- **124 BPM** (measured: all three reference tracks are 124-125 BPM; matches
+  §9.3's Giordani "Melodic House & Techno"-tagged data at 129 BPM as the
+  upper edge of a real range, not a hard ceiling)
+- **16-bar Drop** (already the current loop-generator's length)
+- **Breakdown Entry (~8 bars) → Break (~16 bars) → Development (~8 bars)**
+  as three distinct phases, not one Breakdown boolean (§9.4)
+- Kick: silent for the full Break+Development, returns only at the Drop
+  (measured, §9.2 - corrects this codebase's current Breakdown design,
+  which already mutes the kick for the whole Breakdown render mode, so this
+  is actually already consistent - no change needed here)
+- Hats: silent through Entry+Break, return specifically at Development
+  start (measured, §9.2 - NOT currently implemented; the current
+  Breakdown render keeps hatClosed at reduced gain throughout rather than
+  fully silent-then-returning)
+- A dedicated atmospheric pad exposed specifically during the Break
+  (measured, §9.2 - not yet built anywhere in this codebase; melody
+  generation is explicitly out of scope again this pass per the user's own
+  instruction)
+- Bass register clamped to a fixed target octave regardless of key
+  (§9.1/9.5 - the highest-confidence actionable fix from this whole pass)
+
+**Explicitly not decided by this report**: exact target register bounds
+(needs a specific octave choice, e.g. "C1-C2" vs "C2-C3" - a musical
+interpretation, not something the evidence gathered this pass pins down to
+one exact answer), the exact `BreakdownPhase` API shape, and whether
+percussion vocabulary expansion belongs in this phase or a later one.
+
+---
+
 ## Sources index
 
 - [Beatportal — Tiësto/VER:WEST](https://www.beatportal.com/articles/465243-tiesto-drops-melodic-house-techno-infused-elements-of-a-new-life-via-his-verwest-alias)
@@ -520,7 +773,16 @@ fingerprint distance, blind to which pack a file came from.
   Arrangements (PDF)/PML - Guide to Electronic Arrangements.pdf`
 - Local: `PML_-_Music_Theory_for_Melodic_House_&_Techno_(PML285)/Information/PML
   Harmony & Chord Progressions Slides.pdf`
-- Local: the three real `.als` arrangement files listed in §3.2
+- Local: the three real `.als` arrangement files listed in §3.2 - clip-level
+  (not just locator-level) parsing added in §9.2
 - Local: `MLPipeline/drum_grammar/output/drum_grammar.json`,
   `MLPipeline/drum_grammar/output/bass_grammar.json` (previous milestone's
   measurements, reused here, not re-derived)
+- Local: `~/Library/AbletonCopilot/serum_load_log.txt`,
+  `serum_program_list_debug.txt` (real, dated runtime diagnostics - §9.1)
+- Local: `Source/Engine/BassRhythmGrammar.h`, `Source/Engine/BassArchetype.cpp`,
+  `Source/PluginProcessor.cpp` (code-traced, not assumed - §9.1)
+- [Beatport — Layton Giordani track/BPM/key data](https://www.beatport.com/artist/layton-giordani/374036/tracks)
+- [Beatport — "Alto" (Adam Beyer, Layton Giordani)](https://www.beatport.com/track/alto/20487769)
+- [It's The DJ — Layton Giordani "Dragonfly" breakdown](https://itsthedj.com/layton-giordani/)
+- [Myloops — melodic techno pad/reverb-tail automation technique](https://www.myloops.net/melodic-techno-production-complete-guide-from-start-to-finish)

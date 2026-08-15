@@ -326,6 +326,11 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     serumMelodyStatusLabel.setText("Melody - Serum 2: not loaded yet", juce::dontSendNotification);
     addAndMakeVisible(serumMelodyStatusLabel);
 
+    bassMidiRangeLabel.setFont(small());
+    bassMidiRangeLabel.setColour(juce::Label::textColourId, kTextDim);
+    bassMidiRangeLabel.setText("Bass MIDI range: (not generated yet)", juce::dontSendNotification);
+    addAndMakeVisible(bassMidiRangeLabel);
+
     loopLengthLabel.setFont(small());
     loopLengthLabel.setColour(juce::Label::textColourId, kTextDim);
     loopLengthLabel.setText(juce::String("Loop: ") + juce::String(Engine::kLoopBars) + " bars",
@@ -714,6 +719,7 @@ void AbletonCopilotAudioProcessorEditor::resized()
 
     serumBassStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
     serumMelodyStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
+    bassMidiRangeLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
     area.removeFromTop(4);
 
     // Library-scan pipeline diagnostics (see updateLibraryScanStatusLabel)
@@ -1449,23 +1455,34 @@ void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode
 
         // Serum2 status - the REAL captured preset name if one exists
         // (MelodyTrackPanel::presetFiles/presetIndex already track this -
-        // see updateTrackTitle - just not previously read here), otherwise
-        // processor.getMelodyTrackStatus()'s honest load-status text plus
-        // a few REAL preset names actually found on disk this session (not
-        // auto-loaded - Serum2's VST3 program list is a confirmed dead end,
-        // see BassEngine/MusicIdentity's own research notes - just a
-        // pointer to browse to and Capture).
+        // see updateTrackTitle - just not previously read here); otherwise
+        // states PLAINLY what was actually traced this session: with no
+        // capture ever performed, a freshly-instantiated Serum2 plays its
+        // own built-in factory "Init" patch - setStateInformation is only
+        // ever called from loadCapturedPreset (a user click) or a host
+        // project reload, never automatically at construction (confirmed
+        // by reading PluginProcessor.cpp's loader callback: `if
+        // (voice.pendingState.getSize() > 0)` is the ONLY place a non-
+        // default state is applied, and pendingState starts empty). Serum
+        //2's own VST program-list API is a confirmed dead end for
+        // selecting a preset by name (see the dated
+        // serum_program_list_debug.txt diagnostic - setCurrentProgram
+        // provably does not change the state bytes), so Capture remains
+        // the only legitimate mechanism - never claim a preset name we
+        // can't prove.
         auto serumStatusFor = [&](const char* trackLabel, int trackIndex, const char* suggestions) -> juce::String
         {
             if (trackIndex >= 0 && trackIndex < melodyPanels.size())
             {
                 auto& panel = *melodyPanels[trackIndex];
                 if (panel.presetIndex >= 0 && panel.presetIndex < panel.presetFiles.size())
-                    return juce::String(trackLabel) + " - Serum 2: "
-                         + panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension();
+                    return juce::String(trackLabel) + " - Serum 2 preset: "
+                         + panel.presetFiles.getReference(panel.presetIndex).getFileNameWithoutExtension()
+                         + " (captured)";
             }
-            return juce::String(trackLabel) + " - Serum 2: (no captured sound - open Serum 2, browse to a real "
-                 + suggestions + " preset, click Capture) - " + processor.getMelodyTrackStatus(trackIndex);
+            return juce::String(trackLabel) + " - Serum 2 preset: factory Init patch (no capture performed yet - "
+                 + "open Serum 2, browse to a real " + suggestions + " preset, click Capture) - "
+                 + processor.getMelodyTrackStatus(trackIndex);
         };
         serumBassStatusLabel.setText(
             serumStatusFor("Bass", 0, "Melodic Techno bass (e.g. PML BS Rolling Close / PML BS Sub Particles / PML BS Reese Fall)"),
@@ -1473,6 +1490,30 @@ void AbletonCopilotAudioProcessorEditor::applyRenderMode(Engine::RenderMode mode
         serumMelodyStatusLabel.setText(
             serumStatusFor("Melody", 1, "Melodic Techno lead"),
             juce::dontSendNotification);
+
+        // Real MIDI register actually sent for the bass, computed from the
+        // exact array just handed to setGeneratedMelodyPattern (same
+        // pitch formula PluginProcessor's trigger loop uses: 36 + keyRoot
+        // + offset) - not estimated, not assumed. See this session's
+        // reference-analysis report for why this specific line exists:
+        // register drift traced to keyRoot(0-11)+offset(-7..+7) combining
+        // without a fixed target-octave clamp.
+        {
+            int bassMin = 200, bassMax = -1;
+            for (int8_t off : currentIdentity->bassMotif)
+            {
+                if (off == Engine::kBassOffValue)
+                    continue;
+                const int pitch = juce::jlimit(0, 127, 36 + keyRoot + (int) off);
+                bassMin = juce::jmin(bassMin, pitch);
+                bassMax = juce::jmax(bassMax, pitch);
+            }
+            const juce::String rangeText = bassMax >= 0
+                ? juce::MidiMessage::getMidiNoteName(bassMin, true, true, 3) + " - "
+                  + juce::MidiMessage::getMidiNoteName(bassMax, true, true, 3)
+                : juce::String("(no notes)");
+            bassMidiRangeLabel.setText("Bass MIDI range: " + rangeText, juce::dontSendNotification);
+        }
     }
 
     // Per-role MIX defaults for this mode (Part 10/11) - ALWAYS applied,

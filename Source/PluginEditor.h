@@ -301,6 +301,7 @@ private:
     // name) for both.
     juce::Label serumBassStatusLabel;
     juce::Label serumMelodyStatusLabel;
+    juce::Label bassMidiRangeLabel; // real, computed-not-assumed MIDI register of the just-generated bass - see the reference-analysis report's Part 1
     juce::Label loopLengthLabel;
 
     juce::TextButton  loadReferenceButton  { "Load Reference Track..." };
