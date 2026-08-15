@@ -1,0 +1,595 @@
+{
+  "corpus_manifest": {
+    "KICK": [
+      {
+        "pack": "PML Mirage",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Sample Pack/LOOPS/KICKS"
+      },
+      {
+        "pack": "PML Mystique",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Sample Pack/Loops/Kick Loops"
+      }
+    ],
+    "CLAP": [
+      {
+        "pack": "PML Mirage",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Sample Pack/LOOPS/CLAPS SNARES"
+      },
+      {
+        "pack": "PML Mystique",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Sample Pack/Loops/Clap & Snare Loops"
+      }
+    ],
+    "HAT": [
+      {
+        "pack": "PML Mirage",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Sample Pack/LOOPS/HIHATS"
+      },
+      {
+        "pack": "PML Mystique",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Sample Pack/Loops/Hat & Shaker Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo - Full Bundle/Odd Frequency - Exo - Sample Pack/Drum Loops/Hat Loop"
+      },
+      {
+        "pack": "Odd Frequency Exo2",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo 2 - Full Bundle/Odd Frequency - Exo 2 - Sample Pack/Drum Loops/Hat Loops"
+      }
+    ],
+    "PERC": [
+      {
+        "pack": "PML Mirage",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Sample Pack/LOOPS/MISC PERCS TOMS"
+      },
+      {
+        "pack": "PML Mystique",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Sample Pack/Loops/Percussion Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo - Full Bundle/Odd Frequency - Exo - Sample Pack/Drum Loops/Perc Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo2",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo 2 - Full Bundle/Odd Frequency - Exo 2 - Sample Pack/Drum Loops/Perc Loops"
+      }
+    ],
+    "TOP": [
+      {
+        "pack": "PML Mystique",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mystique (PML354)/PML - Melodic Techno - Sample Pack/Loops/Top Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo - Full Bundle/Odd Frequency - Exo - Sample Pack/Drum Loops/Top Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo2",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo 2 - Full Bundle/Odd Frequency - Exo 2 - Sample Pack/Drum Loops/Top Loops"
+      }
+    ],
+    "RIDE": [
+      {
+        "pack": "PML Mirage",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/PML - Melodic Techno - Sound Pack - Mirage (PML341)/PML - Melodic Techno - Sample Pack/LOOPS/RIDES"
+      },
+      {
+        "pack": "Odd Frequency Exo",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo - Full Bundle/Odd Frequency - Exo - Sample Pack/Drum Loops/Ride Loops"
+      },
+      {
+        "pack": "Odd Frequency Exo2",
+        "dir": "/Users/shawnshirazi/shawn music stuff/FL studio/Techno/Odd Frequency - Modern Melodic Techno Mega Bundle/Odd Frequency - Exo 2 - Full Bundle/Odd Frequency - Exo 2 - Sample Pack/Drum Loops/Ride Loops"
+      }
+    ]
+  },
+  "role_rhythm_stats": {
+    "KICK": {
+      "num_files": 17,
+      "packs": [
+        "PML Mirage",
+        "PML Mystique"
+      ],
+      "total_onsets": 68,
+      "total_bars_analyzed": 17,
+      "mean_onsets_per_bar": 4.0,
+      "step16_hit_probability": [
+        0.25,
+        0.0,
+        0.0,
+        0.0,
+        0.25,
+        0.0,
+        0.0,
+        0.0,
+        0.25,
+        0.0,
+        0.0,
+        0.0,
+        0.25,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step16_mean_relative_velocity": [
+        0.9876,
+        0.0,
+        0.0,
+        0.0,
+        0.8616,
+        0.0,
+        0.0,
+        0.0,
+        0.8536,
+        0.0,
+        0.0,
+        0.0,
+        0.8561,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "on_beat_fraction": 1.0,
+      "eighth_offbeat_fraction": 0.0,
+      "weak_16th_fraction": 0.0,
+      "adjacent_bar_pairs_analyzed": 0,
+      "adjacent_bars_identical_fraction": null
+    },
+    "CLAP": {
+      "num_files": 26,
+      "packs": [
+        "PML Mirage",
+        "PML Mystique"
+      ],
+      "total_onsets": 176,
+      "total_bars_analyzed": 73,
+      "mean_onsets_per_bar": 2.6346153846153846,
+      "step16_hit_probability": [
+        0.0057,
+        0.0057,
+        0.0057,
+        0.0057,
+        0.4148,
+        0.0,
+        0.0341,
+        0.0114,
+        0.0057,
+        0.017,
+        0.0227,
+        0.0227,
+        0.4148,
+        0.0,
+        0.0227,
+        0.0114
+      ],
+      "step16_mean_relative_velocity": [
+        0.0124,
+        0.0068,
+        0.007,
+        0.0032,
+        0.9414,
+        0.0,
+        0.042,
+        0.1388,
+        0.0148,
+        0.3564,
+        0.3738,
+        0.4523,
+        0.928,
+        0.0,
+        0.3245,
+        0.2254
+      ],
+      "on_beat_fraction": 0.8409,
+      "eighth_offbeat_fraction": 0.0852,
+      "weak_16th_fraction": 0.0739,
+      "adjacent_bar_pairs_analyzed": 47,
+      "adjacent_bars_identical_fraction": 0.8085
+    },
+    "HAT": {
+      "num_files": 94,
+      "packs": [
+        "Odd Frequency Exo",
+        "Odd Frequency Exo2",
+        "PML Mirage",
+        "PML Mystique"
+      ],
+      "total_onsets": 3058,
+      "total_bars_analyzed": 240,
+      "mean_onsets_per_bar": 12.60904255319149,
+      "step16_hit_probability": [
+        0.0608,
+        0.0559,
+        0.0765,
+        0.0553,
+        0.0657,
+        0.0556,
+        0.0765,
+        0.0513,
+        0.0634,
+        0.0582,
+        0.0755,
+        0.0559,
+        0.0647,
+        0.0566,
+        0.0765,
+        0.0513
+      ],
+      "step16_mean_relative_velocity": [
+        0.4083,
+        0.3682,
+        0.742,
+        0.3664,
+        0.3004,
+        0.354,
+        0.7764,
+        0.3527,
+        0.3047,
+        0.3692,
+        0.756,
+        0.3736,
+        0.3305,
+        0.3651,
+        0.7667,
+        0.3961
+      ],
+      "on_beat_fraction": 0.2547,
+      "eighth_offbeat_fraction": 0.3051,
+      "weak_16th_fraction": 0.4402,
+      "adjacent_bar_pairs_analyzed": 146,
+      "adjacent_bars_identical_fraction": 0.6507
+    },
+    "PERC": {
+      "num_files": 56,
+      "packs": [
+        "Odd Frequency Exo",
+        "Odd Frequency Exo2",
+        "PML Mirage",
+        "PML Mystique"
+      ],
+      "total_onsets": 1590,
+      "total_bars_analyzed": 163,
+      "mean_onsets_per_bar": 10.486607142857142,
+      "step16_hit_probability": [
+        0.0591,
+        0.056,
+        0.0667,
+        0.0673,
+        0.0522,
+        0.0522,
+        0.0742,
+        0.0623,
+        0.061,
+        0.0566,
+        0.0767,
+        0.0755,
+        0.0528,
+        0.0585,
+        0.0698,
+        0.0591
+      ],
+      "step16_mean_relative_velocity": [
+        0.5797,
+        0.3648,
+        0.5328,
+        0.5391,
+        0.303,
+        0.4503,
+        0.5028,
+        0.4478,
+        0.5185,
+        0.3713,
+        0.4978,
+        0.5073,
+        0.3723,
+        0.4259,
+        0.5043,
+        0.4298
+      ],
+      "on_beat_fraction": 0.2252,
+      "eighth_offbeat_fraction": 0.2874,
+      "weak_16th_fraction": 0.4874,
+      "adjacent_bar_pairs_analyzed": 107,
+      "adjacent_bars_identical_fraction": 0.5701
+    },
+    "TOP": {
+      "num_files": 48,
+      "packs": [
+        "Odd Frequency Exo",
+        "Odd Frequency Exo2",
+        "PML Mystique"
+      ],
+      "total_onsets": 1987,
+      "total_bars_analyzed": 144,
+      "mean_onsets_per_bar": 13.653645833333334,
+      "step16_hit_probability": [
+        0.0564,
+        0.0639,
+        0.072,
+        0.0569,
+        0.073,
+        0.0352,
+        0.072,
+        0.0629,
+        0.0674,
+        0.0664,
+        0.0725,
+        0.0589,
+        0.0745,
+        0.0362,
+        0.0725,
+        0.0594
+      ],
+      "step16_mean_relative_velocity": [
+        0.2284,
+        0.2807,
+        0.7102,
+        0.2547,
+        0.6986,
+        0.2609,
+        0.6925,
+        0.2954,
+        0.1915,
+        0.2908,
+        0.6915,
+        0.2661,
+        0.6771,
+        0.2706,
+        0.666,
+        0.2842
+      ],
+      "on_beat_fraction": 0.2713,
+      "eighth_offbeat_fraction": 0.2889,
+      "weak_16th_fraction": 0.4399,
+      "adjacent_bar_pairs_analyzed": 96,
+      "adjacent_bars_identical_fraction": 0.4583
+    },
+    "RIDE": {
+      "num_files": 19,
+      "packs": [
+        "Odd Frequency Exo",
+        "Odd Frequency Exo2",
+        "PML Mirage"
+      ],
+      "total_onsets": 352,
+      "total_bars_analyzed": 47,
+      "mean_onsets_per_bar": 7.526315789473684,
+      "step16_hit_probability": [
+        0.0597,
+        0.0625,
+        0.1222,
+        0.0114,
+        0.0597,
+        0.0511,
+        0.1222,
+        0.0114,
+        0.054,
+        0.0682,
+        0.1222,
+        0.0114,
+        0.0597,
+        0.0511,
+        0.1222,
+        0.0114
+      ],
+      "step16_mean_relative_velocity": [
+        0.3105,
+        0.1516,
+        0.8879,
+        0.147,
+        0.2413,
+        0.1525,
+        0.875,
+        0.1595,
+        0.2472,
+        0.163,
+        0.8877,
+        0.1556,
+        0.2548,
+        0.1373,
+        0.895,
+        0.1595
+      ],
+      "on_beat_fraction": 0.233,
+      "eighth_offbeat_fraction": 0.4886,
+      "weak_16th_fraction": 0.2784,
+      "adjacent_bar_pairs_analyzed": 28,
+      "adjacent_bars_identical_fraction": 0.8214
+    }
+  },
+  "cross_role_aggregate_vector_correlation": {
+    "KICK<->CLAP": 0.6391,
+    "KICK<->HAT": 0.0758,
+    "KICK<->PERC": -0.4488,
+    "CLAP<->HAT": 0.1509,
+    "CLAP<->PERC": -0.425,
+    "HAT<->PERC": 0.4758
+  },
+  "cross_role_matched_pair_co_occurrence": {
+    "KICK->CLAP": {
+      "matched_file_pairs": 8,
+      "role_b_onsets_total": 32,
+      "role_b_onsets_landing_on_role_a_step": 32,
+      "co_occurrence_fraction": 1.0
+    },
+    "KICK->HAT": {
+      "matched_file_pairs": 18,
+      "role_b_onsets_total": 496,
+      "role_b_onsets_landing_on_role_a_step": 128,
+      "co_occurrence_fraction": 0.2581
+    },
+    "KICK->PERC": {
+      "matched_file_pairs": 1,
+      "role_b_onsets_total": 33,
+      "role_b_onsets_landing_on_role_a_step": 9,
+      "co_occurrence_fraction": 0.2727
+    },
+    "CLAP->HAT": {
+      "matched_file_pairs": 13,
+      "role_b_onsets_total": 374,
+      "role_b_onsets_landing_on_role_a_step": 50,
+      "co_occurrence_fraction": 0.1337
+    }
+  },
+  "matched_pair_count": 40,
+  "sound_fingerprints": {
+    "KICK": {
+      "num_samples": 83,
+      "duration_ms": {
+        "mean": 493.575,
+        "stddev": 185.957
+      },
+      "attack_ms": {
+        "mean": 14.15,
+        "stddev": 16.623
+      },
+      "decay_ms_to_minus40db": {
+        "mean": 2.848,
+        "stddev": 1.863
+      },
+      "peak": {
+        "mean": 0.915,
+        "stddev": 0.086
+      },
+      "rms": {
+        "mean": 0.301,
+        "stddev": 0.075
+      },
+      "spectral_centroid_hz": {
+        "mean": 205.179,
+        "stddev": 278.316
+      },
+      "zero_crossing_rate_hz": {
+        "mean": 736.74,
+        "stddev": 1557.704
+      },
+      "estimated_pitch_hz": {
+        "mean": 32.398,
+        "stddev": 30.277
+      },
+      "sub_bass_fraction_20_100hz": {
+        "mean": 0.744,
+        "stddev": 0.109
+      }
+    },
+    "CLAP": {
+      "num_samples": 61,
+      "duration_ms": {
+        "mean": 525.989,
+        "stddev": 249.142
+      },
+      "attack_ms": {
+        "mean": 10.812,
+        "stddev": 12.316
+      },
+      "decay_ms_to_minus40db": {
+        "mean": 1.094,
+        "stddev": 0.872
+      },
+      "peak": {
+        "mean": 0.87,
+        "stddev": 0.093
+      },
+      "rms": {
+        "mean": 0.087,
+        "stddev": 0.035
+      },
+      "spectral_centroid_hz": {
+        "mean": 4722.579,
+        "stddev": 1215.538
+      },
+      "zero_crossing_rate_hz": {
+        "mean": 3150.432,
+        "stddev": 2420.049
+      },
+      "estimated_pitch_hz": {
+        "mean": 0.0,
+        "stddev": 0.0
+      },
+      "sub_bass_fraction_20_100hz": {
+        "mean": 0.002,
+        "stddev": 0.003
+      }
+    },
+    "HAT": {
+      "num_samples": 85,
+      "duration_ms": {
+        "mean": 353.639,
+        "stddev": 253.443
+      },
+      "attack_ms": {
+        "mean": 5.448,
+        "stddev": 5.333
+      },
+      "decay_ms_to_minus40db": {
+        "mean": 1.124,
+        "stddev": 1.155
+      },
+      "peak": {
+        "mean": 0.84,
+        "stddev": 0.144
+      },
+      "rms": {
+        "mean": 0.094,
+        "stddev": 0.054
+      },
+      "spectral_centroid_hz": {
+        "mean": 9070.796,
+        "stddev": 1450.53
+      },
+      "zero_crossing_rate_hz": {
+        "mean": 7202.553,
+        "stddev": 3130.177
+      },
+      "estimated_pitch_hz": {
+        "mean": 6.492,
+        "stddev": 34.122
+      },
+      "sub_bass_fraction_20_100hz": {
+        "mean": 0.0,
+        "stddev": 0.0
+      }
+    },
+    "PERC": {
+      "num_samples": 86,
+      "duration_ms": {
+        "mean": 534.889,
+        "stddev": 308.194
+      },
+      "attack_ms": {
+        "mean": 11.364,
+        "stddev": 23.946
+      },
+      "decay_ms_to_minus40db": {
+        "mean": 1.726,
+        "stddev": 1.872
+      },
+      "peak": {
+        "mean": 0.784,
+        "stddev": 0.195
+      },
+      "rms": {
+        "mean": 0.077,
+        "stddev": 0.041
+      },
+      "spectral_centroid_hz": {
+        "mean": 3053.164,
+        "stddev": 2106.133
+      },
+      "zero_crossing_rate_hz": {
+        "mean": 2048.114,
+        "stddev": 2109.665
+      },
+      "estimated_pitch_hz": {
+        "mean": 77.981,
+        "stddev": 111.846
+      },
+      "sub_bass_fraction_20_100hz": {
+        "mean": 0.024,
+        "stddev": 0.074
+      }
+    }
+  }
+}
