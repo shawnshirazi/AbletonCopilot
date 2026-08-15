@@ -360,11 +360,38 @@ int main()
         std::printf("perc co-occurrence: kick=%.3f clap=%.3f hat=%.3f (hat should be highest - positive measured correlation)\n",
                     kickCoOccur, clapCoOccur, hatCoOccur);
 
-        // Restrained accent role: even at density=1, nowhere close to
-        // filling the grid (documented interpretive scale-down from the
-        // corpus's raw full-loop density - see DrumEngine.cpp).
+        // Density target check: at the default density (0.5), PERC's mean
+        // hits/bar should land near 4.78 - the mean of the 15 non-"Loop"-
+        // named PERC files in the corpus (a real accent-style subset, not
+        // the full corpus's 10.49 raw average, which blends in 41 dense
+        // continuous "*Perc Loop*" files - see DrumEngine.cpp). Aggregated
+        // over many seeds for statistical stability, with a wide-enough
+        // margin to allow for the correlation-driven reweighting (which
+        // can push individual seeds a little either side of the raw
+        // scale-implied figure) without being so loose it stops meaning
+        // anything.
+        double percHitsTotal = 0.0;
+        for (uint32_t seed = 0; seed < kNumSeeds; ++seed)
+        {
+            DrumPatternParams p = standard; p.seed = seed;
+            percHitsTotal += countActive(generateDrop(grid, p).perc);
+        }
+        const double meanPercHitsPerBar = percHitsTotal / kNumSeeds / grid.numBars;
+        std::printf("PERC mean hits/bar at density=0.5: generated=%.2f target=4.78 (accent-subset mean) corpus-wide=%.2f (all PERC material, incl. dense loops)\n",
+                    meanPercHitsPerBar, (double) kPercRhythm.meanOnsetsPerBar);
+        CHECK(meanPercHitsPerBar > 3.0);
+        CHECK(meanPercHitsPerBar < 7.0);
+
+        // Restrained accent role: even at density=1, PERC stays clearly
+        // less dense than HAT (the corpus's own "*Perc Loop*"-named files
+        // - continuous rolling texture, not a single accent instrument -
+        // average denser than this; the generator deliberately targets
+        // the sparser, non-"Loop"-named accent-style subset instead - see
+        // DrumEngine.cpp's percDensityScale derivation).
         DrumPatternParams denser = standard; denser.density = 1.0f;
-        CHECK(countActive(generateDrop(grid, denser).perc) < (int) grid.stepsPerBar * grid.numBars / 3);
+        const auto dropDenser = generateDrop(grid, denser);
+        CHECK(countActive(dropDenser.perc) < countActive(dropDenser.hat));
+        CHECK(countActive(dropDenser.perc) < (int) grid.stepsPerBar * grid.numBars / 2); // still nowhere close to filling the grid
 
         // Bars 1-4 repeat into 5-8.
         const auto drop = generateDrop(grid, standard);

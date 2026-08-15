@@ -368,18 +368,46 @@ namespace Engine
         // density knob: 0.5 tracks the measured corpus average for each
         // role (scale = 1.0); hat and clap track their own measured
         // density fairly directly (comparable, single-role corpus
-        // material). Percussion's corpus is full multi-instrument
-        // percussion LOOPS (shakers/congas/rolls, not one hand-placed
-        // accent role in a 4-role mix) - its raw measured density
-        // (~10.5 hits/bar) doesn't transfer 1:1 to an accent role
-        // alongside three already-active roles, so it's deliberately
-        // scaled down to a restrained accent budget while still using
-        // the corpus's real POSITION SHAPE and cross-role correlation
-        // faithfully - a documented interpretive choice, not a silent
-        // substitution.
+        // material).
         const float clapDensityScale = 0.7f + params.density * 0.6f;
         const float hatDensityScale  = 0.7f + params.density * 0.6f;
-        const float percDensityScale = (0.12f + params.density * 0.28f);
+
+        // Percussion's raw corpus mean (kPercRhythm.meanOnsetsPerBar,
+        // ~10.49 hits/bar) blends two structurally different kinds of
+        // material - verified directly by inspecting the per-file loop
+        // distribution (56 files, see MLPipeline/drum_grammar/), not
+        // assumed: files the vendors literally name "*Perc Loop*" /
+        // "*Perc_Loop*" (41 of 56) average 12.57 hits/bar and are
+        // continuous, rolling percussion textures - 7 of them contain
+        // MORE onsets than 16th-grid positions exist in their own length,
+        // direct technical evidence of overlapping/layered material, not
+        // a single hand-placed instrument. Files WITHOUT "Loop" in the
+        // name (15 of 56 - mostly PML Mirage's individually-numbered
+        // Perc_0XX one-shots placed sparsely across a bar) average 4.78
+        // hits/bar and look exactly like what a single accent role in a
+        // 4-role composition should produce.
+        //
+        // The generator targets that second group's mean (~4.78
+        // hits/bar) at density=0.5, not the corpus-wide average - this is
+        // why the scale factor below is much smaller than hat/clap's. The
+        // measured POSITION SHAPE and cross-role correlation (kPercRhythm,
+        // kCrossRoleCorrelation) are unchanged - only how many of those
+        // positions get used is scaled, and the scale itself is derived
+        // from a real subset of the corpus, not picked to sound right.
+        constexpr float kPercAccentMeanHitsPerBar = 4.78f; // mean hits/bar of the 15 non-"Loop"-named PERC files
+        // The canonical-bar activation sum (probability * meanOnsetsPerBar
+        // * scale) undercounts the REALIZED per-bar hit count, because the
+        // bar-to-bar "touch" mechanism (buildRoleBlock/developRoleBlock)
+        // and the positive HAT correlation both add extra hits on top of
+        // that base canonical shape - verified empirically (a plain
+        // scale=kPercAccentMeanHitsPerBar/meanOnsetsPerBar produced ~6.3
+        // measured hits/bar, not the intended ~4.78), not assumed. This
+        // calibration factor corrects for that measured gap so the
+        // REALIZED average - not just the base canonical bar's - lands on
+        // the derived target.
+        constexpr float kPercTouchAmplification = 0.75f;
+        const float percDensityScaleAtDefault = kPercAccentMeanHitsPerBar / percStats.meanOnsetsPerBar * kPercTouchAmplification; // ~0.342
+        const float percDensityScale = percDensityScaleAtDefault - 0.15f + params.density * 0.3f; // density knob still meaningful, centered on the calibrated target
 
         auto buildEstablish = [&](std::mt19937& localRng, StepArray& clapBlock, StepArray& hatBlock, StepArray& percBlock)
         {
