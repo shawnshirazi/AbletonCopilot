@@ -300,7 +300,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     // WAV render of exactly what's currently generated, no regeneration.
     exportDrumStemsButton.setColour(juce::TextButton::buttonColourId,  kPanel);
     exportDrumStemsButton.setColour(juce::TextButton::textColourOffId, kAccent);
-    exportDrumStemsButton.setEnabled(false); // enabled once currentIdentity exists - see applyGeneratedLoop()
+    exportDrumStemsButton.setEnabled(false); // enabled once currentGrooveLoop exists - see applyGeneratedLoop()
     exportDrumStemsButton.onClick = [this] { exportDrumStemsClicked(); };
     mainContent.addAndMakeVisible(exportDrumStemsButton);
 
@@ -366,7 +366,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     // resized() - always reachable without scrolling.
     loopLengthLabel.setFont(small());
     loopLengthLabel.setColour(juce::Label::textColourId, kTextDim);
-    loopLengthLabel.setText(juce::String("Loop: ") + juce::String(Engine::kLoopBars) + " bars",
+    loopLengthLabel.setText(juce::String("Loop: ") + juce::String(Engine::kGrooveLoopBars) + " bars",
                              juce::dontSendNotification);
     addAndMakeVisible(loopLengthLabel);
 
@@ -1379,42 +1379,42 @@ void AbletonCopilotAudioProcessorEditor::generateLoopClicked()
 {
     juce::Random rng;
     const auto [keyRoot, isMinor] = getSelectedKey();
+    juce::ignoreUnused(isMinor);
 
-    // ONE shared Engine::MusicIdentity drives drums+bass together (see
-    // MusicIdentity.h - drums via the already-existing native 16-bar
-    // Engine::generateDrop(), bass via Engine::generateBassPattern()
-    // tiled x2). This replaces the previous 92-bar-arrangement-driven
-    // Generate Drum Pattern/Generate Bass split: both are now one click,
-    // both are audible from bar 1, and the loop is exactly 16 bars.
-    Engine::MusicIdentityParams idParams;
-    idParams.bpm      = (double) processor.currentBpm.load(std::memory_order_relaxed);
-    if (idParams.bpm <= 0.0)
-        idParams.bpm = 124.0; // matches the real reference arrangements' own tempo - see melodic_techno_research.md section 3.2
-    idParams.rootNote = keyRoot;
-    idParams.isMinor  = isMinor;
-    idParams.seed     = (uint32_t) rng.nextInt();
-    currentIdentity = Engine::generateMusicIdentity(idParams);
+    // Flat, non-arc, non-arrangement 8-bar groove (Engine::GrooveLoop.h) -
+    // the "simplify before more sound-design/arrangement work" phase.
+    // Drums+bass are generated together (one seed, real kick-avoidance
+    // correlation) via Engine::generateGrooveLoop; there is no breakdown,
+    // no energy arc, no 16-bar arrangement - see GrooveLoop.h's own header
+    // comment. currentLoopBpm is stored separately since GrooveLoopParams/
+    // GrooveLoop don't carry bpm (generateGrooveLoop has no bpm-dependent
+    // logic) - sample selection and the drum-stem-export status still
+    // need a real value, same role currentIdentity->bpm used to serve.
+    currentLoopBpm = (double) processor.currentBpm.load(std::memory_order_relaxed);
+    if (currentLoopBpm <= 0.0)
+        currentLoopBpm = 124.0; // matches the real reference arrangements' own tempo - see melodic_techno_research.md section 3.2
+
+    Engine::GrooveLoopParams grooveParams;
+    grooveParams.seed = (uint32_t) rng.nextInt();
+    currentGrooveLoop = Engine::generateGrooveLoop(grooveParams);
 
     // Melody motif: the SAME real motif generator this codebase already
     // has (MusicTheory/MelodyMotifGenerator.h, extracted from
     // MelodyGridComponent's manual-editing path) - not a second
-    // independent generation system (per the loop-generator's explicit
-    // "don't build separate generation systems" rule). Its native output
-    // is 8 bars/128 steps; tiled x2 to fill the same 16-bar loop as
-    // drums/bass, same convention as MusicIdentity's own bass tiling.
+    // independent generation system. Its native output is already 8
+    // bars/128 steps - used directly, ONE copy, matching this phase's
+    // flat 8-bar loop (no x2 tiling - there's no 16-bar loop to fill
+    // anymore).
     const auto eightBarMelody = MelodyMotifGenerator::generateMelodyMotif(
-        keyRoot, isMinor, MelodyCategory::Lead, MelodyStyle::Default, idParams.seed);
-    currentMelodyMotif.assign((size_t) Engine::kLoopTotalSteps, MelodyGridComponent::kMelodyOff);
-    for (int rep = 0; rep < 2; ++rep)
-        for (int i = 0; i < (int) eightBarMelody.size(); ++i)
-            currentMelodyMotif[(size_t) (rep * (int) eightBarMelody.size() + i)] = eightBarMelody[(size_t) i];
+        keyRoot, isMinor, MelodyCategory::Lead, MelodyStyle::Default, grooveParams.seed);
+    currentMelodyMotif.assign(eightBarMelody.begin(), eightBarMelody.end());
 
     applyGeneratedLoop();
 }
 
 void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
 {
-    if (!currentIdentity.has_value())
+    if (!currentGrooveLoop.has_value())
         return; // nothing generated yet
 
     exportDrumStemsButton.setEnabled(true); // something real now exists to export
@@ -1422,16 +1422,13 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     const auto [keyRoot, isMinor] = getSelectedKey();
     juce::ignoreUnused(isMinor);
 
-    // The actual 16-bar "hear DROP -> BREAKDOWN -> PRE_DROP -> DROP on one
-    // loop" pattern (Engine::generateCompactLoop, Source/Engine/
-    // BreakdownArrangement.h) - bars 0-7 are byte-identical to the
-    // identity's own untouched Drop pattern (proven in
-    // test_breakdown_arrangement.cpp), bars 8-15 are the breakdown span:
-    // muted kick/hatClosed/hatOpen/percA/percB/bass, plus the new
-    // dedicated Pad content. This is a pure function of currentIdentity -
-    // no new seed, so re-calling this without a fresh Generate click can
-    // never regenerate the underlying motifs.
-    const Engine::CompactLoop loop = Engine::generateCompactLoop(*currentIdentity);
+    // The flat 8-bar groove (Engine::GrooveLoop.h) - a pure function of
+    // the seed generateLoopClicked() already drew, so re-calling this
+    // without a fresh Generate click can never regenerate the underlying
+    // motifs. No pad content - there is no breakdown concept in this
+    // phase (see PAD row/track below, which is sent an explicit all-off
+    // pattern instead).
+    const Engine::GrooveLoop& loop = *currentGrooveLoop;
 
     struct RoleExport { const char* name; int midiNote; juce::Colour colour; Engine::StepArray steps; };
     // General MIDI drum map note numbers - a real, recognized convention
@@ -1465,7 +1462,7 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     // choices on a fresh Generate click, same as before.
     juce::Random rng;
     const uint32_t sampleSeed = (uint32_t) rng.nextInt();
-    const double   bpmForSelection = currentIdentity->bpm;
+    const double   bpmForSelection = currentLoopBpm;
     const DrumSampleSelection sampleSel = selectDrumSamples(latestSampleIndex, sampleSeed, bpmForSelection);
     logPercussionCandidateDiagnostics(latestSampleIndex, sampleSel, bpmForSelection);
 
@@ -1533,14 +1530,18 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
         melodyRow.velocity = offsetsToDisplayVelocity(currentMelodyMotif, MelodyGridComponent::kMelodyOff);
         displayRows.push_back(std::move(melodyRow));
 
+        // PAD - explicitly all-off. There is no breakdown/pad concept in
+        // this flat 8-bar phase (see GrooveLoop.h) - the Pad voice, its
+        // mute control, and its Serum2 hosting all stay fully intact and
+        // functional, simply idle, rather than deleted.
         GeneratedDrumGridComponent::RowDisplay padRow;
         padRow.name     = "PAD";
         padRow.colour   = UIStyle::kPad;
-        padRow.velocity = offsetsToDisplayVelocity(loop.pad.pitchOffsets, Engine::kPadOffValue);
+        padRow.velocity = std::vector<int>((size_t) Engine::kGrooveLoopTotalSteps, 0);
         displayRows.push_back(std::move(padRow));
     }
 
-    generatedDrumGrid.setPattern(std::move(displayRows), Engine::kLoopStepsPerBar, Engine::kLoopBars);
+    generatedDrumGrid.setPattern(std::move(displayRows), Engine::kGrooveLoopStepsPerBar, Engine::kGrooveLoopBars);
     // setPattern() can change the row count - re-run the real layout
     // (resized()) immediately so mainContent's height and
     // mainViewport's scroll range are correct right away, not just after
@@ -1551,13 +1552,14 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     // Bass (track 0), Melody (track 1), Pad (track 2) - all immediately
     // active from bar 1. Bass/Pad come from the stitched CompactLoop
     // (real DROP content bars 0-7, real breakdown content bars 8-15);
-    // Melody keeps its own existing, unmodified continuous generation -
-    // it already plays through both the Drop and breakdown span
-    // unchanged, which is what makes it read as the breakdown's "exposed
-    // motif" without needing new code.
+    // Melody keeps its own existing, unmodified generation. Pad (track 2)
+    // gets an explicit all-off pattern - no breakdown/pad concept exists
+    // in this flat 8-bar phase (see GrooveLoop.h) - the voice/mute
+    // control/Serum2 hosting all stay intact, simply idle.
+    const std::vector<int8_t> padAllOff((size_t) Engine::kGrooveLoopTotalSteps, Engine::kPadOffValue);
     processor.setGeneratedMelodyPattern(0, loop.bass, keyRoot, loop.bassGateLengthSteps);
     processor.setGeneratedMelodyPattern(1, currentMelodyMotif, keyRoot);
-    processor.setGeneratedMelodyPattern(2, loop.pad.pitchOffsets, keyRoot, loop.pad.gateLengthSteps);
+    processor.setGeneratedMelodyPattern(2, padAllOff, keyRoot);
 
     int bassActiveCount = 0;
     for (auto v : loop.bass)
@@ -1567,17 +1569,13 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     for (auto v : currentMelodyMotif)
         if (v != MelodyGridComponent::kMelodyOff)
             ++melodyActiveCount;
-    int padActiveCount = 0;
-    for (auto v : loop.pad.pitchOffsets)
-        if (v != Engine::kPadOffValue)
-            ++padActiveCount;
+    const int padActiveCount = 0; // always silent this phase - no pad/breakdown concept, see above
 
     juce::String status;
     status << "Generated - " << summaryParts.joinIntoString(" / ") << " hits (" << totalHits
            << " total), bass " << bassActiveCount << " notes, melody " << melodyActiveCount
-           << " notes, pad " << padActiveCount << " notes - a " << Engine::kLoopBars << "-bar loop "
-           << "(DROP bars 1-" << Engine::kCompactDropBars << ", breakdown bars "
-           << (Engine::kCompactDropBars + 1) << "-" << Engine::kLoopBars << ").\n";
+           << " notes, pad " << padActiveCount << " notes - an " << Engine::kGrooveLoopBars
+           << "-bar loop that repeats indefinitely (no breakdown/arrangement this phase).\n";
     status << "Playing directly from AbletonCopilot - start Ableton's transport to hear it. "
               "No Drum Rack or other instrument required.\n";
 
@@ -1665,9 +1663,11 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     // (RuntimeStatusText.h) - built from exactly the same real diagnostic
     // calls the labels above already used (getMelodyVoiceDiagnostics,
     // SerumPresetStatus::compactPresetLine's honesty gate), never a
-    // separate/optimistic re-derivation. SECTION starts at "DROP" (bar 0
-    // of a freshly generated loop); timerCallback() keeps it live from the
-    // real host playhead afterward.
+    // separate/optimistic re-derivation. There is no DROP/BREAKDOWN/
+    // PRE_DROP section in this flat 8-bar phase - the line reads "LOOP"
+    // right after Generate; timerCallback() upgrades it to a live
+    // "LOOP (bar N/8)" bar counter once the transport is actually
+    // playing (see that function).
     {
         std::vector<RuntimeStatusText::VoiceLine> voices;
 
@@ -1702,14 +1702,14 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
 
         structuredStatusPrefix = RuntimeStatusText::buildStatusPrefix(drumRoleLines, voices);
         structuredStatusLabel.setText(
-            RuntimeStatusText::appendSection(structuredStatusPrefix, RuntimeStatusText::sectionDisplayName(0)),
+            RuntimeStatusText::appendSection(structuredStatusPrefix, "LOOP"),
             juce::dontSendNotification);
     }
 }
 
 void AbletonCopilotAudioProcessorEditor::exportDrumStemsClicked()
 {
-    if (!currentIdentity.has_value())
+    if (!currentGrooveLoop.has_value())
         return; // button is disabled in this case (see applyGeneratedLoop); guard anyway - never export nothing
 
     const juce::File startFolder = lastStemExportFolder.isDirectory()
@@ -1732,10 +1732,10 @@ void AbletonCopilotAudioProcessorEditor::exportDrumStemsClicked()
 
         // Snapshot only, via PluginProcessor::getGeneratedDrumStemSnapshot -
         // no regeneration, no change to sample selection/mute/pattern
-        // state. bpm comes from currentIdentity (the actual generation
+        // state. bpm comes from currentLoopBpm (the actual generation
         // bpm), not the live-transport cache, so export works whether or
         // not the host transport has ever run.
-        const double bpm = currentIdentity.has_value() ? currentIdentity->bpm : 124.0;
+        const double bpm = currentGrooveLoop.has_value() ? currentLoopBpm : 124.0;
         const auto   input = processor.getGeneratedDrumStemSnapshot(bpm);
 
         const DrumStemExporter::Result stems       = DrumStemExporter::renderDrumStems(input);
@@ -1751,7 +1751,7 @@ void AbletonCopilotAudioProcessorEditor::exportDrumStemsClicked()
         }
 
         juce::String text = RuntimeStatusText::buildDrumStemExportStatus(
-            roleStatuses, Engine::kLoopBars, input.bpm, input.sampleRate);
+            roleStatuses, Engine::kGrooveLoopBars, input.bpm, input.sampleRate);
 
         std::array<bool, 6> succeeded {};
         for (size_t i = 0; i < succeeded.size(); ++i)
@@ -2302,19 +2302,19 @@ void AbletonCopilotAudioProcessorEditor::timerCallback()
 
         generatedDrumGrid.setPlayheadStep(step, playing && step >= 0);
 
-        // Live SECTION line (RuntimeStatusText.h) - the same step/bar the
-        // playhead above already computed, mapped through
-        // Engine::compactSectionForBar so this can never disagree with
-        // what generateCompactLoop() actually built the pattern around.
-        // Only refreshes when a real generated loop exists and the
-        // transport is actually playing - stays at whatever it last said
-        // (DROP, right after Generate) otherwise, never a guess.
-        if (currentIdentity.has_value() && playing && step >= 0)
+        // Live "LOOP (bar N/8)" line (RuntimeStatusText.h) - the same
+        // step the playhead above already computed, mapped to a 1-based
+        // bar within the flat 8-bar groove. There is no DROP/BREAKDOWN/
+        // PRE_DROP section to report in this phase (see GrooveLoop.h) -
+        // only refreshes when a real generated loop exists and the
+        // transport is actually playing, otherwise stays at whatever it
+        // last said ("LOOP", right after Generate), never a guess.
+        if (currentGrooveLoop.has_value() && playing && step >= 0)
         {
-            const int bar = step / Engine::kBreakdownStepsPerBar;
-            const auto section = Engine::compactSectionForBar(bar);
+            const int bar = (step / Engine::kGrooveLoopStepsPerBar) % Engine::kGrooveLoopBars;
             structuredStatusLabel.setText(
-                RuntimeStatusText::appendSection(structuredStatusPrefix, RuntimeStatusText::sectionDisplayName((int) section)),
+                RuntimeStatusText::appendSection(structuredStatusPrefix,
+                    "LOOP (bar " + juce::String(bar + 1) + "/" + juce::String(Engine::kGrooveLoopBars) + ")"),
                 juce::dontSendNotification);
         }
     }

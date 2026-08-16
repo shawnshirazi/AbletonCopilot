@@ -97,17 +97,14 @@ namespace Engine
             const size_t idx = (size_t) (bar * stepsPerBar + stepInBar);
             return idx < block.size() && block[idx].active;
         }
+    } // end anonymous namespace - internal helpers above stay private to this file
 
-        // One already-built role block this decision correlates against,
-        // and the real (or - for percA<->percB, see buildStage - a
-        // disclosed, non-measured) correlation coefficient to apply.
-        struct CorrelationRef
-        {
-            const StepArray* block;
-            float             corr;
-            int               bar; // which relative bar of *block to check
-        };
+    // CorrelationRef/StageEnergy/StageBlocks are declared+defined in
+    // DrumEngine.h now (public - see that header's own comment for why),
+    // not redefined here.
 
+    namespace
+    {
         // Decides ONE position for ONE role: measured base rate ->
         // syncopation -> cross-role correlation against every supplied
         // reference -> a single weighted coin flip. This is the one place
@@ -129,60 +126,66 @@ namespace Engine
             outVelocity = measuredVelocity(stats, stepInBar);
             return uniform01(rng) < activation;
         }
+    } // end anonymous namespace
 
-        // Builds one role's full kBlockBars-bar block from scratch. Bar 0
-        // is the canonical shape (fresh weighted decision per position,
-        // see decidePosition, referencing every role already placed via
-        // `refs`). Bars 1-3 either literally repeat bar 0 (with
-        // probability = the role's OWN measured adjacentBarsIdentical
-        // fraction - a real corpus number) or apply 1-2 small "touches"
-        // (a position toggled on/off, using the role's own measured
-        // velocity when adding) - controlled bar-to-bar movement inside
-        // one 4-bar idea, matching what the corpus actually shows (not
-        // 100% identical bar-to-bar, but not independent either).
-        StepArray buildRoleBlock(std::mt19937& rng, const RoleRhythmStats& stats, int stepsPerBar,
-                                  float densityScale, float syncopation, const std::vector<CorrelationRef>& refs)
+    // Builds one role's full kBlockBars-bar block from scratch. Bar 0
+    // is the canonical shape (fresh weighted decision per position,
+    // see decidePosition, referencing every role already placed via
+    // `refs`). Bars 1-3 either literally repeat bar 0 (with
+    // probability = the role's OWN measured adjacentBarsIdentical
+    // fraction - a real corpus number) or apply 1-2 small "touches"
+    // (a position toggled on/off, using the role's own measured
+    // velocity when adding) - controlled bar-to-bar movement inside
+    // one 4-bar idea, matching what the corpus actually shows (not
+    // 100% identical bar-to-bar, but not independent either).
+    //
+    // Public - reused as-is by Source/Engine/GrooveLoop.cpp for its own
+    // clap/hat/perc blocks (see that file), not just generateDrop below.
+    StepArray buildRoleBlock(std::mt19937& rng, const RoleRhythmStats& stats, int stepsPerBar,
+                              float densityScale, float syncopation, const std::vector<CorrelationRef>& refs)
+    {
+        StepArray block((size_t) (kBlockBars * stepsPerBar));
+
+        for (int s = 0; s < stepsPerBar; ++s)
         {
-            StepArray block((size_t) (kBlockBars * stepsPerBar));
-
-            for (int s = 0; s < stepsPerBar; ++s)
-            {
-                float vel = 0.0f;
-                if (decidePosition(rng, stats, s, stepsPerBar, densityScale, syncopation, refs, vel))
-                    setHit(block, s, vel);
-            }
-
-            const float identicalFraction = stats.adjacentBarsIdenticalFraction >= 0.0f
-                                                 ? stats.adjacentBarsIdenticalFraction
-                                                 : 0.7f; // unmeasured fallback (not used by any role in this engine - every role here has real multi-bar data)
-
-            for (int bar = 1; bar < kBlockBars; ++bar)
-            {
-                const int base = bar * stepsPerBar;
-                for (int s = 0; s < stepsPerBar; ++s)
-                    block[(size_t) (base + s)] = block[(size_t) s]; // start from bar 0's canonical shape
-
-                if (densityScale <= 0.0f)
-                    continue; // genuinely silent role at this scale (e.g. percB before it enters) - a touch can't introduce content from nothing without contradicting its own zero density
-
-                if (uniform01(rng) < identicalFraction)
-                    continue; // literal repeat of bar 0 - matches the corpus's own measured repetition rate
-
-                const int touches = 1 + (uniform01(rng) < 0.5f ? 0 : 1); // 1 or 2 positions touched, never a full re-roll
-                for (int t = 0; t < touches; ++t)
-                {
-                    const int s = (int) (uniform01(rng) * (float) stepsPerBar);
-                    const size_t idx = (size_t) (base + s);
-                    if (block[idx].active)
-                        block[idx] = Hit{};
-                    else
-                        setHit(block, base + s, measuredVelocity(stats, s));
-                }
-            }
-
-            return block;
+            float vel = 0.0f;
+            if (decidePosition(rng, stats, s, stepsPerBar, densityScale, syncopation, refs, vel))
+                setHit(block, s, vel);
         }
 
+        const float identicalFraction = stats.adjacentBarsIdenticalFraction >= 0.0f
+                                             ? stats.adjacentBarsIdenticalFraction
+                                             : 0.7f; // unmeasured fallback (not used by any role in this engine - every role here has real multi-bar data)
+
+        for (int bar = 1; bar < kBlockBars; ++bar)
+        {
+            const int base = bar * stepsPerBar;
+            for (int s = 0; s < stepsPerBar; ++s)
+                block[(size_t) (base + s)] = block[(size_t) s]; // start from bar 0's canonical shape
+
+            if (densityScale <= 0.0f)
+                continue; // genuinely silent role at this scale (e.g. percB before it enters) - a touch can't introduce content from nothing without contradicting its own zero density
+
+            if (uniform01(rng) < identicalFraction)
+                continue; // literal repeat of bar 0 - matches the corpus's own measured repetition rate
+
+            const int touches = 1 + (uniform01(rng) < 0.5f ? 0 : 1); // 1 or 2 positions touched, never a full re-roll
+            for (int t = 0; t < touches; ++t)
+            {
+                const int s = (int) (uniform01(rng) * (float) stepsPerBar);
+                const size_t idx = (size_t) (base + s);
+                if (block[idx].active)
+                    block[idx] = Hit{};
+                else
+                    setHit(block, base + s, measuredVelocity(stats, s));
+            }
+        }
+
+        return block;
+    }
+
+    namespace
+    {
         // Derives a role's block for a LATER phrase section from the
         // PREVIOUS section's block for the same role - "develop existing
         // motifs rather than replacing everything", not a fresh
@@ -246,41 +249,52 @@ namespace Engine
             }
             return block;
         }
+    } // end anonymous namespace
 
-        // Copies one full kBlockBars-bar block literally into `barCount`
-        // consecutive destination bars (wrapping through the block's own
-        // bars if barCount exceeds kBlockBars) - this is what makes a
-        // repeat group byte-identical to its source block.
-        void copyBlock(StepArray& steps, int destBarStart, int barCount, int numBars, int stepsPerBar,
-                        const StepArray& block)
+    // Copies one full kBlockBars-bar block literally into `barCount`
+    // consecutive destination bars (wrapping through the block's own
+    // bars if barCount exceeds kBlockBars) - this is what makes a
+    // repeat group byte-identical to its source block. Public - reused
+    // as-is by Source/Engine/GrooveLoop.cpp.
+    void copyBlock(StepArray& steps, int destBarStart, int barCount, int numBars, int stepsPerBar,
+                    const StepArray& block)
+    {
+        const int blockBars = (int) block.size() / stepsPerBar;
+        for (int i = 0; i < barCount; ++i)
         {
-            const int blockBars = (int) block.size() / stepsPerBar;
-            for (int i = 0; i < barCount; ++i)
-            {
-                const int destBar = destBarStart + i;
-                if (destBar >= numBars)
-                    break;
-                const int srcBar   = i % blockBars;
-                const int srcBase  = srcBar * stepsPerBar;
-                const int destBase = destBar * stepsPerBar;
-                for (int s = 0; s < stepsPerBar; ++s)
-                    steps[(size_t) (destBase + s)] = block[(size_t) (srcBase + s)];
-            }
+            const int destBar = destBarStart + i;
+            if (destBar >= numBars)
+                break;
+            const int srcBar   = i % blockBars;
+            const int srcBase  = srcBar * stepsPerBar;
+            const int destBase = destBar * stepsPerBar;
+            for (int s = 0; s < stepsPerBar; ++s)
+                steps[(size_t) (destBase + s)] = block[(size_t) (srcBase + s)];
         }
+    }
 
-        // Per-phrase-section relative weight (multiplied by each role's own
-        // measured/calibrated density scale, see generateDrop) - the real
-        // ENERGY ARC: establish stays restrained, develop nudges up,
-        // increase pushes further, fullDrop is the strongest sustained
-        // version. hatOpen's own numbers ramp far more steeply than
-        // hatClosed's (0.10 -> 0.75, nearly 7.5x) so it's genuinely
-        // near-absent in bars 1-4 and only becomes a real presence from
-        // bars 9 on, matching "don't make it constant from bar 1... consider
-        // introducing it later, especially bars 9-15". percB is silent
-        // (0.0) in the establish section entirely - a real "this layer
-        // hasn't entered yet" arrangement decision, not a density
-        // rounding-to-zero accident - and enters at moderate presence from
-        // the develop section.
+    // Per-phrase-section relative weight (multiplied by each role's own
+    // measured/calibrated density scale, see generateDrop) - the real
+    // ENERGY ARC: establish stays restrained, develop nudges up,
+    // increase pushes further, fullDrop is the strongest sustained
+    // version. hatOpen's own numbers ramp far more steeply than
+    // hatClosed's (0.10 -> 0.75, nearly 7.5x) so it's genuinely
+    // near-absent in bars 1-4 and only becomes a real presence from
+    // bars 9 on, matching "don't make it constant from bar 1... consider
+    // introducing it later, especially bars 9-15". percB is silent
+    // (0.0) in the establish section entirely - a real "this layer
+    // hasn't entered yet" arrangement decision, not a density
+    // rounding-to-zero accident - and enters at moderate presence from
+    // the develop section.
+    //
+    // The actual kEstablish/kDevelop/kIncrease/kFullDrop arc data stays
+    // private below, since that specific 4-stage arc is exactly what
+    // Source/Engine/GrooveLoop.cpp's flat 8-bar loop deliberately does NOT
+    // use (GrooveLoop.cpp builds its own single flat StageEnergy value
+    // instead of reusing any of these 4) - only the StageEnergy TYPE
+    // itself (declared in DrumEngine.h) is public.
+    namespace
+    {
         // Values below were reduced (~25-30%) from an earlier pass in
         // direct response to real listening feedback: "hats/perc still too
         // busy," even though the generated output already measured BELOW
@@ -294,14 +308,18 @@ namespace Engine
         // establish<develop<increase<fullDrop arc shape (the actual
         // "groove intensifies through the drop" story) is preserved
         // exactly, only the absolute levels are pulled back.
-        struct StageEnergy { float hatClosed, hatOpen, percA, percB; };
         constexpr StageEnergy kEstablish { 0.40f, 0.10f, 0.45f, 0.00f };
         constexpr StageEnergy kDevelop   { 0.50f, 0.20f, 0.55f, 0.30f };
         constexpr StageEnergy kIncrease  { 0.65f, 0.40f, 0.65f, 0.55f };
         constexpr StageEnergy kFullDrop  { 0.80f, 0.55f, 0.75f, 0.70f };
+    } // end anonymous namespace
 
-        struct StageBlocks { StepArray hatClosed, hatOpen, percA, percB; };
+    // StageBlocks (the return type of buildStageFresh/deriveStage below,
+    // both reused by Source/Engine/GrooveLoop.cpp) is declared+defined in
+    // DrumEngine.h now, not redefined here.
 
+    namespace
+    {
         // percA<->percB is NOT a measured correlation - the corpus has no
         // second percussion instrument category to measure. This is a
         // disclosed, deliberate arrangement rule ("avoid simply
@@ -309,7 +327,7 @@ namespace Engine
         // exact same correlationFactor mechanism as every measured
         // correlation, just with a stated-not-measured coefficient.
         constexpr float kPercBAvoidsPercA = -0.5f;
-    }
+    } // end anonymous namespace
 
     // ----------------------------------------------------------------------
     // generateDrop - the coordinated, arranged 16-bar Melodic Techno drop.
@@ -380,56 +398,61 @@ namespace Engine
             constexpr float kPercTouchAmplification   = 0.75f;
             return kPercAccentMeanHitsPerBar / kPercRhythm.meanOnsetsPerBar * kPercTouchAmplification;
         }
+    } // end anonymous namespace
 
-        // `energy` is a parameter (not hardcoded to kEstablish) so this one
-        // function serves both generateDrop's original fixed 4-stage arc
-        // (called once, with kEstablish, as its stage1) and
-        // generateArrangementDrop's continuous per-4-bar-block chain
-        // (called once per arrangement, for its first block, with that
-        // block's own MusicState-derived energy).
-        StageBlocks buildStageFresh(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
-                                     int stepsPerBar, float overallDensity, float syncopation, const StageEnergy& energy)
-        {
-            StageBlocks sb;
+    // `energy` is a parameter (not hardcoded to kEstablish) so this one
+    // function serves both generateDrop's original fixed 4-stage arc
+    // (called once, with kEstablish, as its stage1), generateArrangementDrop's
+    // continuous per-4-bar-block chain (called once per arrangement, for
+    // its first block, with that block's own MusicState-derived energy),
+    // and Source/Engine/GrooveLoop.cpp's flat 8-bar loop (called once, with
+    // a single non-arc energy level, for its first/established 4-bar
+    // block) - reused as-is by all three, never duplicated.
+    StageBlocks buildStageFresh(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
+                                 int stepsPerBar, float overallDensity, float syncopation, const StageEnergy& energy)
+    {
+        StageBlocks sb;
 
-            const float hatClosedScale = (0.7f + overallDensity * 0.6f) * energy.hatClosed;
-            sb.hatClosed = buildRoleBlock(rng, kHatRhythm, stepsPerBar, hatClosedScale, syncopation,
-                                           { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
-                                             { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
+        const float hatClosedScale = (0.7f + overallDensity * 0.6f) * energy.hatClosed;
+        sb.hatClosed = buildRoleBlock(rng, kHatRhythm, stepsPerBar, hatClosedScale, syncopation,
+                                       { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
+                                         { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
 
-            const float hatOpenScale = (0.7f + overallDensity * 0.6f) * energy.hatOpen;
-            sb.hatOpen = buildRoleBlock(rng, kRideRhythm, stepsPerBar, hatOpenScale, syncopation,
-                                        { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
-                                          { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
-                                          { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
+        const float hatOpenScale = (0.7f + overallDensity * 0.6f) * energy.hatOpen;
+        sb.hatOpen = buildRoleBlock(rng, kRideRhythm, stepsPerBar, hatOpenScale, syncopation,
+                                    { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
+                                      { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
+                                      { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
 
-            // Calibrated so a SINGLE percussion voice's realized density
-            // lands near the measured accent-style subset's mean (~4.78
-            // hits/bar) rather than the raw corpus-wide average (~10.5,
-            // which blends in continuous "*Perc Loop*"-named material -
-            // see the PERC density milestone commit for the full
-            // investigation). Both percA and percB share this same
-            // calibrated baseline scale (percRoleBaseScale, defined below
-            // - shared with deriveStage's own rebuild-fresh path so both
-            // compute the identical baseline); `energy` then modulates
-            // each independently per section.
-            const float percAScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percA;
-            sb.percA = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percAScale, syncopation,
-                                       { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
-                                         { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
-                                         { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
-                                         { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
+        // Calibrated so a SINGLE percussion voice's realized density
+        // lands near the measured accent-style subset's mean (~4.78
+        // hits/bar) rather than the raw corpus-wide average (~10.5,
+        // which blends in continuous "*Perc Loop*"-named material -
+        // see the PERC density milestone commit for the full
+        // investigation). Both percA and percB share this same
+        // calibrated baseline scale (percRoleBaseScale, defined below
+        // - shared with deriveStage's own rebuild-fresh path so both
+        // compute the identical baseline); `energy` then modulates
+        // each independently per section.
+        const float percAScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percA;
+        sb.percA = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percAScale, syncopation,
+                                   { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                     { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                     { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                     { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
 
-            const float percBScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percB;
-            sb.percB = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percBScale, syncopation,
-                                       { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
-                                         { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
-                                         { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
-                                         { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
-                                         { &sb.percA, kPercBAvoidsPercA, 0 } });
-            return sb;
-        }
+        const float percBScale = (percRoleBaseScale() - 0.15f + overallDensity * 0.3f) * energy.percB;
+        sb.percB = buildRoleBlock(rng, kPercRhythm, stepsPerBar, percBScale, syncopation,
+                                   { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                     { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                     { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                     { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
+                                     { &sb.percA, kPercBAvoidsPercA, 0 } });
+        return sb;
+    }
 
+    namespace
+    {
         // deriveStageBlock's touch-count formula (energyDelta*6 + variation*2)
         // was designed for the SMALL deltas between adjacent stages of a
         // smoothly ramping arc (the old fixed 4-stage table's biggest
@@ -458,50 +481,57 @@ namespace Engine
                 return buildRoleBlock(rng, stats, stepsPerBar, newAbsoluteScale, syncopation, refs);
             return deriveStageBlock(rng, previousBlock, stats, stepsPerBar, energyDelta, variation, refs);
         }
+    } // end anonymous namespace
 
-        // Same coordination order as buildStageFresh (hatClosed ->
-        // hatOpen -> percA -> percB, each referencing every role already
-        // finalized for THIS stage) so deriveStageBlock's correlation-aware
-        // touches have the right same-stage siblings to check against, not
-        // last stage's (which could have quite different content once a
-        // few sections' worth of touches have accumulated).
-        StageBlocks deriveStage(std::mt19937& rng, const StageBlocks& previous, const StageEnergy& previousEnergy,
-                                 const StageEnergy& thisEnergy, const StepArray& kickBlock, const StepArray& clapBlock,
-                                 int stepsPerBar, float overallDensity, float syncopation, float variation)
-        {
-            const float hatScaleBase = 0.7f + overallDensity * 0.6f;
-            const float percScaleBase = percRoleBaseScale() - 0.15f + overallDensity * 0.3f;
+    // Same coordination order as buildStageFresh (hatClosed ->
+    // hatOpen -> percA -> percB, each referencing every role already
+    // finalized for THIS stage) so deriveStageBlock's correlation-aware
+    // touches have the right same-stage siblings to check against, not
+    // last stage's (which could have quite different content once a
+    // few sections' worth of touches have accumulated). Public - reused
+    // by generateArrangementDrop below and by
+    // Source/Engine/GrooveLoop.cpp (with previousEnergy==thisEnergy, i.e.
+    // energyDelta==0 for every role, so only `variation` drives movement -
+    // no energy arc at all).
+    StageBlocks deriveStage(std::mt19937& rng, const StageBlocks& previous, const StageEnergy& previousEnergy,
+                             const StageEnergy& thisEnergy, const StepArray& kickBlock, const StepArray& clapBlock,
+                             int stepsPerBar, float overallDensity, float syncopation, float variation)
+    {
+        const float hatScaleBase = 0.7f + overallDensity * 0.6f;
+        const float percScaleBase = percRoleBaseScale() - 0.15f + overallDensity * 0.3f;
 
-            StageBlocks sb;
-            sb.hatClosed = deriveOrRebuildRoleBlock(rng, previous.hatClosed, kHatRhythm, stepsPerBar,
-                                             thisEnergy.hatClosed - previousEnergy.hatClosed,
-                                             hatScaleBase * thisEnergy.hatClosed, syncopation, variation,
-                                             { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
-                                               { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
-            sb.hatOpen   = deriveOrRebuildRoleBlock(rng, previous.hatOpen, kRideRhythm, stepsPerBar,
-                                             thisEnergy.hatOpen - previousEnergy.hatOpen,
-                                             hatScaleBase * thisEnergy.hatOpen, syncopation, variation,
-                                             { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
-                                               { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
-                                               { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
-            sb.percA     = deriveOrRebuildRoleBlock(rng, previous.percA, kPercRhythm, stepsPerBar,
-                                             thisEnergy.percA - previousEnergy.percA,
-                                             percScaleBase * thisEnergy.percA, syncopation, variation,
-                                             { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
-                                               { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
-                                               { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
-                                               { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
-            sb.percB     = deriveOrRebuildRoleBlock(rng, previous.percB, kPercRhythm, stepsPerBar,
-                                             thisEnergy.percB - previousEnergy.percB,
-                                             percScaleBase * thisEnergy.percB, syncopation, variation,
-                                             { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
-                                               { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
-                                               { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
-                                               { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
-                                               { &sb.percA, kPercBAvoidsPercA, 0 } });
-            return sb;
-        }
+        StageBlocks sb;
+        sb.hatClosed = deriveOrRebuildRoleBlock(rng, previous.hatClosed, kHatRhythm, stepsPerBar,
+                                         thisEnergy.hatClosed - previousEnergy.hatClosed,
+                                         hatScaleBase * thisEnergy.hatClosed, syncopation, variation,
+                                         { { &kickBlock, kCrossRoleCorrelation.kickHat, 0 },
+                                           { &clapBlock, kCrossRoleCorrelation.clapHat, 0 } });
+        sb.hatOpen   = deriveOrRebuildRoleBlock(rng, previous.hatOpen, kRideRhythm, stepsPerBar,
+                                         thisEnergy.hatOpen - previousEnergy.hatOpen,
+                                         hatScaleBase * thisEnergy.hatOpen, syncopation, variation,
+                                         { { &kickBlock, kCrossRoleCorrelation.kickRide, 0 },
+                                           { &clapBlock, kCrossRoleCorrelation.clapRide, 0 },
+                                           { &sb.hatClosed, kCrossRoleCorrelation.hatRide, 0 } });
+        sb.percA     = deriveOrRebuildRoleBlock(rng, previous.percA, kPercRhythm, stepsPerBar,
+                                         thisEnergy.percA - previousEnergy.percA,
+                                         percScaleBase * thisEnergy.percA, syncopation, variation,
+                                         { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                           { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                           { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                           { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 } });
+        sb.percB     = deriveOrRebuildRoleBlock(rng, previous.percB, kPercRhythm, stepsPerBar,
+                                         thisEnergy.percB - previousEnergy.percB,
+                                         percScaleBase * thisEnergy.percB, syncopation, variation,
+                                         { { &kickBlock, kCrossRoleCorrelation.kickPerc, 0 },
+                                           { &clapBlock, kCrossRoleCorrelation.clapPerc, 0 },
+                                           { &sb.hatClosed, kCrossRoleCorrelation.hatPerc, 0 },
+                                           { &sb.hatOpen, kCrossRoleCorrelation.percRide, 0 },
+                                           { &sb.percA, kPercBAvoidsPercA, 0 } });
+        return sb;
+    }
 
+    namespace
+    {
         // Bar 16: THINS the full-drop section's own bar-0 material rather
         // than adding anything - real density/velocity/omission-driven
         // tension ("the phrase is ending"), never a fill roll. hatClosed

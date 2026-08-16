@@ -147,6 +147,8 @@
         <FILE id="Eng9hdr" name="MusicIdentity.h" compile="0" resource="0" file="Source/Engine/MusicIdentity.h"/>
         <FILE id="Brk1cpp" name="BreakdownArrangement.cpp" compile="1" resource="0" file="Source/Engine/BreakdownArrangement.cpp"/>
         <FILE id="Brk1hdr" name="BreakdownArrangement.h" compile="0" resource="0" file="Source/Engine/BreakdownArrangement.h"/>
+        <FILE id="Grv1cpp" name="GrooveLoop.cpp" compile="1" resource="0" file="Source/Engine/GrooveLoop.cpp"/>
+        <FILE id="Grv1hdr" name="GrooveLoop.h" compile="0" resource="0" file="Source/Engine/GrooveLoop.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

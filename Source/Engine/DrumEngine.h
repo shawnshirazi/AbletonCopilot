@@ -2,7 +2,9 @@
 
 #include "Arrangement.h"
 #include "Grid.h"
+#include "DrumRhythmGrammar.h" // RoleRhythmStats - used by the reusable building-block declarations below
 #include <cstdint>
+#include <random> // std::mt19937 - used by the reusable building-block declarations below
 #include <vector>
 
 // Phase 6+ deterministic engine: Melodic Techno DROP drum-pattern
@@ -169,4 +171,76 @@ namespace Engine
     // result to both is what guarantees the UI always shows exactly the
     // pattern that's playing, never a second independently-derived one.
     std::vector<int> toVelocityArray(const StepArray& steps);
+
+    // ------------------------------------------------------------------
+    // Reusable measured-data-driven building blocks, factored out of
+    // generateDrop/generateArrangementDrop's own composition (see
+    // DrumEngine.cpp) so a DIFFERENT arrangement shape can reuse the exact
+    // same, already-tested position/velocity/correlation machinery without
+    // duplicating it - e.g. Source/Engine/GrooveLoop.cpp's flat, non-arc,
+    // non-arrangement 8-bar loop generator. generateDrop/
+    // generateArrangementDrop's own behavior is completely unaffected by
+    // these being public - same functions, same bodies, just also
+    // reachable from another Engine:: source file now. The specific
+    // 4-stage energy-arc DATA (kEstablish/kDevelop/kIncrease/kFullDrop)
+    // stays private to DrumEngine.cpp - only the composition machinery
+    // itself (which takes an arbitrary StageEnergy, not one of those 4
+    // specific constants) is exposed here.
+
+    // One already-built role block a position decision correlates
+    // against, and the real (or disclosed-non-measured, e.g. percA<->
+    // percB) correlation coefficient to apply.
+    struct CorrelationRef
+    {
+        const StepArray* block;
+        float             corr;
+        int               bar; // which relative bar of *block to check
+    };
+
+    // Builds one role's full 4-bar block from scratch: bar 0 is a fresh
+    // weighted decision per position (measured base rate x density x
+    // syncopation x cross-role correlation against every supplied ref),
+    // bars 1-3 either literally repeat bar 0 (probability = the role's own
+    // measured adjacentBarsIdenticalFraction) or apply 1-2 small touches -
+    // see DrumEngine.cpp's own comment for the full reasoning.
+    StepArray buildRoleBlock(std::mt19937& rng, const RoleRhythmStats& stats, int stepsPerBar,
+                              float densityScale, float syncopation, const std::vector<CorrelationRef>& refs);
+
+    // Copies one full 4-bar block literally into `barCount` consecutive
+    // destination bars (wrapping through the block's own bars if barCount
+    // exceeds its length) - what makes a repeat group byte-identical to
+    // its source block.
+    void copyBlock(StepArray& steps, int destBarStart, int barCount, int numBars, int stepsPerBar,
+                    const StepArray& block);
+
+    // Per-section relative weight for hatClosed/hatOpen/percA/percB,
+    // multiplied on top of each role's own measured/calibrated density
+    // scale (see buildStageFresh/deriveStage below and DrumEngine.cpp's
+    // kEstablish/kDevelop/kIncrease/kFullDrop for the one place this is
+    // actually used as a 4-stage ARC - callers that just want ONE flat
+    // level, not an arc, pass the same StageEnergy value as both
+    // `previousEnergy` and `thisEnergy` to deriveStage, or call
+    // buildStageFresh once).
+    struct StageEnergy { float hatClosed, hatOpen, percA, percB; };
+
+    // hatClosed/hatOpen/percA/percB built together, coordinated (each
+    // referencing every role already placed) - the return type of
+    // buildStageFresh/deriveStage below.
+    struct StageBlocks { StepArray hatClosed, hatOpen, percA, percB; };
+
+    // Builds a fresh StageBlocks (hatClosed -> hatOpen -> percA -> percB,
+    // each aware of kick/clap and the roles already placed within this
+    // call) at the given energy level - see DrumEngine.cpp's own comment
+    // for the exact per-role scaling formula.
+    StageBlocks buildStageFresh(std::mt19937& rng, const StepArray& kickBlock, const StepArray& clapBlock,
+                                 int stepsPerBar, float overallDensity, float syncopation, const StageEnergy& energy);
+
+    // Derives a StageBlocks from a previous one - "develop existing
+    // motifs," not a fresh independent pattern. energyDelta (thisEnergy -
+    // previousEnergy, computed internally per role) drives how many
+    // touches are applied; pass previousEnergy==thisEnergy for pure
+    // variation-driven movement with no energy change at all (no arc).
+    StageBlocks deriveStage(std::mt19937& rng, const StageBlocks& previous, const StageEnergy& previousEnergy,
+                             const StageEnergy& thisEnergy, const StepArray& kickBlock, const StepArray& clapBlock,
+                             int stepsPerBar, float overallDensity, float syncopation, float variation);
 }
