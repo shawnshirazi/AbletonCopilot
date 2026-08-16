@@ -10,6 +10,7 @@
 #include "DrumPatternRenderer.h"
 #include "GeneratedDrumGridComponent.h"
 #include "DrumSampleSelector.h"
+#include "DrumStemExporter.h"
 #include "MelodyCategory.h"
 #include "MelodyGridComponent.h"
 #include "AdvisorPanelComponent.h"
@@ -92,6 +93,19 @@ private:
     // (drumRoleMutes / the Bass/Melody/Pad mute controls) stays a purely
     // independent, user-driven control that this function never touches.
     void applyGeneratedLoop();
+
+    // "Export Drum Stems" workflow (playback-only replication, never a
+    // second generator - see Source/DrumStemExporter.h). Opens a native
+    // folder picker (remembering the last-used location across clicks via
+    // lastStemExportFolder), snapshots exactly what's currently generated/
+    // loaded/muted via processor.getGeneratedDrumStemSnapshot(), renders
+    // the 6 role stems, writes them to a timestamped subfolder, and
+    // updates exportDrumStemsStatusLabel with the exact format requested
+    // (RuntimeStatusText::buildDrumStemExportStatus/
+    // buildDrumStemExportedConfirmation). Disabled until something has
+    // actually been generated (see applyGeneratedLoop/
+    // updateGenerateButtonAvailability-style gating).
+    void exportDrumStemsClicked();
 
     // Part D of the bass-runtime-bug + sample-selection investigation:
     // "why did the selector think this was a good Melodic Techno
@@ -298,6 +312,17 @@ private:
     // one unit - no separate viewport just for this component anymore
     // (avoid nested Viewports unless necessary - see resized()).
     GeneratedDrumGridComponent generatedDrumGrid;
+
+    // "Export Drum Stems" (Source/DrumStemExporter.h) - renders the exact
+    // CURRENTLY generated/loaded/muted drum pattern to 6 separate WAV
+    // files (Kick/Clap/ClosedHat/OpenHat/PercA/PercB), no regeneration.
+    // lastStemExportFolder remembers the last folder picked across clicks
+    // (confirmed with the user: ask via folder picker each time, not a
+    // fixed path) - invalid File() until the first successful export.
+    juce::TextButton                   exportDrumStemsButton { "Export Drum Stems" };
+    juce::Label                        exportDrumStemsStatusLabel;
+    std::unique_ptr<juce::FileChooser> stemExportFileChooser;
+    juce::File                         lastStemExportFolder;
 
     // Loop-generator mute row: independent per-role MIX control (Part 10 of
     // the loop-generator brief) - never touches the stored pattern, see

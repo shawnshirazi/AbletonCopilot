@@ -296,6 +296,20 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     // everything else, no separate viewport just for the grid.
     mainContent.addAndMakeVisible(generatedDrumGrid);
 
+    // "Export Drum Stems" (Source/DrumStemExporter.h) - offline, per-role
+    // WAV render of exactly what's currently generated, no regeneration.
+    exportDrumStemsButton.setColour(juce::TextButton::buttonColourId,  kPanel);
+    exportDrumStemsButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    exportDrumStemsButton.setEnabled(false); // enabled once currentIdentity exists - see applyGeneratedLoop()
+    exportDrumStemsButton.onClick = [this] { exportDrumStemsClicked(); };
+    mainContent.addAndMakeVisible(exportDrumStemsButton);
+
+    exportDrumStemsStatusLabel.setFont(small());
+    exportDrumStemsStatusLabel.setJustificationType(juce::Justification::topLeft);
+    exportDrumStemsStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    exportDrumStemsStatusLabel.setText("Generate a loop first.", juce::dontSendNotification);
+    mainContent.addAndMakeVisible(exportDrumStemsStatusLabel);
+
     // Per-role mute row (Part 10) - a MIX control, independent of
     // generation. See PluginProcessor::setGeneratedDrumRoleMuted; role
     // order matches Engine::DrumRole (Kick, Clap, HatClosed, HatOpen,
@@ -840,6 +854,19 @@ void AbletonCopilotAudioProcessorEditor::resized()
         const int gridWidth = juce::jmax(1, contentWidth - 24);
         generatedDrumGrid.setBounds(12, y, gridWidth, generatedDrumGrid.getRequiredHeight());
         y += generatedDrumGrid.getHeight() + 10;
+    }
+
+    // Export Drum Stems - button + status, directly below the pattern
+    // grid it exports (no regeneration involved, purely a render of what's
+    // already shown above).
+    {
+        auto exportRow = juce::Rectangle<int>(0, y, contentWidth, 28).reduced(12, 0);
+        exportDrumStemsButton.setBounds(exportRow.removeFromLeft(160));
+        y += 28 + 4;
+
+        constexpr int kExportStatusHeight = 96; // room for the 6 role lines + Length/BPM/Sample Rate + Exported confirmation
+        exportDrumStemsStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kExportStatusHeight).reduced(12, 0));
+        y += kExportStatusHeight + 8;
     }
 
     // Detailed diagnostics - kept, not deleted (goal 9), just below the
@@ -1390,6 +1417,8 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     if (!currentIdentity.has_value())
         return; // nothing generated yet
 
+    exportDrumStemsButton.setEnabled(true); // something real now exists to export
+
     const auto [keyRoot, isMinor] = getSelectedKey();
     juce::ignoreUnused(isMinor);
 
@@ -1676,6 +1705,66 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
             RuntimeStatusText::appendSection(structuredStatusPrefix, RuntimeStatusText::sectionDisplayName(0)),
             juce::dontSendNotification);
     }
+}
+
+void AbletonCopilotAudioProcessorEditor::exportDrumStemsClicked()
+{
+    if (!currentIdentity.has_value())
+        return; // button is disabled in this case (see applyGeneratedLoop); guard anyway - never export nothing
+
+    const juce::File startFolder = lastStemExportFolder.isDirectory()
+        ? lastStemExportFolder
+        : juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+
+    stemExportFileChooser = std::make_unique<juce::FileChooser>(
+        "Choose a folder for the exported drum stems", startFolder);
+
+    auto flags = juce::FileBrowserComponent::openMode
+               | juce::FileBrowserComponent::canSelectDirectories;
+
+    stemExportFileChooser->launchAsync(flags, [this](const juce::FileChooser& fc)
+    {
+        const juce::File chosen = fc.getResult();
+        if (!chosen.isDirectory())
+            return; // cancelled
+
+        lastStemExportFolder = chosen;
+
+        // Snapshot only, via PluginProcessor::getGeneratedDrumStemSnapshot -
+        // no regeneration, no change to sample selection/mute/pattern
+        // state. bpm comes from currentIdentity (the actual generation
+        // bpm), not the live-transport cache, so export works whether or
+        // not the host transport has ever run.
+        const double bpm = currentIdentity.has_value() ? currentIdentity->bpm : 124.0;
+        const auto   input = processor.getGeneratedDrumStemSnapshot(bpm);
+
+        const DrumStemExporter::Result stems       = DrumStemExporter::renderDrumStems(input);
+        const auto                     writeResult = DrumStemExporter::writeStemsToWav(stems, chosen, input.sampleRate);
+
+        std::vector<RuntimeStatusText::StemExportRoleStatus> roleStatuses;
+        for (auto& r : stems)
+        {
+            RuntimeStatusText::StemExportRoleStatus rs;
+            rs.label    = r.roleLabel;
+            rs.fileName = r.loadedFile.existsAsFile() ? r.loadedFile.getFileName() : juce::String("(synth fallback)");
+            roleStatuses.push_back(rs);
+        }
+
+        juce::String text = RuntimeStatusText::buildDrumStemExportStatus(
+            roleStatuses, Engine::kLoopBars, input.bpm, input.sampleRate);
+
+        std::array<bool, 6> succeeded {};
+        for (size_t i = 0; i < succeeded.size(); ++i)
+            succeeded[i] = writeResult.writtenFiles[i].existsAsFile();
+
+        text << RuntimeStatusText::buildDrumStemExportedConfirmation(succeeded);
+        if (!writeResult.allSucceeded)
+            text << "\n" << writeResult.errorMessage;
+        text << "\nOutput: " << writeResult.outputDirectory.getFullPathName();
+
+        exportDrumStemsStatusLabel.setText(text, juce::dontSendNotification);
+        resized();
+    });
 }
 
 void AbletonCopilotAudioProcessorEditor::logPercussionCandidateDiagnostics(

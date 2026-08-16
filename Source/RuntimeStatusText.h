@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include <vector>
+#include <array>
 
 // Pure, dependency-free text builder for the structured runtime-status
 // block the user explicitly asked for: DRUMS/BASS/MELODY/PAD/SECTION,
@@ -61,6 +62,49 @@ namespace RuntimeStatusText
     inline juce::String appendSection(const juce::String& prefix, const juce::String& sectionName)
     {
         return prefix + "SECTION: " + sectionName + "\n";
+    }
+
+    struct StemExportRoleStatus
+    {
+        juce::String label;    // "Kick"/"Clap"/"Closed Hat"/"Open Hat"/"Perc A"/"Perc B"
+        juce::String fileName; // real LOADED file name (never a candidate/suggested path) - "(synth fallback)" if none loaded
+    };
+
+    // Pre-export status block, matching the user's exact requested format:
+    // one "<role> = <file>" line per role (the REAL loaded sample, not a
+    // candidate), then Length/BPM/Sample Rate.
+    inline juce::String buildDrumStemExportStatus(const std::vector<StemExportRoleStatus>& roles,
+                                                   int lengthBars, double bpm, double sampleRate)
+    {
+        juce::String s = "DRUM STEM EXPORT\n";
+        for (auto& r : roles)
+            s << r.label << " = " << r.fileName << "\n";
+        s << "Length: " << lengthBars << " bars\n";
+        s << "BPM: " << juce::String(bpm, 1) << "\n";
+        s << "Sample Rate: " << (int) juce::roundToInt(sampleRate) << " Hz\n";
+        return s;
+    }
+
+    // Post-export confirmation line, one checkmark per role in fixed
+    // Kick/Clap/ClosedHat/OpenHat/PercA/PercB order, matching the user's
+    // exact requested "Exported: [checkmark] Kick.wav [checkmark] Clap.wav ..." format.
+    inline juce::String buildDrumStemExportedConfirmation(const std::array<bool, 6>& succeededPerRole)
+    {
+        static const char* const kFileNames[6] =
+            { "Kick.wav", "Clap.wav", "ClosedHat.wav", "OpenHat.wav", "PercA.wav", "PercB.wav" };
+        const juce::String check = juce::String(juce::CharPointer_UTF8("\xe2\x9c\x93"));
+
+        juce::String s = "Exported: ";
+        for (int i = 0; i < 6; ++i)
+        {
+            if (succeededPerRole[(size_t) i])
+                s << check << " " << kFileNames[i];
+            else
+                s << "x " << kFileNames[i];
+            if (i < 5)
+                s << "  ";
+        }
+        return s;
     }
 
     // Human-readable name for Engine::CompactSection - kept here (not in

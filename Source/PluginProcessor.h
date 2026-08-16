@@ -5,6 +5,7 @@
 #include "MelodyCategory.h"
 #include "Engine/DrumVoiceSynth.h"
 #include "StartupTiming.h"
+#include "DrumStemExporter.h"
 
 // Bass register clamp - octave-WRAPS (not truncates) a raw computed pitch
 // into a fixed low register regardless of key, fixing the diagnosed
@@ -279,6 +280,19 @@ public:
         juce::File   finalLoadedFile;              // == candidateFile iff every step above succeeded; invalid File() otherwise
     };
     GeneratedRoleLoadDiagnostics getGeneratedRoleLoadDiagnostics(Engine::DrumRole role) const;
+
+    // Read-only snapshot of exactly what's currently stored for the
+    // generated drum pattern (pattern/sample buffers/loaded files/mute/
+    // gain) shaped for DrumStemExporter::renderDrumStems. Takes
+    // generatedDrumLock and generatedSampleLock briefly to copy out
+    // shared_ptr/File/vector data, then releases them - never mutates any
+    // of that state, never regenerates anything, so calling this (i.e.
+    // exporting stems) can never change what's already playing or what a
+    // later Generate click would use. `bpm` is passed in by the caller
+    // (the editor's own currentIdentity->bpm, the actual generation bpm)
+    // rather than read from any live-transport cache here, so a snapshot
+    // taken before the host transport has ever run is still correct.
+    DrumStemExporter::Input getGeneratedDrumStemSnapshot(double bpm) const;
 
 private:
     void loadSerum();

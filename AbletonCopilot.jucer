@@ -45,6 +45,10 @@
             file="Source/DrumPatternRenderer.cpp"/>
       <FILE id="Dp1hdr" name="DrumPatternRenderer.h" compile="0" resource="0"
             file="Source/DrumPatternRenderer.h"/>
+      <FILE id="Dse1cp" name="DrumStemExporter.cpp" compile="1" resource="0"
+            file="Source/DrumStemExporter.cpp"/>
+      <FILE id="Dse1hd" name="DrumStemExporter.h" compile="0" resource="0"
+            file="Source/DrumStemExporter.h"/>
       <FILE id="Gdg1cpp" name="GeneratedDrumGridComponent.cpp" compile="1" resource="0"
             file="Source/GeneratedDrumGridComponent.cpp"/>
       <FILE id="Gdg1hdr" name="GeneratedDrumGridComponent.h" compile="0" resource="0"

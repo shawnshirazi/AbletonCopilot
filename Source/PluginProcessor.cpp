@@ -573,6 +573,41 @@ AbletonCopilotAudioProcessor::GeneratedRoleLoadDiagnostics
     return generatedRoleLoadDiagnostics[(int) role];
 }
 
+DrumStemExporter::Input AbletonCopilotAudioProcessor::getGeneratedDrumStemSnapshot(double bpm) const
+{
+    DrumStemExporter::Input input;
+    input.bpm        = bpm;
+    input.sampleRate = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+
+    {
+        juce::ScopedLock sl(generatedDrumLock);
+        input.totalSteps = generatedDrumTotalSteps;
+        const int n = juce::jmin((int) generatedDrumRoles.size(), kMaxGeneratedDrumRoles);
+        for (int r = 0; r < n; ++r)
+        {
+            input.roles[(size_t) r].midiNote = generatedDrumRoles[(size_t) r].midiNote;
+            input.roles[(size_t) r].velocity = generatedDrumRoles[(size_t) r].velocity;
+        }
+    }
+
+    {
+        juce::ScopedLock sl(generatedSampleLock);
+        for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+        {
+            input.roles[(size_t) r].sampleBuffer = generatedRoleSampleBuffers[r];
+            input.roles[(size_t) r].loadedFile    = generatedRoleLoadedFile[r];
+        }
+    }
+
+    for (int r = 0; r < kMaxGeneratedDrumRoles; ++r)
+    {
+        input.roles[(size_t) r].muted = generatedDrumRoleMuted[r].load(std::memory_order_relaxed);
+        input.roles[(size_t) r].gain  = generatedDrumRoleGain[r].load(std::memory_order_relaxed);
+    }
+
+    return input;
+}
+
 int AbletonCopilotAudioProcessor::addMelodyTrack()
 {
     const int index = activeMelodyTrackCount.load(std::memory_order_relaxed);
