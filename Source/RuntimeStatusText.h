@@ -31,28 +31,36 @@ namespace RuntimeStatusText
     // host playhead (see appendSection below) - rebuilding the drum/voice
     // diagnostics every tick would be wasted work for data that hasn't
     // changed since the last Generate click.
+    //
+    // Deliberately dense (2 lines, not the ~22 a one-field-per-line layout
+    // would take) - same exact facts as before (every role's real sample
+    // file, every voice's real captured-preset-or-FACTORY-INIT state, MIDI
+    // range, active flag), just packed onto one line per category instead
+    // of one line per field. Nothing here is summarized or dropped.
     inline juce::String buildStatusPrefix(const std::vector<DrumRoleLine>& drumRoles,
                                            const std::vector<VoiceLine>& voices)
     {
         juce::String s;
-        s << "DRUMS\n";
+        s << "DRUMS  ";
         for (auto& r : drumRoles)
-            s << "  " << r.label << ": " << r.fileName << "\n";
+            s << r.label << ": " << r.fileName << "   ";
+        s = s.trimEnd() + "\n";
 
-        for (auto& v : voices)
+        for (size_t i = 0; i < voices.size(); ++i)
         {
-            s << "\n" << v.label << "\n";
-            s << "  Serum2: " << v.presetLine << "\n";
+            auto& v = voices[i];
+            s << v.label << ": " << v.presetLine;
             if (v.extraLine.isNotEmpty())
-                s << "  " << v.extraLine << "\n";
-            s << "  active: " << (v.active ? "YES" : "NO") << "\n";
+                s << " (" << v.extraLine << ")";
+            s << ", active: " << (v.active ? "YES" : "NO");
+            s << (i + 1 < voices.size() ? "   |   " : "\n");
         }
         return s;
     }
 
     inline juce::String appendSection(const juce::String& prefix, const juce::String& sectionName)
     {
-        return prefix + "\nSECTION\n  " + sectionName + "\n";
+        return prefix + "SECTION: " + sectionName + "\n";
     }
 
     // Human-readable name for Engine::CompactSection - kept here (not in

@@ -107,15 +107,16 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     : AudioProcessorEditor(&p), processor(p)
 {
     StartupTiming::mark("Editor ctor start");
-    // Shorter window while the manual drum grid/melody grid/Serum panels
-    // are hidden (see kShowFullUI) - no point reserving space for a large
-    // scrollable area with nothing visible in it. 412 fits the header,
-    // Generate Drum Pattern row, the status block (now tall enough for
-    // one line per role's actual loaded sample path - see
-    // generateDrumPatternClicked), and the generated pattern grid + legend
-    // with a little breathing room; flip kShowFullUI back to restore the
-    // full 980x760 layout.
-    setSize(980, kShowFullUI ? 1456 : 1108); // +170 for the drum-decode diagnostic block, +114 for the library-scan diagnostic block, +304 for the structured DRUMS/BASS/MELODY/PAD/SECTION block, +54 for the Bass/Melody/Pad mute row, +88 for the taller (now-scrollable, 9-row) generated pattern grid, -34 for the removed DROP/BREAKDOWN mode row - see their setBounds comments
+    // A sensible default that fits the fixed header, both mute rows, the
+    // compact STATUS block, and the full pattern grid without scrolling
+    // in the common case - NOT sized to fit literally every diagnostic
+    // block unscrolled (that's what mainViewport's real scroll is for -
+    // see resized()). Real resizing is now enabled (setResizable/
+    // setResizeLimits below), so this is a starting point, not the only
+    // usable size - previously the editor could never be resized at all.
+    setSize(980, 700);
+    setResizable(true, true);
+    setResizeLimits(640, 420, 1600, 1400);
 
     // Genre picker
     const auto& profiles = GenreProfiles::getInstance();
@@ -267,31 +268,33 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addAndMakeVisible(generateLoopButton);
     updateGenerateButtonAvailability(); // starts disabled - the background sample scan hasn't run yet at this point in the constructor
 
+    // From here down: everything is a child of mainContent (scrolled as
+    // one unit by mainViewport, see resized()) rather than a direct child
+    // of the editor - this is the fix for the vertical-overflow problem
+    // (previously this whole stack had no scroll container at all).
     libraryScanStatusLabel.setFont(small());
     libraryScanStatusLabel.setJustificationType(juce::Justification::topLeft);
     libraryScanStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    addAndMakeVisible(libraryScanStatusLabel);
+    mainContent.addAndMakeVisible(libraryScanStatusLabel);
     updateLibraryScanStatusLabel(); // initial snapshot - everything "no"/pending until the scan actually progresses
 
     structuredStatusLabel.setFont(small());
     structuredStatusLabel.setJustificationType(juce::Justification::topLeft);
     structuredStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    structuredStatusLabel.setText("DRUMS\n  (not generated yet)\n", juce::dontSendNotification);
-    addAndMakeVisible(structuredStatusLabel);
+    structuredStatusLabel.setText("DRUMS  (not generated yet)\n", juce::dontSendNotification);
+    mainContent.addAndMakeVisible(structuredStatusLabel);
 
     drumPatternStatusLabel.setFont(small()); // smaller font: room for 4 full sample paths without ballooning the window
     drumPatternStatusLabel.setJustificationType(juce::Justification::topLeft); // long multi-line diagnostic block reads top-down, not vertically centred
     drumPatternStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     drumPatternStatusLabel.setText(
         "Not generated yet.", juce::dontSendNotification);
-    addAndMakeVisible(drumPatternStatusLabel);
-    // generatedDrumGrid is the VIEWED component, sized to its own real
-    // (dynamic, now 9-row) content height in resized() below - the
-    // viewport clips to a smaller fixed visible height and scrolls
-    // vertically, same pattern as mainViewport.
-    generatedDrumGridViewport.setViewedComponent(&generatedDrumGrid, false);
-    generatedDrumGridViewport.setScrollBarsShown(true, false);
-    addAndMakeVisible(generatedDrumGridViewport);
+    mainContent.addAndMakeVisible(drumPatternStatusLabel);
+    // Sized to its own real (dynamic, 9-row) content height in resized()
+    // below and positioned directly in mainContent's layout flow -
+    // mainViewport provides the vertical scroll for this along with
+    // everything else, no separate viewport just for the grid.
+    mainContent.addAndMakeVisible(generatedDrumGrid);
 
     // Per-role mute row (Part 10) - a MIX control, independent of
     // generation. See PluginProcessor::setGeneratedDrumRoleMuted; role
@@ -305,7 +308,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
             ctrl.roleLabel.setText(kRoleNames[r], juce::dontSendNotification);
             ctrl.roleLabel.setFont(small());
             ctrl.roleLabel.setColour(juce::Label::textColourId, kTextDim);
-            addAndMakeVisible(ctrl.roleLabel);
+            mainContent.addAndMakeVisible(ctrl.roleLabel);
 
             ctrl.muteButton.setClickingTogglesState(true);
             ctrl.muteButton.setColour(juce::TextButton::buttonColourId,   kPanel);
@@ -314,7 +317,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
             {
                 processor.setGeneratedDrumRoleMuted(r, drumRoleMutes[(size_t) r].muteButton.getToggleState());
             };
-            addAndMakeVisible(ctrl.muteButton);
+            mainContent.addAndMakeVisible(ctrl.muteButton);
         }
     }
 
@@ -331,7 +334,7 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
             ctrl.roleLabel.setText(kVoiceNames[v], juce::dontSendNotification);
             ctrl.roleLabel.setFont(small());
             ctrl.roleLabel.setColour(juce::Label::textColourId, kTextDim);
-            addAndMakeVisible(ctrl.roleLabel);
+            mainContent.addAndMakeVisible(ctrl.roleLabel);
 
             ctrl.muteButton.setClickingTogglesState(true);
             ctrl.muteButton.setColour(juce::TextButton::buttonColourId,   kPanel);
@@ -340,32 +343,13 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
             {
                 processor.setMelodyTrackMuted(v, voiceMutes[(size_t) v].muteButton.getToggleState());
             };
-            addAndMakeVisible(ctrl.muteButton);
+            mainContent.addAndMakeVisible(ctrl.muteButton);
         }
     }
 
-    // Bass/Melody Serum2 status - reuses the existing, already-honest
-    // processor.getMelodyTrackStatus() (never fabricates a preset name).
-    serumBassStatusLabel.setFont(small());
-    serumBassStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    serumBassStatusLabel.setText("Bass - Serum 2: not loaded yet", juce::dontSendNotification);
-    addAndMakeVisible(serumBassStatusLabel);
-
-    serumMelodyStatusLabel.setFont(small());
-    serumMelodyStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    serumMelodyStatusLabel.setText("Melody - Serum 2: not loaded yet", juce::dontSendNotification);
-    addAndMakeVisible(serumMelodyStatusLabel);
-
-    serumPadStatusLabel.setFont(small());
-    serumPadStatusLabel.setColour(juce::Label::textColourId, kTextDim);
-    serumPadStatusLabel.setText("Pad - Serum 2: not loaded yet", juce::dontSendNotification);
-    addAndMakeVisible(serumPadStatusLabel);
-
-    bassMidiRangeLabel.setFont(small());
-    bassMidiRangeLabel.setColour(juce::Label::textColourId, kTextDim);
-    bassMidiRangeLabel.setText("Bass MIDI range: (not generated yet)", juce::dontSendNotification);
-    addAndMakeVisible(bassMidiRangeLabel);
-
+    // loopLengthLabel stays a direct child of the editor (not mainContent)
+    // - it moves into the fixed header row next to Generate, see
+    // resized() - always reachable without scrolling.
     loopLengthLabel.setFont(small());
     loopLengthLabel.setColour(juce::Label::textColourId, kTextDim);
     loopLengthLabel.setText(juce::String("Loop: ") + juce::String(Engine::kLoopBars) + " bars",
@@ -414,19 +398,23 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     loadReferenceButton.setVisible(kShowExperimentalFeatures);
     referenceStatusLabel.setVisible(kShowExperimentalFeatures);
 
-    // Everything below the fixed header/genre-key row scrolls as one unit —
+    // Everything below the fixed header/Generate row scrolls as one unit —
     // set up the outer viewport before adding any of its children.
+    // Always visible now (previously hidden unless kShowFullUI, back when
+    // it wrapped only the hidden manual-grid subtree - it now wraps the
+    // real, always-visible Studio content too, so it must always be
+    // visible; setShowingAdvisor still hides it while the Advisor tab is
+    // showing, see mainViewport.setVisible(!showAdvisor) below).
     mainViewport.setViewedComponent(&mainContent, false);
     mainViewport.setScrollBarsShown(true, false); // vertical only
     addAndMakeVisible(mainViewport);
-    // Manual drum grid, melody grid, and Serum 2 track panels all live
-    // inside mainContent/mainViewport - hidden together for the
-    // drum-generation milestone (see kShowFullUI). Nothing underneath is
-    // disconnected: onStepToggled/onSampleCycled/etc. still push to the
-    // processor exactly as before, and the background library/preset
-    // scans below still populate drumMachine's rows - there's just no
-    // visible surface to see or interact with them on right now.
-    mainViewport.setVisible(kShowFullUI);
+    // Manual drum grid, melody grid, and Serum 2 track panels still live
+    // inside mainContent - individually hidden for the drum-generation
+    // milestone (see kShowFullUI). Nothing underneath is disconnected:
+    // onStepToggled/onSampleCycled/etc. still push to the processor
+    // exactly as before, and the background library/preset scans below
+    // still populate drumMachine's rows - there's just no visible surface
+    // to see or interact with them on right now.
 
     mainContent.addAndMakeVisible(drumMachine);
 
@@ -730,7 +718,7 @@ void AbletonCopilotAudioProcessorEditor::resized()
 
     // Genre + key selector (shared across every melody track) - melody/
     // manual-grid infrastructure, not part of the drum-generation focus,
-    // hidden alongside mainViewport below (see kShowFullUI).
+    // hidden alongside the kShowFullUI subtree below.
     if (kShowFullUI)
     {
         auto genreRow = area.removeFromTop(26).reduced(12, 0);
@@ -742,84 +730,20 @@ void AbletonCopilotAudioProcessorEditor::resized()
         area.removeFromTop(12);
     }
 
-    // Loop-generator row - always visible (not gated by
-    // kShowExperimentalFeatures). No more DROP/BREAKDOWN mode buttons -
-    // the compact loop always plays the whole arc - just the loop-length
-    // label, then Generate, then status/diagnostics below.
-    auto modeRow = area.removeFromTop(26).reduced(12, 0);
-    loopLengthLabel.setBounds(modeRow.removeFromLeft(100));
-    area.removeFromTop(6);
-
-    auto drumEngineRow = area.removeFromTop(26).reduced(12, 0);
-    generateLoopButton.setBounds(drumEngineRow.removeFromLeft(180));
-    area.removeFromTop(6);
-
-    // Per-role mute row - one compact column per role.
-    {
-        auto muteRow = area.removeFromTop(48).reduced(12, 0);
-        const int colWidth = muteRow.getWidth() / 6;
-        for (auto& ctrl : drumRoleMutes)
-        {
-            auto col = muteRow.removeFromLeft(colWidth);
-            ctrl.roleLabel.setBounds(col.removeFromTop(20));
-            ctrl.muteButton.setBounds(col.removeFromTop(24).withWidth(40));
-        }
-    }
-    area.removeFromTop(4);
-
-    // Per-voice mute row (Bass/Melody/Pad) - same compact-column layout,
-    // narrower row since there are only 3.
-    {
-        auto voiceMuteRow = area.removeFromTop(48).reduced(12, 0);
-        const int colWidth = voiceMuteRow.getWidth() / 3;
-        for (auto& ctrl : voiceMutes)
-        {
-            auto col = voiceMuteRow.removeFromLeft(colWidth);
-            ctrl.roleLabel.setBounds(col.removeFromTop(20));
-            ctrl.muteButton.setBounds(col.removeFromTop(24).withWidth(40));
-        }
-    }
-    area.removeFromTop(6);
-
-    serumBassStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
-    serumMelodyStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
-    serumPadStatusLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
-    bassMidiRangeLabel.setBounds(area.removeFromTop(20).reduced(12, 0));
-    area.removeFromTop(4);
-
-    // The structured DRUMS/BASS/MELODY/PAD/SECTION summary - the
-    // "completely obvious what's actually loaded/playing" block, above
-    // the detailed per-role diagnostics below (kept, not replaced).
-    structuredStatusLabel.setBounds(area.removeFromTop(300).reduced(12, 0));
-    area.removeFromTop(4);
-
-    // Library-scan pipeline diagnostics (see updateLibraryScanStatusLabel)
-    // - always visible, not gated behind a Generate click, since the whole
-    // point is showing why Generate can't be clicked yet. 6 short lines.
-    libraryScanStatusLabel.setBounds(area.removeFromTop(90).reduced(12, 0));
-    area.removeFromTop(4);
-    // Sample-load diagnostic block - one compact line per role (see
-    // generateLoopClicked) instead of the earlier 4-lines-per-role
-    // layout, so 6 roles' worth of diagnostics plus everything below it
-    // (drum grid) fits in the fixed-height window without clipping (see
-    // the UI-compactness milestone).
-    drumPatternStatusLabel.setBounds(area.removeFromTop(150).reduced(12, 0));
-    area.removeFromTop(4);
-    // Fixed VISIBLE height (enough for roughly 10 rows before scrolling
-    // kicks in - the grid now has 9 real rows, kick/clap/closed hat/open
-    // hat/perc A/perc B/bass/melody/pad, so this comfortably shows all of
-    // them at once in the common case while still being a real scrollable
-    // viewport, not a hard cap, if a future row is added). generatedDrumGrid
-    // itself is sized to its own real content height every setPattern call
-    // (see applyGeneratedLoop()), not here.
-    static constexpr int kGeneratedGridVisibleHeight = 240;
-    generatedDrumGridViewport.setBounds(area.removeFromTop(kGeneratedGridVisibleHeight).reduced(12, 0));
-    generatedDrumGrid.setSize(generatedDrumGridViewport.getWidth() - generatedDrumGridViewport.getScrollBarThickness(),
-                               generatedDrumGrid.getRequiredHeight());
+    // HEADER's Generate row (goal: Generate always reachable without
+    // scrolling) - the loop-generator's one unified Generate button (no
+    // separate DROP/BREAKDOWN mode buttons anymore - the compact loop
+    // always plays the whole arc) plus the loop-length label, both moved
+    // up from the scrollable body into this fixed strip.
+    auto generateRow = area.removeFromTop(34).reduced(12, 0);
+    generateLoopButton.setBounds(generateRow.removeFromLeft(140));
+    generateRow.removeFromLeft(10);
+    loopLengthLabel.setBounds(generateRow.removeFromLeft(110));
     area.removeFromTop(8);
 
     // Reference-track row(s) - hidden while kShowExperimentalFeatures is
-    // off (same reasoning as the tab strip above).
+    // off (same reasoning as the tab strip above). Left exactly as-is -
+    // out of scope for this UI cleanup, still dead/invisible.
     if (kShowExperimentalFeatures)
     {
     auto refRow = area.removeFromTop(26).reduced(12, 0);
@@ -853,18 +777,92 @@ void AbletonCopilotAudioProcessorEditor::resized()
     area.removeFromTop(6);
     } // kShowExperimentalFeatures
 
-    // Everything else — drum grid, melody grid, Serum 2 track panels —
-    // scrolls as a single unit, sized to however much content actually
-    // exists rather than growing the window itself. Hidden for the
-    // drum-generation milestone (see kShowFullUI) - skip laying it out
-    // entirely rather than just leaving it invisible with stale bounds.
+    // ---- Everything else - mute rows, the compact STATUS summary, the
+    // PATTERN grid (main visual focus), the detailed diagnostics, and -
+    // when kShowFullUI is on - the manual drum/melody grid and Serum 2
+    // panels - scrolls as ONE unit inside mainViewport/mainContent. This
+    // is the fix for the vertical-overflow problem: previously this
+    // content had no scroll container at all (mainViewport wrapped only
+    // the kShowFullUI subtree, which is hidden by default), so the
+    // window's own fixed height had to be tall enough to show literally
+    // everything unscrolled. mainContent is now sized every call to its
+    // real summed content height (never a guess), so mainViewport's
+    // scrollbar appears only when content genuinely exceeds whatever
+    // height the host/user has given the window. ----
+    mainViewport.setBounds(area);
+    const int contentWidth = juce::jmax(200, area.getWidth() - mainViewport.getScrollBarThickness());
+    int y = 8;
+
+    // Per-role mute row - one compact column per role.
+    {
+        auto muteRow = juce::Rectangle<int>(0, y, contentWidth, 48).reduced(12, 0);
+        const int colWidth = muteRow.getWidth() / 6;
+        for (auto& ctrl : drumRoleMutes)
+        {
+            auto col = muteRow.removeFromLeft(colWidth);
+            ctrl.roleLabel.setBounds(col.removeFromTop(20));
+            ctrl.muteButton.setBounds(col.removeFromTop(24).withWidth(40));
+        }
+    }
+    y += 48 + 4;
+
+    // Per-voice mute row (Bass/Melody/Pad) - same compact-column layout,
+    // narrower row since there are only 3.
+    {
+        auto voiceMuteRow = juce::Rectangle<int>(0, y, contentWidth, 48).reduced(12, 0);
+        const int colWidth = voiceMuteRow.getWidth() / 3;
+        for (auto& ctrl : voiceMutes)
+        {
+            auto col = voiceMuteRow.removeFromLeft(colWidth);
+            ctrl.roleLabel.setBounds(col.removeFromTop(20));
+            ctrl.muteButton.setBounds(col.removeFromTop(24).withWidth(40));
+        }
+    }
+    y += 48 + 8;
+
+    // STATUS - the compact DRUMS / BASS+MELODY+PAD / SECTION block (see
+    // RuntimeStatusText.h) - 3 dense lines, not the ~23-line block this
+    // used to be; the 4 separate Serum/MIDI-range labels it duplicated
+    // are retired (same information, no longer shown twice).
+    {
+        constexpr int kStatusHeight = 58; // ~3 lines at small() + padding
+        structuredStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kStatusHeight).reduced(12, 0));
+        y += kStatusHeight + 8;
+    }
+
+    // PATTERN - the main visual focus (goal 4), right after STATUS -
+    // previously buried below two more diagnostic blocks. Sized to its
+    // own real (dynamic, 9-row) content height; its own internal
+    // horizontal-only viewport still handles the 256-step width
+    // independently of this outer vertical scroll (a legitimately
+    // necessary nested viewport - see GeneratedDrumGridComponent).
+    {
+        const int gridWidth = juce::jmax(1, contentWidth - 24);
+        generatedDrumGrid.setBounds(12, y, gridWidth, generatedDrumGrid.getRequiredHeight());
+        y += generatedDrumGrid.getHeight() + 10;
+    }
+
+    // Detailed diagnostics - kept, not deleted (goal 9), just below the
+    // grid now instead of above it - lower-priority developer detail
+    // than the compact STATUS summary, still fully reachable by
+    // scrolling, same content as before.
+    {
+        constexpr int kLibraryScanHeight = 90;
+        libraryScanStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kLibraryScanHeight).reduced(12, 0));
+        y += kLibraryScanHeight + 4;
+
+        constexpr int kDrumPatternHeight = 150;
+        drumPatternStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kDrumPatternHeight).reduced(12, 0));
+        y += kDrumPatternHeight + 8;
+    }
+
+    // The old manual drum grid/melody grid/Serum 2 track panels - still
+    // hidden behind kShowFullUI, unchanged content and sizing logic, now
+    // simply appended to the same content flow instead of being the ONLY
+    // thing mainViewport ever scrolled.
     if (kShowFullUI)
     {
-        mainViewport.setBounds(area);
-
-        const int contentWidth = juce::jmax(200, area.getWidth() - 16); // room for the vertical scrollbar
-        const int innerWidth   = contentWidth - 24;
-        int y = 12;
+        const int innerWidth = contentWidth - 24;
 
         const int drumGridHeight = DrumMachineComponent::kRowHeight * drumMachine.getNumRows();
         drumMachine.setBounds(12, y, innerWidth, drumGridHeight);
@@ -886,9 +884,9 @@ void AbletonCopilotAudioProcessorEditor::resized()
 
         addMelodyTrackButton.setBounds(12, y, 220, 26);
         y += 26 + 20;
-
-        mainContent.setSize(contentWidth, y);
     }
+
+    mainContent.setSize(contentWidth, y);
 }
 
 //==============================================================================
@@ -1514,11 +1512,12 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
     }
 
     generatedDrumGrid.setPattern(std::move(displayRows), Engine::kLoopStepsPerBar, Engine::kLoopBars);
-    // setPattern() changed the row count (now 9) - resize to the new real
-    // content height so generatedDrumGridViewport's vertical scroll range
-    // is correct immediately, not just after the next window resize.
-    generatedDrumGrid.setSize(generatedDrumGridViewport.getWidth() - generatedDrumGridViewport.getScrollBarThickness(),
-                               generatedDrumGrid.getRequiredHeight());
+    // setPattern() can change the row count - re-run the real layout
+    // (resized()) immediately so mainContent's height and
+    // mainViewport's scroll range are correct right away, not just after
+    // the next window resize (the same single source of truth as every
+    // other layout change, not a bespoke partial resize).
+    resized();
 
     // Bass (track 0), Melody (track 1), Pad (track 2) - all immediately
     // active from bar 1. Bass/Pad come from the stitched CompactLoop
@@ -1608,72 +1607,30 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
 
     drumPatternStatusLabel.setText(status, juce::dontSendNotification);
 
-    // Serum2 status - the REAL captured preset name if one exists
-        // (MelodyTrackPanel::lastConfirmedPresetName, set ONLY on a
-        // confirmed-successful capture/load - see cyclePresetForTrack/
-        // captureCurrentSound/generateForTrack - cross-checked against
-        // PluginProcessor::MelodyVoiceDiagnostics::capturedPresetActive so
-        // a UI-side bookkeeping desync can never claim a preset is loaded
-        // when Serum2 doesn't actually have it - see SerumPresetStatus.h);
-        // otherwise states PLAINLY what was actually traced this session:
-        // with no capture ever performed, a freshly-instantiated Serum2
-        // plays its own built-in factory "Init" patch - setStateInformation
-        // is only ever called from loadCapturedPreset (a user click) or a
-        // host project reload, never automatically at construction
-        // (confirmed by reading PluginProcessor.cpp's loader callback: `if
-        // (voice.pendingState.getSize() > 0)` is the ONLY place a non-
-        // default state is applied, and pendingState starts empty). Serum
-        //2's own VST program-list API is a confirmed dead end for
-        // selecting a preset by name (see the dated
-        // serum_program_list_debug.txt diagnostic - setCurrentProgram
-        // provably does not change the state bytes), so Capture remains
-        // the only legitimate mechanism - never claim a preset name we
-        // can't prove.
-        auto serumStatusFor = [&](const char* trackLabel, int trackIndex, const char* suggestions) -> juce::String
+    // Real MIDI register actually sent for the bass, computed from the
+    // EXACT stitched array just handed to setGeneratedMelodyPattern
+    // (loop.bass - the real playback data, not the pre-breakdown
+    // identity.bassMotif) using the SAME clampBassRegisterPitch()
+    // PluginProcessor's real trigger loop now applies (PluginProcessor.h)
+    // - not estimated, not assumed. Feeds into the compact BASS line
+    // below (structuredStatusLabel) - there is no longer a separate MIDI-
+    // range label duplicating this.
+    juce::String bassRangeText;
+    {
+        int bassMin = 200, bassMax = -1;
+        for (int8_t off : loop.bass)
         {
-            juce::String confirmedName;
-            if (trackIndex >= 0 && trackIndex < melodyPanels.size())
-                confirmedName = melodyPanels[trackIndex]->lastConfirmedPresetName;
-
-            const bool capturedActive = processor.getMelodyVoiceDiagnostics(trackIndex).capturedPresetActive;
-            return SerumPresetStatus::statusText(trackLabel, confirmedName, capturedActive,
-                                                  suggestions, processor.getMelodyTrackStatus(trackIndex));
-        };
-        serumBassStatusLabel.setText(
-            serumStatusFor("Bass", 0, "Melodic Techno bass (e.g. PML BS Rolling Close / PML BS Sub Particles / PML BS Reese Fall)"),
-            juce::dontSendNotification);
-        serumMelodyStatusLabel.setText(
-            serumStatusFor("Melody", 1, "Melodic Techno lead"),
-            juce::dontSendNotification);
-        serumPadStatusLabel.setText(
-            serumStatusFor("Pad", 2, "Melodic Techno pad/atmosphere (e.g. PML Tops & Atmo Loops / Ambience & Atmo Loops)"),
-            juce::dontSendNotification);
-
-        // Real MIDI register actually sent for the bass, computed from the
-        // EXACT stitched array just handed to setGeneratedMelodyPattern
-        // (loop.bass - the real playback data, not the pre-breakdown
-        // identity.bassMotif) using the SAME clampBassRegisterPitch()
-        // PluginProcessor's real trigger loop now applies
-        // (PluginProcessor.h) - not estimated, not assumed, and can no
-        // longer drift out of sync with what's actually played the way
-        // the old unclamped formula could.
-        juce::String bassRangeText;
-        {
-            int bassMin = 200, bassMax = -1;
-            for (int8_t off : loop.bass)
-            {
-                if (off == Engine::kBassOffValue)
-                    continue;
-                const int pitch = juce::jlimit(0, 127, clampBassRegisterPitch(36 + keyRoot + (int) off));
-                bassMin = juce::jmin(bassMin, pitch);
-                bassMax = juce::jmax(bassMax, pitch);
-            }
-            bassRangeText = bassMax >= 0
-                ? juce::MidiMessage::getMidiNoteName(bassMin, true, true, 3) + " - "
-                  + juce::MidiMessage::getMidiNoteName(bassMax, true, true, 3)
-                : juce::String("(no notes)");
-            bassMidiRangeLabel.setText("Bass MIDI range: " + bassRangeText, juce::dontSendNotification);
+            if (off == Engine::kBassOffValue)
+                continue;
+            const int pitch = juce::jlimit(0, 127, clampBassRegisterPitch(36 + keyRoot + (int) off));
+            bassMin = juce::jmin(bassMin, pitch);
+            bassMax = juce::jmax(bassMax, pitch);
         }
+        bassRangeText = bassMax >= 0
+            ? juce::MidiMessage::getMidiNoteName(bassMin, true, true, 3) + " - "
+              + juce::MidiMessage::getMidiNoteName(bassMax, true, true, 3)
+            : juce::String("(no notes)");
+    }
 
     // The structured DRUMS/BASS/MELODY/PAD/SECTION block itself
     // (RuntimeStatusText.h) - built from exactly the same real diagnostic
@@ -1696,7 +1653,7 @@ void AbletonCopilotAudioProcessorEditor::applyGeneratedLoop()
         bassLine.label      = "BASS";
         bassLine.presetLine = SerumPresetStatus::compactPresetLine(confirmedNameFor(0),
                                    processor.getMelodyVoiceDiagnostics(0).capturedPresetActive);
-        bassLine.extraLine  = "MIDI range: " + bassRangeText;
+        bassLine.extraLine  = "MIDI " + bassRangeText;
         bassLine.active     = processor.getMelodyVoiceDiagnostics(0).generatedPatternActive;
         voices.push_back(bassLine);
 

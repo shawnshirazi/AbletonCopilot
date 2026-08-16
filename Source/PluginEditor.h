@@ -291,12 +291,13 @@ private:
     juce::Label       drumPatternStatusLabel;
     // Read-only display of the generated pattern, fed the exact same data
     // as processor.setGeneratedDrumPattern() - see generateLoopClicked().
-    // Now 9 rows (6 drum roles + Bass/Melody/Pad) - sized to its own real
-    // content height (getRequiredHeight()) and placed inside
-    // generatedDrumGridViewport for vertical scroll, rather than the
-    // previous fixed 6-row height with no way to see more rows.
+    // 9 rows (6 drum roles + Bass/Melody/Pad) - sized to its own real
+    // content height (getRequiredHeight()) and placed directly in
+    // mainContent's layout flow; mainViewport (below) provides the
+    // vertical scroll for this AND everything else in the Studio tab as
+    // one unit - no separate viewport just for this component anymore
+    // (avoid nested Viewports unless necessary - see resized()).
     GeneratedDrumGridComponent generatedDrumGrid;
-    juce::Viewport             generatedDrumGridViewport;
 
     // Loop-generator mute row: independent per-role MIX control (Part 10 of
     // the loop-generator brief) - never touches the stored pattern, see
@@ -317,14 +318,10 @@ private:
     // touches stored pattern/sample-selection state.
     std::array<DrumRoleMuteControl, 3> voiceMutes;
 
-    // Serum2 status for the loop workflow's two always-present voices
-    // (track 0 = Bass, track 1 = Melody) - reuses the existing, already-
-    // honest processor.getMelodyTrackStatus() (never fabricates a preset
-    // name) for both.
-    juce::Label serumBassStatusLabel;
-    juce::Label serumMelodyStatusLabel;
-    juce::Label serumPadStatusLabel; // same honesty contract as Bass/Melody - see SerumPresetStatus.h
-    juce::Label bassMidiRangeLabel; // real, computed-not-assumed MIDI register of the just-generated bass - see the reference-analysis report's Part 1
+    // Per-voice Serum2 status (Bass/Melody/Pad) and the bass MIDI range
+    // are no longer separate labels - all of that information already
+    // lives in structuredStatusLabel's compact BASS/MELODY/PAD line (see
+    // RuntimeStatusText.h) - keeping both was pure duplication.
     juce::Label loopLengthLabel;
 
     juce::TextButton  loadReferenceButton  { "Load Reference Track..." };
@@ -349,12 +346,15 @@ private:
     // part of mainContent inside mainViewport.
     juce::Label serumTracksHeadingLabel;
 
-    // Everything below the fixed header/genre-key row lives in mainContent,
-    // sized to its actual needed height and scrolled as one unit by
-    // mainViewport — a single vertical scroll for the whole plugin rather
-    // than several independent nested ones, and it keeps the window itself
-    // at a fixed, reasonable size regardless of how much content exists
-    // (drum row count, melody track count, Serum 2 panel count).
+    // Everything below the fixed header/Generate row lives in mainContent,
+    // sized every resized() call to its actual needed height (mute rows +
+    // compact status + the pattern grid + diagnostics, and - when
+    // kShowFullUI is on - the manual drum/melody grid and Serum 2 panels)
+    // and scrolled as one unit by mainViewport — a single vertical scroll
+    // for the whole Studio tab rather than several independent nested
+    // ones, so the window itself can stay a reasonable default size
+    // regardless of how much content exists, with a real scrollbar
+    // appearing only when content genuinely exceeds the visible area.
     juce::Viewport  mainViewport;
     juce::Component mainContent;
 

@@ -90,7 +90,14 @@ private:
         GeneratedDrumGridComponent& owner;
     };
 
-    static constexpr int kStepWidth = 8;
+    // 6px/step (was 8) - real width reduction so the 256-step/16-bar grid
+    // is 1536px instead of 2048px, less horizontal scrolling in a compact
+    // plugin window while cells stay legibly visible (still an even,
+    // clean pixel width, same shading logic) - full elimination of
+    // horizontal scroll isn't realistic at this step resolution without
+    // making cells illegibly thin, same tradeoff most DAW step-sequencer/
+    // piano-roll UIs make.
+    static constexpr int kStepWidth = 6;
 
     std::vector<RowDisplay> rows;
     int stepsPerBar = 16;
