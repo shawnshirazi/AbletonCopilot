@@ -95,6 +95,7 @@ AbletonCopilotAudioProcessor::AbletonCopilotAudioProcessor()
     juce::addDefaultFormatsToManager(pluginFormatManager);
     addMelodyTrack(); // track 0 — always present by default (the "Bass" voice) - starts loadSerum() on a background thread, does not block here
     addMelodyTrack(); // track 1 — always present by default (the "Melody" voice, loop-generator workflow) - so its Serum2 instance is already loading before the user ever clicks Generate, per "the generated bass workflow should use the captured/known Serum 2 state immediately rather than waiting"
+    addMelodyTrack(); // track 2 — always present by default (the "Pad" voice, Engine::BreakdownArrangement's dedicated breakdown melodic/harmonic material) - same reasoning as tracks 0/1: its Serum2 instance should already be loading, not waiting for the first Generate click
 
     for (auto& muted : generatedDrumRoleMuted)
         muted.store(false, std::memory_order_relaxed);
@@ -1225,7 +1226,16 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                                                                : localMelody[(size_t) wrappedStep];
                     if (offset != kMelodyOffValue && audible)
                     {
-                        const int pitch = juce::jlimit(0, 127, 36 + localMelodyRoot + offset);
+                        int pitch = 36 + localMelodyRoot + offset;
+                        // Bass (track 0) only - see clampBassRegisterPitch's
+                        // own comment (PluginProcessor.h) for the full
+                        // rationale. Melody/Pad (other tracks) are
+                        // unaffected - only bass had this specific
+                        // complaint and only bass needs a low, restrained
+                        // register.
+                        if (t == 0)
+                            pitch = clampBassRegisterPitch(pitch);
+                        pitch = juce::jlimit(0, 127, pitch);
                         serumMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), 0);
                         voice.noteOn        = true;
                         voice.soundingPitch = pitch;

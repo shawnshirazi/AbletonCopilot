@@ -13,11 +13,18 @@
 // here would either have nowhere to show anything (no local Kick/Clap/Hat/
 // Perc samples) or make a cell mean two different things at once.
 //
-// Six fixed rows (Kick/Clap/HatClosed/HatOpen/PercA/PercB, matching
-// Engine::DrumRole / DrumVoiceSynth 1:1) are always shown regardless of
-// the user's sample library. Velocity is shown as cell shade: darker =
-// stronger, lighter = softer (see GridContent::paint) - a small legend
-// along the bottom explains the scale.
+// Rows are dynamic (see setPattern) - originally always exactly the 6
+// Engine::DrumRole rows (Kick/Clap/HatClosed/HatOpen/PercA/PercB); now
+// also fed Bass/Melody/Pad rows (their offset/gate arrays converted to a
+// simple active-step "velocity" by the caller - see PluginEditor) so the
+// whole generated loop is visible in one place. The caller is responsible
+// for sizing this component to getRequiredHeight() and placing it inside
+// a vertical-scrolling juce::Viewport (see PluginEditor::
+// generatedDrumGridViewport) - "additional rows caused scrolling
+// problems" previously because this component always claimed a FIXED
+// 6-row height with nowhere to scroll to see more. Velocity is shown as
+// cell shade: darker = stronger, lighter = softer (see GridContent::
+// paint) - a small legend along the bottom explains the scale.
 class GeneratedDrumGridComponent : public juce::Component
 {
 public:
@@ -57,11 +64,12 @@ public:
     static constexpr int kHeaderWidth  = 62;
     static constexpr int kLegendHeight = 20;
 
-    // Total height needed for a fixed number of rows (6 - Kick/Clap/
-    // HatClosed/HatOpen/PercA/PercB) plus the legend, for the owner's
-    // layout code.
-    static constexpr int kFixedRowCount     = 6;
-    static constexpr int kRequiredHeight    = kRowHeight * kFixedRowCount + kLegendHeight;
+    // Total height needed for however many rows are CURRENTLY displayed
+    // (see setPattern) plus the legend - dynamic, not a fixed constant,
+    // since the row count is no longer fixed at 6. The owner sizes this
+    // component to this height and places it inside its own
+    // vertical-scrolling juce::Viewport.
+    int getRequiredHeight() const noexcept { return kRowHeight * (int) rows.size() + kLegendHeight; }
 
 private:
     class GridContent : public juce::Component

@@ -30,6 +30,7 @@
             file="Source/DrumMachineComponent.h"/>
       <FILE id="Ui1hdr" name="UIStyle.h" compile="0" resource="0" file="Source/UIStyle.h"/>
       <FILE id="Sps1hdr" name="SerumPresetStatus.h" compile="0" resource="0" file="Source/SerumPresetStatus.h"/>
+      <FILE id="Rst1hdr" name="RuntimeStatusText.h" compile="0" resource="0" file="Source/RuntimeStatusText.h"/>
       <FILE id="Mc1hdr" name="MelodyCategory.h" compile="0" resource="0"
             file="Source/MelodyCategory.h"/>
       <FILE id="Rh1hdr" name="RowHeaderWidgets.h" compile="0" resource="0"

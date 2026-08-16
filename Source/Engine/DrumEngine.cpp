@@ -281,11 +281,24 @@ namespace Engine
         // hasn't entered yet" arrangement decision, not a density
         // rounding-to-zero accident - and enters at moderate presence from
         // the develop section.
+        // Values below were reduced (~25-30%) from an earlier pass in
+        // direct response to real listening feedback: "hats/perc still too
+        // busy," even though the generated output already measured BELOW
+        // the corpus's own mean activity (drum_grammar.json HAT.mean_
+        // onsets_per_bar=6.86 vs generated ~4.08/bar at the old values) -
+        // per melodic_techno_research.md section 13's own warning, matching
+        // a measured average is not the same as sounding intentional; real
+        // tracks read as restrained because of contrast/negative space, not
+        // because they hit a specific event count. This is a disclosed
+        // subjective tuning response, not a new measurement - the relative
+        // establish<develop<increase<fullDrop arc shape (the actual
+        // "groove intensifies through the drop" story) is preserved
+        // exactly, only the absolute levels are pulled back.
         struct StageEnergy { float hatClosed, hatOpen, percA, percB; };
-        constexpr StageEnergy kEstablish { 0.55f, 0.10f, 0.65f, 0.00f };
-        constexpr StageEnergy kDevelop   { 0.70f, 0.25f, 0.85f, 0.45f };
-        constexpr StageEnergy kIncrease  { 0.90f, 0.55f, 1.00f, 0.80f };
-        constexpr StageEnergy kFullDrop  { 1.05f, 0.75f, 1.15f, 1.05f };
+        constexpr StageEnergy kEstablish { 0.40f, 0.10f, 0.45f, 0.00f };
+        constexpr StageEnergy kDevelop   { 0.50f, 0.20f, 0.55f, 0.30f };
+        constexpr StageEnergy kIncrease  { 0.65f, 0.40f, 0.65f, 0.55f };
+        constexpr StageEnergy kFullDrop  { 0.80f, 0.55f, 0.75f, 0.70f };
 
         struct StageBlocks { StepArray hatClosed, hatOpen, percA, percB; };
 

@@ -119,6 +119,14 @@ namespace Engine
             return { PackTier::OtherElectronic, "Toolroom Essential Techno" };
         if (has(t, "acid", "techno"))
             return { PackTier::OtherElectronic, "Acid Techno" };
+        // "Electro x Tech" is a real, previously-unclassified pack found
+        // during this session's library audit - generic electro/tech
+        // techno, not confirmed Melodic Techno-branded and not confirmed
+        // off-genre (Tech House etc.) either, so neutral Tier 3 rather
+        // than a guess in either direction (same treatment as the other
+        // explicit Tier 3 entries above).
+        if (has(t, "electro") && has(t, "tech"))
+            return { PackTier::OtherElectronic, "Electro x Tech + Warehouse Vocals" };
 
         // Unmatched/unreviewed pack - neutral default, not a penalty.
         return { PackTier::OtherElectronic, "" };

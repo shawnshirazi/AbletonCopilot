@@ -73,6 +73,13 @@ namespace Engine
     // output (no RNG beyond a deterministic seed-derived stream, no
     // mutation) - same guarantee as Engine::renderMode(), required for
     // "the same generated loop is repeatable when the loop restarts."
+    // barsOverride lets a caller ask for a phase's content at a DIFFERENT
+    // length than the standalone 32-bar grammar's own kBreakdownEntryBars/
+    // kBreakdownBodyBars/kPreDropBars constants (see generateCompactLoop
+    // below, which embeds a compressed Entry/Body/PreDrop span inside one
+    // 16-bar loop) - the character (sustained vs. tension-building etc.)
+    // stays the same, only the bar count changes.
+    BreakdownRenderedLoop renderBreakdownPhase(const MusicIdentity& identity, BreakdownPhase phase, int barsOverride);
     BreakdownRenderedLoop renderBreakdownPhase(const MusicIdentity& identity, BreakdownPhase phase);
 
     // Exposed directly (not just through renderBreakdownPhase) so tests
@@ -81,5 +88,54 @@ namespace Engine
     // BassEngine.cpp/BassArchetype.cpp ('BASS'/'ARCH') already use for
     // independent-but-deterministic per-subsystem RNG streams from one
     // shared MusicIdentity seed.
+    PadMotif generateBreakdownPad(uint32_t seed, BreakdownPhase phase, int barsOverride);
     PadMotif generateBreakdownPad(uint32_t seed, BreakdownPhase phase);
+
+    // ------------------------------------------------------------------
+    // The single 16-bar "hear the whole arc on one Generate click" loop -
+    // the actual playback-facing shape, built by STITCHING (not
+    // regenerating) the existing, untouched Drop pattern with a
+    // compressed Entry/Body/PreDrop breakdown span:
+    //
+    //   bars 0-7  (steps 0-127):   DROP - identity.drumMotif/bassMotif's
+    //                              own bars 0-7, byte-identical, untouched
+    //   bar  8    (steps 128-143): BREAK_ENTRY (1 bar)
+    //   bars 9-11 (steps 144-191): BREAK_BODY (3 bars)
+    //   bars 12-15(steps 192-255): PRE_DROP (4 bars)
+    //   (the loop wrapping back to bar 0 IS the drop-return - no separate
+    //    transition step needed)
+    //
+    // This compresses the full research-measured 8/16/8-bar grammar down
+    // to fit one 16-bar loop - a disclosed design necessity for "GENERATE
+    // -> immediately hear the complete loop," not a claim that 1/3/4 bars
+    // is itself a measured proportion.
+    enum class CompactSection { Drop, BreakEntry, BreakBody, PreDrop };
+
+    constexpr int kCompactLoopBars       = 16;
+    constexpr int kCompactDropBars       = 8;
+    constexpr int kCompactEntryBars      = 1;
+    constexpr int kCompactBodyBars       = 3;
+    constexpr int kCompactPreDropBars    = 4;
+
+    // bar: 0-based bar index within the 16-bar compact loop (wraps via
+    // modulo internally, so any bar/step derived from a wrapped playhead
+    // position is safe to pass directly).
+    CompactSection compactSectionForBar(int bar);
+
+    struct CompactLoop
+    {
+        DropPattern          drum;                // 256 steps - Drop bars 0-7, muted-role-zeroed bars 8-15
+        std::vector<int8_t>  bass;                 // 256 steps - Drop bars 0-7, off bars 8-15
+        std::vector<int8_t>  bassGateLengthSteps;   // 256 steps, parallel to bass
+        PadMotif              pad;                  // 256 steps - off bars 0-7, breakdown content bars 8-15
+    };
+
+    // Pure function: same identity always produces the same CompactLoop
+    // (same guarantee as generateMusicIdentity/renderMode/
+    // renderBreakdownPhase - required for "the same generated loop is
+    // repeatable when the loop restarts"). Calls no DrumEngine.cpp/
+    // BassEngine.cpp/MusicIdentity.cpp generation function beyond what
+    // identity already contains - bars 0-7 are proven unmodified by
+    // construction (see test_breakdown_arrangement.cpp).
+    CompactLoop generateCompactLoop(const MusicIdentity& identity);
 }

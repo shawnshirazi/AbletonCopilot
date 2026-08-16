@@ -17,6 +17,7 @@
 #include "../MelodyGridComponent.h"
 #include "../Engine/tests/TestSupport.h"
 #include <cstdio>
+#include <cstdlib>
 
 namespace
 {
@@ -188,6 +189,41 @@ int main()
             }
         }
         CHECK(activeInBar0);
+    }
+
+    // ---- Bass register clamp (section 12's explicit "bass stays low"
+    // ask, and the "previous problem where the bass jumped into high
+    // octaves must not return" requirement) - clampBassRegisterPitch
+    // (PluginProcessor.h) must keep every real keyRoot(0-11)/offset(the
+    // full -7..+7 archetype range, plus some margin) combination inside
+    // the fixed F1-C3 band, and must do so by octave-WRAPPING (preserving
+    // pitch class), never by truncating to a single note. ----
+    {
+        constexpr int kBassRegisterMin = 29, kBassRegisterMax = 48;
+        bool everyPitchInBand = true;
+        bool everyPitchClassPreserved = true;
+        for (int keyRoot = 0; keyRoot <= 11; ++keyRoot)
+        {
+            for (int offset = -12; offset <= 12; ++offset) // wider than the real ±7 archetype range, as a margin
+            {
+                const int raw     = 36 + keyRoot + offset;
+                const int clamped = clampBassRegisterPitch(raw);
+                if (clamped < kBassRegisterMin || clamped > kBassRegisterMax)
+                    everyPitchInBand = false;
+                if (((clamped % 12) + 12) % 12 != ((raw % 12) + 12) % 12)
+                    everyPitchClassPreserved = false;
+            }
+        }
+        CHECK(everyPitchInBand);
+        CHECK(everyPitchClassPreserved);
+
+        // The exact real-world case that motivated this fix: the same
+        // seed/archetype/offset at two different keys must now land in
+        // the SAME register (previously key=B could sit a full 1.5
+        // octaves above key=C for identical bass content).
+        const int keyC_offsetLow  = clampBassRegisterPitch(36 + 0  + (-7)); // key=C, offset=-7
+        const int keyB_offsetHigh = clampBassRegisterPitch(36 + 11 + (+7)); // key=B, offset=+7
+        CHECK(std::abs(keyC_offsetLow - keyB_offsetHigh) <= (kBassRegisterMax - kBassRegisterMin));
     }
 
     tempDir.deleteRecursively();

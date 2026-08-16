@@ -39,6 +39,17 @@ namespace SerumPresetStatus
              + fallbackStatus;
     }
 
+    // Same honesty gate, terse form for the structured DRUMS/BASS/MELODY/
+    // PAD/SECTION status block (RuntimeStatusText.h) - explicit
+    // "FACTORY INIT — NO CAPTURE" rather than the longer suggestion text,
+    // per the exact phrasing requested for that display.
+    inline juce::String compactPresetLine(const juce::String& confirmedName, bool capturedPresetActive)
+    {
+        if (confirmedName.isNotEmpty() && capturedPresetActive)
+            return confirmedName;
+        return juce::String("FACTORY INIT \xe2\x80\x94 NO CAPTURE"); // em-dash, see titleText's own comment
+    }
+
     // Same honesty gate, for MelodyTrackPanel's own title label (which has
     // no per-track "suggestions"/fallback text - just a plain name-or-
     // placeholder).

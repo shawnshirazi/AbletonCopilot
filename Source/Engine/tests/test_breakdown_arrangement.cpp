@@ -254,5 +254,201 @@ int main()
         CHECK(barsInPhase(BreakdownPhase::PreDrop) == kPreDropBars);
     }
 
+    // ==================================================================
+    // CompactLoop - the actual 16-bar "hear the whole arc on one Generate
+    // click" loop. Every property below maps directly to the user's own
+    // section-12 test list.
+    // ==================================================================
+
+    // ---- compactSectionForBar boundaries ----
+    {
+        CHECK(compactSectionForBar(0) == CompactSection::Drop);
+        CHECK(compactSectionForBar(kCompactDropBars - 1) == CompactSection::Drop);
+        CHECK(compactSectionForBar(kCompactDropBars) == CompactSection::BreakEntry);
+        CHECK(compactSectionForBar(kCompactDropBars + kCompactEntryBars) == CompactSection::BreakBody);
+        CHECK(compactSectionForBar(kCompactDropBars + kCompactEntryBars + kCompactBodyBars - 1) == CompactSection::BreakBody);
+        CHECK(compactSectionForBar(kCompactDropBars + kCompactEntryBars + kCompactBodyBars) == CompactSection::PreDrop);
+        CHECK(compactSectionForBar(kCompactLoopBars - 1) == CompactSection::PreDrop);
+        // Wraps correctly for out-of-range/negative bars (matches the same
+        // wrap idiom PluginProcessor's own step math already uses).
+        CHECK(compactSectionForBar(kCompactLoopBars) == CompactSection::Drop);
+        CHECK(compactSectionForBar(-1) == CompactSection::PreDrop);
+    }
+
+    // ---- Property: DROP behavior unchanged - bars 0-7 of the compact
+    // loop are byte-identical to the identity's own unmodified drumMotif/
+    // bassMotif. This is the strongest possible proof CompactLoop doesn't
+    // touch DROP: not "the values look similar," literal byte equality
+    // against the exact same generateDrop()/generateBassLoop16() output
+    // the shipped Drop path already uses. ----
+    {
+        const int dropSteps = kCompactDropBars * kBreakdownStepsPerBar; // 128
+        for (uint32_t seed = 1; seed < 30; ++seed)
+        {
+            const MusicIdentity id = makeIdentity(seed);
+            const CompactLoop loop = generateCompactLoop(id);
+
+            for (int s = 0; s < dropSteps; ++s)
+            {
+                CHECK(loop.drum.kick[(size_t) s].active == id.drumMotif.kick[(size_t) s].active);
+                CHECK(loop.drum.kick[(size_t) s].velocity == id.drumMotif.kick[(size_t) s].velocity);
+                CHECK(loop.drum.clap[(size_t) s].active == id.drumMotif.clap[(size_t) s].active);
+                CHECK(loop.drum.hatClosed[(size_t) s].active == id.drumMotif.hatClosed[(size_t) s].active);
+                CHECK(loop.bass[(size_t) s] == id.bassMotif[(size_t) s]);
+            }
+            CHECK(loop.drum.kick.size() == id.drumMotif.kick.size());
+        }
+    }
+
+    // ---- Property: kick/sub remain absent during the breakdown span
+    // (bars 8-15) - every muted-role velocity is exactly zero there. ----
+    {
+        const int breakdownStart = kCompactDropBars * kBreakdownStepsPerBar; // 128
+        const int totalSteps = kCompactLoopBars * kBreakdownStepsPerBar;     // 256
+        for (uint32_t seed = 1; seed < 30; ++seed)
+        {
+            const MusicIdentity id = makeIdentity(seed);
+            const CompactLoop loop = generateCompactLoop(id);
+
+            for (int s = breakdownStart; s < totalSteps; ++s)
+            {
+                CHECK(loop.drum.kick[(size_t) s].active == false);
+                CHECK(loop.drum.hatClosed[(size_t) s].active == false);
+                CHECK(loop.drum.hatOpen[(size_t) s].active == false);
+                CHECK(loop.drum.percA[(size_t) s].active == false);
+                CHECK(loop.drum.percB[(size_t) s].active == false);
+                CHECK(loop.bass[(size_t) s] == kBassOffValue);
+            }
+        }
+    }
+
+    // ---- Property: breakdown introduces dedicated melodic material -
+    // the pad has real content ONLY in bars 8-15, silent in bars 0-7
+    // (where the Drop groove itself is the focus). ----
+    {
+        const int breakdownStart = kCompactDropBars * kBreakdownStepsPerBar;
+        for (uint32_t seed = 1; seed < 30; ++seed)
+        {
+            const MusicIdentity id = makeIdentity(seed);
+            const CompactLoop loop = generateCompactLoop(id);
+
+            for (int s = 0; s < breakdownStart; ++s)
+                CHECK(loop.pad.pitchOffsets[(size_t) s] == kPadOffValue);
+
+            int activeInBreakdown = 0;
+            for (int s = breakdownStart; s < (int) loop.pad.pitchOffsets.size(); ++s)
+                if (loop.pad.pitchOffsets[(size_t) s] != kPadOffValue)
+                    ++activeInBreakdown;
+            CHECK(activeInBreakdown > 0);
+        }
+    }
+
+    // ---- Property: same generated loop is repeatable when the loop
+    // restarts - generateCompactLoop called twice on the same identity
+    // produces byte-identical output. ----
+    {
+        for (uint32_t seed = 1; seed < 20; ++seed)
+        {
+            const MusicIdentity id = makeIdentity(seed);
+            const CompactLoop a = generateCompactLoop(id);
+            const CompactLoop b = generateCompactLoop(id);
+            CHECK(stepArraysEqual(a.drum.kick, b.drum.kick));
+            CHECK(stepArraysEqual(a.drum.hatClosed, b.drum.hatClosed));
+            CHECK(a.bass == b.bass);
+            CHECK(a.pad.pitchOffsets == b.pad.pitchOffsets);
+            CHECK(a.pad.gateLengthSteps == b.pad.gateLengthSteps);
+        }
+    }
+
+    // ---- Property: array lengths are exactly 256 steps (16 bars) -
+    // matches kLoopTotalSteps, so this drops straight into the existing
+    // setGeneratedDrumPattern/setGeneratedMelodyPattern step-wrap math
+    // with no length mismatch. ----
+    {
+        const MusicIdentity id = makeIdentity(7);
+        const CompactLoop loop = generateCompactLoop(id);
+        CHECK((int) loop.drum.kick.size() == kLoopTotalSteps);
+        CHECK((int) loop.bass.size() == kLoopTotalSteps);
+        CHECK((int) loop.bassGateLengthSteps.size() == kLoopTotalSteps);
+        CHECK((int) loop.pad.pitchOffsets.size() == kLoopTotalSteps);
+        CHECK((int) loop.pad.gateLengthSteps.size() == kLoopTotalSteps);
+    }
+
+    // ==================================================================
+    // Section-12 explicit ask: "calculate DROP density, BREAKDOWN density,
+    // PRE_DROP density and verify the musical energy arc" - a real,
+    // printed, asserted density-per-section measurement across many
+    // seeds, not just the earlier all-zero/non-zero checks.
+    // ==================================================================
+    {
+        auto countActive = [](const StepArray& s, int fromStep, int toStep)
+        {
+            int n = 0;
+            for (int i = fromStep; i < toStep; ++i)
+                if (s[(size_t) i].active) ++n;
+            return n;
+        };
+        auto countActiveInt8 = [](const std::vector<int8_t>& s, int8_t off, int fromStep, int toStep)
+        {
+            int n = 0;
+            for (int i = fromStep; i < toStep; ++i)
+                if (s[(size_t) i] != off) ++n;
+            return n;
+        };
+
+        const int dropStart = 0, dropEnd = kCompactDropBars * kBreakdownStepsPerBar;                       // 0-127
+        const int breakdownStart = dropEnd, breakdownEnd = breakdownStart + (kCompactEntryBars + kCompactBodyBars) * kBreakdownStepsPerBar; // 128-191
+        const int preDropStart = breakdownEnd, preDropEnd = kLoopTotalSteps;                                // 192-255
+
+        int64_t dropTotal = 0, breakdownTotal = 0, preDropTotal = 0;
+        int64_t dropPad = 0, breakdownPad = 0, preDropPad = 0;
+        const int seeds = 30;
+
+        for (uint32_t seed = 1; seed <= (uint32_t) seeds; ++seed)
+        {
+            const MusicIdentity id = makeIdentity(seed);
+            const CompactLoop loop = generateCompactLoop(id);
+
+            auto rhythmicDensity = [&](int from, int to)
+            {
+                return countActive(loop.drum.kick, from, to) + countActive(loop.drum.clap, from, to)
+                     + countActive(loop.drum.hatClosed, from, to) + countActive(loop.drum.hatOpen, from, to)
+                     + countActive(loop.drum.percA, from, to) + countActive(loop.drum.percB, from, to)
+                     + countActiveInt8(loop.bass, kBassOffValue, from, to);
+            };
+
+            dropTotal      += rhythmicDensity(dropStart, dropEnd);
+            breakdownTotal += rhythmicDensity(breakdownStart, breakdownEnd);
+            preDropTotal   += rhythmicDensity(preDropStart, preDropEnd);
+
+            dropPad      += countActiveInt8(loop.pad.pitchOffsets, kPadOffValue, dropStart, dropEnd);
+            breakdownPad += countActiveInt8(loop.pad.pitchOffsets, kPadOffValue, breakdownStart, breakdownEnd);
+            preDropPad   += countActiveInt8(loop.pad.pitchOffsets, kPadOffValue, preDropStart, preDropEnd);
+        }
+
+        const double dropMean      = (double) dropTotal / seeds;
+        const double breakdownMean = (double) breakdownTotal / seeds;
+        const double preDropMean   = (double) preDropTotal / seeds;
+
+        std::printf("Rhythmic density (kick+clap+hat+perc+bass active steps), mean over %d seeds:\n", seeds);
+        std::printf("  DROP (bars 1-%d):      %.1f\n", kCompactDropBars, dropMean);
+        std::printf("  BREAKDOWN (bars %d-%d): %.1f\n", kCompactDropBars + 1, kCompactDropBars + kCompactEntryBars + kCompactBodyBars, breakdownMean);
+        std::printf("  PRE_DROP (bars %d-%d): %.1f\n", kCompactDropBars + kCompactEntryBars + kCompactBodyBars + 1, kCompactLoopBars, preDropMean);
+        std::printf("Pad density (active steps), mean over %d seeds: DROP=%.1f BREAKDOWN=%.1f PRE_DROP=%.1f\n",
+                     seeds, (double) dropPad / seeds, (double) breakdownPad / seeds, (double) preDropPad / seeds);
+
+        // The actual musical energy arc this whole pass was built to
+        // produce: DROP is clearly the densest rhythmic section (real
+        // groove), BREAKDOWN and PRE_DROP are both clearly less dense
+        // rhythmically (kick/hat/perc/bass muted - clap alone can't close
+        // more than a fraction of the gap), while the PAD is exactly
+        // inverted (silent in DROP, present only in BREAKDOWN/PRE_DROP).
+        CHECK(dropMean > breakdownMean * 2.0);   // "substantially less rhythmic activity"
+        CHECK(dropMean > preDropMean * 2.0);
+        CHECK(dropPad == 0);                     // pad never sounds during DROP
+        CHECK(breakdownPad > 0);
+        CHECK(preDropPad > 0);
+    }
+
     TEST_SUMMARY_AND_EXIT();
 }

@@ -6,6 +6,26 @@
 #include "Engine/DrumVoiceSynth.h"
 #include "StartupTiming.h"
 
+// Bass register clamp - octave-WRAPS (not truncates) a raw computed pitch
+// into a fixed low register regardless of key, fixing the diagnosed
+// register-drift bug (keyRoot(0-11) + offset(-7..+7) combining into the
+// same base with no clamp let the SAME archetype/seed land anywhere from
+// F1 to F#3 purely from key choice). Wrapping by octave preserves which
+// note plays (the pitch class) while forcing a consistent register - see
+// MLPipeline/musical_target/melodic_techno_research.md section 11.5 for
+// the real absolute-register evidence this band is anchored to. Shared
+// between PluginProcessor's real trigger loop and PluginEditor's
+// bassMidiRangeLabel diagnostic so the displayed range can never drift
+// out of sync with what's actually played.
+inline int clampBassRegisterPitch(int rawPitch)
+{
+    constexpr int kBassRegisterMin = 29; // F1
+    constexpr int kBassRegisterMax = 48; // C3
+    while (rawPitch > kBassRegisterMax) rawPitch -= 12;
+    while (rawPitch < kBassRegisterMin) rawPitch += 12;
+    return rawPitch;
+}
+
 // Parameters for the master-bus correction chain.
 // Computed by the editor from analysis results, applied by the processor in processBlock.
 struct CorrectionParams
