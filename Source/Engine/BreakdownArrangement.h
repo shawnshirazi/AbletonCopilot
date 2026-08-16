@@ -94,21 +94,32 @@ namespace Engine
     // ------------------------------------------------------------------
     // The single 16-bar "hear the whole arc on one Generate click" loop -
     // the actual playback-facing shape, built by STITCHING (not
-    // regenerating) the existing, untouched Drop pattern with a
-    // compressed Entry/Body/PreDrop breakdown span:
+    // regenerating) the existing Drop pattern with a compressed
+    // Entry/Body/PreDrop breakdown span:
     //
-    //   bars 0-7  (steps 0-127):   DROP - identity.drumMotif/bassMotif's
-    //                              own bars 0-7, byte-identical, untouched
+    //   bars 0-7  (steps 0-127):   DROP - bassMotif's own bars 0-7,
+    //                              byte-identical, untouched; drumMotif's
+    //                              own 4-stage Establish/Develop/Increase/
+    //                              FullDrop arc (which spans generateDrop()'s
+    //                              full 16 bars) compressed 2-bars-per-stage
+    //                              into this 8-bar span (see
+    //                              compressDropArcInto, BreakdownArrangement.cpp)
+    //                              so the played loop actually reaches
+    //                              full-drop drum energy, not just
+    //                              Establish+Develop - a fix for the
+    //                              stage-arc-truncation bug documented in
+    //                              MLPipeline/musical_target/
+    //                              sound_and_rhythm_diagnostic_pass4.md
     //   bar  8    (steps 128-143): BREAK_ENTRY (1 bar)
     //   bars 9-11 (steps 144-191): BREAK_BODY (3 bars)
     //   bars 12-15(steps 192-255): PRE_DROP (4 bars)
     //   (the loop wrapping back to bar 0 IS the drop-return - no separate
     //    transition step needed)
     //
-    // This compresses the full research-measured 8/16/8-bar grammar down
-    // to fit one 16-bar loop - a disclosed design necessity for "GENERATE
-    // -> immediately hear the complete loop," not a claim that 1/3/4 bars
-    // is itself a measured proportion.
+    // This compresses the full research-measured 8/16/8-bar breakdown
+    // grammar down to fit one 16-bar loop - a disclosed design necessity
+    // for "GENERATE -> immediately hear the complete loop," not a claim
+    // that 1/3/4 bars is itself a measured proportion.
     enum class CompactSection { Drop, BreakEntry, BreakBody, PreDrop };
 
     constexpr int kCompactLoopBars       = 16;
@@ -124,7 +135,7 @@ namespace Engine
 
     struct CompactLoop
     {
-        DropPattern          drum;                // 256 steps - Drop bars 0-7, muted-role-zeroed bars 8-15
+        DropPattern          drum;                // 256 steps - Drop bars 0-7 (compressed 4-stage arc, see generateCompactLoop), muted-role-zeroed bars 8-15
         std::vector<int8_t>  bass;                 // 256 steps - Drop bars 0-7, off bars 8-15
         std::vector<int8_t>  bassGateLengthSteps;   // 256 steps, parallel to bass
         PadMotif              pad;                  // 256 steps - off bars 0-7, breakdown content bars 8-15

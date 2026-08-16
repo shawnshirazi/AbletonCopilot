@@ -262,6 +262,79 @@ namespace Engine
             for (size_t i = 0; i < src.size(); ++i)
                 dst[(size_t) dstOffset + i] = src[i];
         }
+
+        // Fix for the diagnosed stage-arc-truncation bug (see
+        // MLPipeline/musical_target/sound_and_rhythm_diagnostic_pass4.md
+        // section 2): generateDrop()'s own 4-stage energy arc (Establish
+        // bars0-3, Develop bars4-7, Increase bars8-11, FullDrop
+        // bars12-14+transition15 - see DrumEngine.cpp lines ~297-301,
+        // 627-661) spans its own full 16 bars, but this compact loop's
+        // "Drop" span is only ever 8 bars (kCompactDropBars) - bars 8-15
+        // are the breakdown span (see generateCompactLoop below) and must
+        // stay untouched. A flat copy of generateDrop()'s own bars 0-7
+        // therefore only ever exposes Establish+Develop - Increase and
+        // FullDrop are generated (real work) and then silently discarded
+        // every loop repeat, confirmed empirically across 3 seeds in the
+        // diagnostic doc above (closed-hat density ~42% of the measured
+        // corpus, percussion ~23%).
+        //
+        // Fix is compositional, not a rhythm change: pick the FIRST 2 bars
+        // of each of generateDrop()'s own 4 stage windows (never the
+        // deliberately-thinned transition bar, bar 15) and concatenate
+        // them into the compact loop's 8-bar Drop span, 2 bars per stage -
+        // Establish->bars0-1, Develop->bars4-5, Increase->bars8-9,
+        // FullDrop->bars12-13 of the ORIGINAL 16-bar generateDrop() output,
+        // landing at bars0-1/2-3/4-5/6-7 of the compact loop. Every sampled
+        // bar is real, already-generated, per-role-grammar-correct content
+        // - no new probability, density, or timing decision is made here,
+        // and DrumEngine.cpp/kHatRhythm/kPercRhythm/kClapRhythm are never
+        // touched.
+        //
+        // Kick and clap are DELIBERATELY EXCLUDED from this remapping (an
+        // earlier version of this fix included them and broke a real test:
+        // kick's downbeat velocity is slightly higher in bar 0 than later
+        // bars - 0.99 vs 0.85/0.86, see drum_grammar report.md - and
+        // clap's own 4-bar block is not internally uniform bar-to-bar
+        // within itself, only PERIODIC at every 4 bars, so re-selecting
+        // which bar of that block lands where measurably changes clap's
+        // played sequence, not just which bar-copy of an identical pattern
+        // is shown). The diagnostic already found kick/clap density and
+        // position both already match the reference corpus - remapping
+        // them risked a real, audible regression for zero benefit, so they
+        // keep their existing, untouched bars 0-7 exactly as before this
+        // fix (see generateCompactLoop below - out.drum = identity.drumMotif
+        // already gives them that, and this function never overwrites them).
+        constexpr int kCompressedSourceBar[kCompactDropBars] = { 0, 1, 4, 5, 8, 9, 12, 13 };
+
+        void copyBar(StepArray& dst, const StepArray& src, int dstBar, int srcBar, int stepsPerBar)
+        {
+            for (int s = 0; s < stepsPerBar; ++s)
+            {
+                const int dstIdx = dstBar * stepsPerBar + s;
+                const int srcIdx = srcBar * stepsPerBar + s;
+                if (dstIdx < (int) dst.size() && srcIdx < (int) src.size())
+                    dst[(size_t) dstIdx] = src[(size_t) srcIdx];
+            }
+        }
+
+        // Overwrites dst's hatClosed/hatOpen/percA/percB bars
+        // [0, kCompactDropBars) in place with the compressed 4-stage arc
+        // sampled from src (generateDrop()'s own full 16-bar output) - src
+        // itself is never modified, dst's kick/clap are never touched (see
+        // the comment above), and dst's own bars from kCompactDropBars
+        // onward (the breakdown span) are never touched by this function
+        // at all.
+        void compressDropArcInto(DropPattern& dst, const DropPattern& src, int stepsPerBar)
+        {
+            for (int destBar = 0; destBar < kCompactDropBars; ++destBar)
+            {
+                const int srcBar = kCompressedSourceBar[destBar];
+                copyBar(dst.hatClosed, src.hatClosed, destBar, srcBar, stepsPerBar);
+                copyBar(dst.hatOpen,   src.hatOpen,   destBar, srcBar, stepsPerBar);
+                copyBar(dst.percA,     src.percA,     destBar, srcBar, stepsPerBar);
+                copyBar(dst.percB,     src.percB,     destBar, srcBar, stepsPerBar);
+            }
+        }
     }
 
     CompactLoop generateCompactLoop(const MusicIdentity& identity)
@@ -271,10 +344,13 @@ namespace Engine
 
         CompactLoop out;
 
-        // Bars 0-7: the existing, untouched Drop pattern's own bars 0-7,
-        // byte-identical - proven by construction (this copy doesn't
-        // modify identity.drumMotif/bassMotif, and bars 8-15 of the
-        // SOURCE are never read for this half).
+        // Bars 0-7 start as the existing, untouched Drop pattern's own
+        // bars 0-7 (still byte-identical to identity.drumMotif itself -
+        // this copy never mutates identity.drumMotif/bassMotif), then are
+        // OVERWRITTEN below by compressDropArcInto with the compressed
+        // 4-stage arc (see that function's own comment) - bars 8-15 are
+        // never touched by that overwrite, so the breakdown span's own
+        // source data is exactly what it was before this fix.
         out.drum = identity.drumMotif;
         out.bass = identity.bassMotif;
         out.bassGateLengthSteps = identity.bassGateLengthSteps;
@@ -282,6 +358,15 @@ namespace Engine
             out.bass.resize((size_t) kTotalSteps, kBassOffValue);
         if ((int) out.bassGateLengthSteps.size() < kTotalSteps)
             out.bassGateLengthSteps.resize((size_t) kTotalSteps, 0);
+
+        // Fix for the stage-arc-truncation bug: compress generateDrop()'s
+        // own Establish/Develop/Increase/FullDrop arc into the 8 bars that
+        // are actually audible as "Drop" (see compressDropArcInto's own
+        // comment above) - the played loop now reaches full-drop energy
+        // by bar 8 instead of only ever hearing Establish+Develop. Applied
+        // strictly to bars [0, kCompactDropBars) - bars 8-15 (assigned
+        // just above from identity.drumMotif) are untouched by this call.
+        compressDropArcInto(out.drum, identity.drumMotif, kBreakdownStepsPerBar);
 
         // Bars 8-15: zero the muted roles (kick/hatClosed/hatOpen/percA/
         // percB) - clap is deliberately left as whatever generateDrop()

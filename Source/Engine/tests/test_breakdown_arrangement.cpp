@@ -228,7 +228,11 @@ int main()
     // byte-identity across two independent generateMusicIdentity calls
     // for the same seed (same guarantee test_music_identity.cpp already
     // establishes - re-asserted here so this test file stands on its own
-    // as proof DROP wasn't touched by anything added in this pass). ----
+    // as proof DROP wasn't touched by anything added in this pass). All 6
+    // roles checked (not just kick/clap) - the stage-arc-compression fix
+    // (see CompactLoop tests below) only ever READS identity.drumMotif, so
+    // generateDrop()'s own output for every role must stay exactly as
+    // deterministic as before. ----
     {
         for (uint32_t seed = 1; seed < 20; ++seed)
         {
@@ -236,6 +240,10 @@ int main()
             const MusicIdentity b = makeIdentity(seed);
             CHECK(stepArraysEqual(a.drumMotif.kick, b.drumMotif.kick));
             CHECK(stepArraysEqual(a.drumMotif.clap, b.drumMotif.clap));
+            CHECK(stepArraysEqual(a.drumMotif.hatClosed, b.drumMotif.hatClosed));
+            CHECK(stepArraysEqual(a.drumMotif.hatOpen, b.drumMotif.hatOpen));
+            CHECK(stepArraysEqual(a.drumMotif.percA, b.drumMotif.percA));
+            CHECK(stepArraysEqual(a.drumMotif.percB, b.drumMotif.percB));
             CHECK(a.bassMotif == b.bassMotif);
         }
     }
@@ -275,28 +283,135 @@ int main()
         CHECK(compactSectionForBar(-1) == CompactSection::PreDrop);
     }
 
-    // ---- Property: DROP behavior unchanged - bars 0-7 of the compact
-    // loop are byte-identical to the identity's own unmodified drumMotif/
-    // bassMotif. This is the strongest possible proof CompactLoop doesn't
-    // touch DROP: not "the values look similar," literal byte equality
-    // against the exact same generateDrop()/generateBassLoop16() output
-    // the shipped Drop path already uses. ----
+    // ---- Property: DROP span composition - the stage-arc-compression fix
+    // (MLPipeline/musical_target/sound_and_rhythm_diagnostic_pass4.md
+    // section 2/7). Kick/clap/bass are still byte-identical to
+    // identity.drumMotif/bassMotif's own literal bars 0-7 (they're
+    // structurally bar-invariant already - kick fires every bar
+    // identically, clap is one canonical shape tiled across all 16 bars -
+    // so remapping which source bar feeds them is a no-op by construction,
+    // and this asserts that stays true). hatClosed/hatOpen/percA/percB are
+    // NO LONGER identity.drumMotif's raw bars 0-7 - they're now
+    // COMPRESSED from all 4 of generateDrop()'s own energy stages, 2 bars
+    // per stage, sampled from generateDrop()'s own bars {0,1, 4,5, 8,9,
+    // 12,13} (Establish/Develop/Increase/FullDrop respectively) into the
+    // compact loop's bars {0,1, 2,3, 4,5, 6,7}. Every value is still
+    // literal, real, byte-identical content from generateDrop()'s own
+    // output - just re-composed, never a new random/probability decision. ----
     {
-        const int dropSteps = kCompactDropBars * kBreakdownStepsPerBar; // 128
+        const int stepsPerBar = kBreakdownStepsPerBar; // 16
+        // destBar -> sourceBar, matching BreakdownArrangement.cpp's own
+        // kCompressedSourceBar table (duplicated here deliberately - a
+        // test should assert the OBSERVABLE contract, not import the
+        // production constant and trivially agree with itself).
+        const int destToSourceBar[kCompactDropBars] = { 0, 1, 4, 5, 8, 9, 12, 13 };
+
         for (uint32_t seed = 1; seed < 30; ++seed)
         {
             const MusicIdentity id = makeIdentity(seed);
             const CompactLoop loop = generateCompactLoop(id);
 
-            for (int s = 0; s < dropSteps; ++s)
+            // Kick/clap/bass: still literal bars 0-7, unchanged.
+            for (int s = 0; s < kCompactDropBars * stepsPerBar; ++s)
             {
                 CHECK(loop.drum.kick[(size_t) s].active == id.drumMotif.kick[(size_t) s].active);
                 CHECK(loop.drum.kick[(size_t) s].velocity == id.drumMotif.kick[(size_t) s].velocity);
                 CHECK(loop.drum.clap[(size_t) s].active == id.drumMotif.clap[(size_t) s].active);
-                CHECK(loop.drum.hatClosed[(size_t) s].active == id.drumMotif.hatClosed[(size_t) s].active);
+                CHECK(loop.drum.clap[(size_t) s].velocity == id.drumMotif.clap[(size_t) s].velocity);
                 CHECK(loop.bass[(size_t) s] == id.bassMotif[(size_t) s]);
             }
+
+            // hatClosed/hatOpen/percA/percB: compressed - each destination
+            // bar equals the mapped source bar of generateDrop()'s own
+            // output, exactly.
+            for (int destBar = 0; destBar < kCompactDropBars; ++destBar)
+            {
+                const int srcBar = destToSourceBar[destBar];
+                for (int s = 0; s < stepsPerBar; ++s)
+                {
+                    const int destIdx = destBar * stepsPerBar + s;
+                    const int srcIdx  = srcBar  * stepsPerBar + s;
+                    CHECK(loop.drum.hatClosed[(size_t) destIdx].active   == id.drumMotif.hatClosed[(size_t) srcIdx].active);
+                    CHECK(loop.drum.hatClosed[(size_t) destIdx].velocity == id.drumMotif.hatClosed[(size_t) srcIdx].velocity);
+                    CHECK(loop.drum.hatOpen[(size_t) destIdx].active     == id.drumMotif.hatOpen[(size_t) srcIdx].active);
+                    CHECK(loop.drum.percA[(size_t) destIdx].active       == id.drumMotif.percA[(size_t) srcIdx].active);
+                    CHECK(loop.drum.percB[(size_t) destIdx].active       == id.drumMotif.percB[(size_t) srcIdx].active);
+                }
+            }
             CHECK(loop.drum.kick.size() == id.drumMotif.kick.size());
+        }
+    }
+
+    // ==================================================================
+    // Section-12 (revised) explicit ask: prove each of the compact loop's
+    // 8 Drop bars maps to the correct generateDrop() energy stage, and
+    // that FullDrop is measurably denser/stronger than Establish where the
+    // existing grammar intends it to be - user-facing bar numbers (1-8),
+    // matching the approved "compress into bars 1-8" fix.
+    // ==================================================================
+    {
+        auto barActive = [](const StepArray& s, int bar, int stepsPerBar)
+        {
+            int n = 0;
+            for (int i = 0; i < stepsPerBar; ++i)
+                if (s[(size_t) (bar * stepsPerBar + i)].active) ++n;
+            return n;
+        };
+
+        // 1. Bars 1-2 (compact loop bars 0-1) correspond to Establish -
+        //    equal to generateDrop()'s own bars 0-1.
+        // 2. Bars 3-4 (compact loop bars 2-3) correspond to Develop -
+        //    equal to generateDrop()'s own bars 4-5.
+        // 3. Bars 5-6 (compact loop bars 4-5) correspond to Increase -
+        //    equal to generateDrop()'s own bars 8-9.
+        // 4. Bars 7-8 (compact loop bars 6-7) correspond to FullDrop -
+        //    equal to generateDrop()'s own bars 12-13.
+        {
+            const MusicIdentity id = makeIdentity(42);
+            const CompactLoop loop = generateCompactLoop(id);
+            const int spb = kBreakdownStepsPerBar;
+
+            auto barEqual = [&](int destBar, int srcBar)
+            {
+                for (int s = 0; s < spb; ++s)
+                {
+                    const int d = destBar * spb + s, sBar = srcBar * spb + s;
+                    if (loop.drum.hatClosed[(size_t) d].active != id.drumMotif.hatClosed[(size_t) sBar].active) return false;
+                    if (loop.drum.percA[(size_t) d].active     != id.drumMotif.percA[(size_t) sBar].active)     return false;
+                }
+                return true;
+            };
+
+            CHECK(barEqual(0, 0) && barEqual(1, 1));   // bars 1-2 = Establish (drumMotif bars 0-1)
+            CHECK(barEqual(2, 4) && barEqual(3, 5));   // bars 3-4 = Develop   (drumMotif bars 4-5)
+            CHECK(barEqual(4, 8) && barEqual(5, 9));   // bars 5-6 = Increase  (drumMotif bars 8-9)
+            CHECK(barEqual(6, 12) && barEqual(7, 13)); // bars 7-8 = FullDrop  (drumMotif bars 12-13)
+        }
+
+        // 5. FullDrop (bars 7-8) is measurably denser/stronger than
+        //    Establish (bars 1-2) - averaged over many seeds (per-seed
+        //    hat/perc content varies, the AVERAGE relationship is what the
+        //    StageEnergy table (kFullDrop >> kEstablish for
+        //    hatClosed/percA/percB) actually guarantees).
+        {
+            int64_t establishTotal = 0, fullDropTotal = 0;
+            const int seeds = 60;
+            for (uint32_t seed = 1; seed <= (uint32_t) seeds; ++seed)
+            {
+                const MusicIdentity id = makeIdentity(seed);
+                const CompactLoop loop = generateCompactLoop(id);
+                const int spb = kBreakdownStepsPerBar;
+
+                establishTotal += barActive(loop.drum.hatClosed, 0, spb) + barActive(loop.drum.hatClosed, 1, spb)
+                                + barActive(loop.drum.percA,     0, spb) + barActive(loop.drum.percA,     1, spb)
+                                + barActive(loop.drum.percB,     0, spb) + barActive(loop.drum.percB,     1, spb);
+                fullDropTotal  += barActive(loop.drum.hatClosed, 6, spb) + barActive(loop.drum.hatClosed, 7, spb)
+                                + barActive(loop.drum.percA,     6, spb) + barActive(loop.drum.percA,     7, spb)
+                                + barActive(loop.drum.percB,     6, spb) + barActive(loop.drum.percB,     7, spb);
+            }
+            std::printf("Establish (bars1-2) hat+perc total over %d seeds: %lld\n", seeds, (long long) establishTotal);
+            std::printf("FullDrop  (bars7-8) hat+perc total over %d seeds: %lld\n", seeds, (long long) fullDropTotal);
+            CHECK(fullDropTotal > establishTotal); // the played loop now actually reaches full-drop energy
         }
     }
 
@@ -353,7 +468,11 @@ int main()
             const CompactLoop a = generateCompactLoop(id);
             const CompactLoop b = generateCompactLoop(id);
             CHECK(stepArraysEqual(a.drum.kick, b.drum.kick));
+            CHECK(stepArraysEqual(a.drum.clap, b.drum.clap));
             CHECK(stepArraysEqual(a.drum.hatClosed, b.drum.hatClosed));
+            CHECK(stepArraysEqual(a.drum.hatOpen, b.drum.hatOpen));
+            CHECK(stepArraysEqual(a.drum.percA, b.drum.percA));
+            CHECK(stepArraysEqual(a.drum.percB, b.drum.percB));
             CHECK(a.bass == b.bass);
             CHECK(a.pad.pitchOffsets == b.pad.pitchOffsets);
             CHECK(a.pad.gateLengthSteps == b.pad.gateLengthSteps);
