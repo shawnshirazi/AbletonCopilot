@@ -49,8 +49,12 @@ namespace
 
 int main()
 {
-    // ---- 1. Generated loop is exactly 8 bars (128 steps) for every role
-    // + bass, across many seeds. ----
+    // ---- 1. Generated loop is exactly 8 bars (128 steps) for every drum
+    // role, across many seeds. GrooveLoop is drum-ONLY now (bass was
+    // split out into its own independent generation step - see
+    // GrooveLoop.h's own header comment, and Source/tests/
+    // test_independent_tracks.cpp for bass's own length/determinism/
+    // variation/bar-1 tests via Engine::generateBassPattern directly). ----
     {
         for (uint32_t seed = 1; seed <= 30; ++seed)
         {
@@ -61,8 +65,6 @@ int main()
             CHECK((int) loop.drum.hatOpen.size()   == kGrooveLoopTotalSteps);
             CHECK((int) loop.drum.percA.size()     == kGrooveLoopTotalSteps);
             CHECK((int) loop.drum.percB.size()     == kGrooveLoopTotalSteps);
-            CHECK((int) loop.bass.size()               == kGrooveLoopTotalSteps);
-            CHECK((int) loop.bassGateLengthSteps.size() == kGrooveLoopTotalSteps);
             CHECK(kGrooveLoopTotalSteps == 128);
             CHECK(kGrooveLoopBars == 8);
         }
@@ -74,8 +76,8 @@ int main()
     // real stored length, not a hardcoded 256) - proven here by #1's
     // exact-128 length check; not independently re-tested at this layer. ----
 
-    // ---- 3. Same seed -> byte-identical output (every role + bass + gate
-    // lengths), called twice. ----
+    // ---- 3. Same seed -> byte-identical output (every drum role),
+    // called twice. ----
     {
         for (uint32_t seed = 1; seed <= 20; ++seed)
         {
@@ -87,8 +89,6 @@ int main()
             CHECK(stepArraysEqual(a.drum.hatOpen, b.drum.hatOpen));
             CHECK(stepArraysEqual(a.drum.percA, b.drum.percA));
             CHECK(stepArraysEqual(a.drum.percB, b.drum.percB));
-            CHECK(a.bass == b.bass);
-            CHECK(a.bassGateLengthSteps == b.bassGateLengthSteps);
         }
     }
 
@@ -148,27 +148,14 @@ int main()
 
     // ---- 6. No hidden breakdown state: structural, grep-verified (see
     // this test's own final report - GrooveLoop.h/.cpp contain no
-    // #include of BreakdownArrangement.h) + no forced-silent bass span
-    // exists anywhere in the loop (unlike the old breakdown span, which
-    // always zeroed bass for its second half) - checked by requiring SOME
-    // bass activity in both halves for most seeds. ----
-    {
-        int firstHalfActive = 0, secondHalfActive = 0;
-        const int seeds = 30;
-        for (uint32_t seed = 1; seed <= (uint32_t) seeds; ++seed)
-        {
-            const GrooveLoop loop = generateGrooveLoop(makeParams(seed));
-            bool anyFirst = false, anySecond = false;
-            for (int i = 0; i < kGrooveLoopTotalSteps / 2; ++i)
-                if (loop.bass[(size_t) i] != -128) anyFirst = true;
-            for (int i = kGrooveLoopTotalSteps / 2; i < kGrooveLoopTotalSteps; ++i)
-                if (loop.bass[(size_t) i] != -128) anySecond = true;
-            if (anyFirst) ++firstHalfActive;
-            if (anySecond) ++secondHalfActive;
-        }
-        CHECK(firstHalfActive == seeds);  // never a forced-silent first half
-        CHECK(secondHalfActive == seeds); // never a forced-silent second half (unlike the old breakdown span)
-    }
+    // #include of BreakdownArrangement.h). The equivalent "no forced-
+    // silent span" check for bass now lives in Source/tests/
+    // test_independent_tracks.cpp, run against Engine::generateBassPattern
+    // directly - bass is no longer part of GrooveLoop at all (see
+    // GrooveLoop.h's own header comment), so there is nothing bass-shaped
+    // left to check in this file. Drums: no role is ever forced-silent for
+    // half the loop either - already proven by test 5 above (every role
+    // has real presence, checked across many seeds). ----
 
     // ---- 7. No 16-bar arrangement dependency: structural (GrooveLoop.h/
     // .cpp have no direct #include of MusicIdentity.h/BreakdownArrangement.h,
@@ -212,30 +199,15 @@ int main()
     }
 
     // ---- 9. Bass and drums generated from the same musical identity/
-    // seed: same seed -> same bass AND same drums together (already
-    // covered by test 3 - both come from one generateGrooveLoop(params)
-    // call with one seed). Real kick-awareness check: bass's on-kick
-    // fraction (steps where step%4==0, i.e. a kick position) measurably
-    // below the 25% uniform baseline, averaged across many seeds - proves
-    // this isn't independently-generated bass that happens to share a
-    // seed number, it's actually avoiding the real kick pattern. ----
-    {
-        int64_t onKickSteps = 0, totalActiveSteps = 0;
-        const int seeds = 60;
-        for (uint32_t seed = 1; seed <= (uint32_t) seeds; ++seed)
-        {
-            const GrooveLoop loop = generateGrooveLoop(makeParams(seed));
-            for (int i = 0; i < kGrooveLoopTotalSteps; ++i)
-            {
-                if (loop.bass[(size_t) i] == -128) continue;
-                ++totalActiveSteps;
-                if (i % 4 == 0) ++onKickSteps;
-            }
-        }
-        CHECK(totalActiveSteps > 0);
-        const double onKickFraction = (double) onKickSteps / (double) totalActiveSteps;
-        CHECK(onKickFraction < 0.25); // measurably below the uniform baseline
-    }
+    // seed - NO LONGER APPLICABLE to this file: bass is now generated
+    // completely independently of drums (its own seed, its own function
+    // call - Engine::generateBassPattern, called directly by
+    // PluginEditor, never by GrooveLoop) - see GrooveLoop.h's own header
+    // comment for why this coupling was removed. Bass's own kick-
+    // awareness (on-kick fraction measurably below the 25% uniform
+    // baseline, using a synthetic four-on-the-floor reference internal to
+    // generateBassPattern itself) is re-tested directly against
+    // Engine::generateBassPattern in Source/tests/test_independent_tracks.cpp. ----
 
     // ---- 10/11/12: existing lower-level generation/sample-selection/
     // Serum2 tests remain valid - verified by running the full existing

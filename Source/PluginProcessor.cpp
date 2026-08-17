@@ -1262,14 +1262,20 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                     if (offset != kMelodyOffValue && audible)
                     {
                         int pitch = 36 + localMelodyRoot + offset;
-                        // Bass (track 0) only - see clampBassRegisterPitch's
-                        // own comment (PluginProcessor.h) for the full
-                        // rationale. Melody/Pad (other tracks) are
-                        // unaffected - only bass had this specific
-                        // complaint and only bass needs a low, restrained
-                        // register.
+                        // Bass (track 0) and Melody (track 1) each get
+                        // their own register clamp - see
+                        // clampBassRegisterPitch/clampMelodyRegisterPitch's
+                        // own comments (PluginProcessor.h) for the
+                        // rationale/bands. Pad (track 2, or any further
+                        // track) is unaffected - no register target has
+                        // been established for it yet, and it never
+                        // sounds this phase anyway (see
+                        // PluginEditor::applyGeneratedLoop's pad-off
+                        // pattern).
                         if (t == 0)
                             pitch = clampBassRegisterPitch(pitch);
+                        else if (t == 1)
+                            pitch = clampMelodyRegisterPitch(pitch);
                         pitch = juce::jlimit(0, 127, pitch);
                         serumMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), 0);
                         voice.noteOn        = true;

@@ -112,21 +112,11 @@ namespace Engine
         copyBlock(out.drum.percA,     4, 4, numBars, stepsPerBar, block2.percA);
         copyBlock(out.drum.percB,     4, 4, numBars, stepsPerBar, block2.percB);
 
-        // ---- BASS - Engine::generateBassPattern, completely unmodified.
-        // Already produces exactly 128 steps (8 bars: a 4-bar motif +
-        // 4-bar params.variation-scaled development) using a real,
-        // measured kick-avoidance correlation (kBassKickCorrelation,
-        // BassRhythmGrammar.h) against its own synthetic four-on-the-floor
-        // reference - which matches this file's own kick exactly, since
-        // this loop's kick IS plain four-on-the-floor too. ----
-        BassPatternParams bassParams;
-        bassParams.density   = params.density;
-        bassParams.variation = params.variation;
-        bassParams.seed      = params.seed;
-        const auto bassPattern = generateBassPattern(bassParams);
-        out.bass.assign(bassPattern.begin(), bassPattern.end());
-        out.bassGateLengthSteps.assign((size_t) kGrooveLoopTotalSteps, 0);
-
+        // No bass here - see GrooveLoop.h's own header comment. Bass is
+        // generated independently by the caller via
+        // Engine::generateBassPattern (BassEngine.h, unmodified), with its
+        // own independently-drawn seed, so it can be regenerated without
+        // ever touching this drum pattern.
         return out;
     }
 }

@@ -7,24 +7,49 @@
 #include "StartupTiming.h"
 #include "DrumStemExporter.h"
 
-// Bass register clamp - octave-WRAPS (not truncates) a raw computed pitch
-// into a fixed low register regardless of key, fixing the diagnosed
-// register-drift bug (keyRoot(0-11) + offset(-7..+7) combining into the
-// same base with no clamp let the SAME archetype/seed land anywhere from
-// F1 to F#3 purely from key choice). Wrapping by octave preserves which
-// note plays (the pitch class) while forcing a consistent register - see
-// MLPipeline/musical_target/melodic_techno_research.md section 11.5 for
-// the real absolute-register evidence this band is anchored to. Shared
-// between PluginProcessor's real trigger loop and PluginEditor's
-// bassMidiRangeLabel diagnostic so the displayed range can never drift
-// out of sync with what's actually played.
+// Register clamp - octave-WRAPS (not truncates) a raw computed pitch into
+// a fixed register regardless of key, fixing the diagnosed register-drift
+// bug (keyRoot(0-11) + offset combining into the same base with no clamp
+// lets the SAME archetype/seed land anywhere across several octaves purely
+// from key choice). Wrapping by octave preserves which note plays (the
+// pitch class) while forcing a consistent register. Parameterized (not
+// bass-specific) so both bass and melody can each use their own band -
+// see clampBassRegisterPitch/clampMelodyRegisterPitch below, and
+// PluginProcessor.cpp's melody-voice trigger loop for where each is
+// actually applied per track.
+inline int clampRegisterPitch(int rawPitch, int minPitch, int maxPitch)
+{
+    while (rawPitch > maxPitch) rawPitch -= 12;
+    while (rawPitch < minPitch) rawPitch += 12;
+    return rawPitch;
+}
+
+// Bass register clamp - see MLPipeline/musical_target/
+// melodic_techno_research.md section 11.5 for the real absolute-register
+// evidence this band is anchored to (F1-C3). Shared between
+// PluginProcessor's real trigger loop and PluginEditor's diagnostics so
+// the displayed range can never drift out of sync with what's actually
+// played.
 inline int clampBassRegisterPitch(int rawPitch)
 {
     constexpr int kBassRegisterMin = 29; // F1
     constexpr int kBassRegisterMax = 48; // C3
-    while (rawPitch > kBassRegisterMax) rawPitch -= 12;
-    while (rawPitch < kBassRegisterMin) rawPitch += 12;
-    return rawPitch;
+    return clampRegisterPitch(rawPitch, kBassRegisterMin, kBassRegisterMax);
+}
+
+// Melody register clamp - same register-drift bug as bass (see above),
+// previously unfixed for melody (processBlock's trigger loop only ever
+// applied clampBassRegisterPitch for track 0). No measured melody-register
+// corpus exists (melodic_techno_research.md section 7 - external guidance
+// only, LOW confidence) so this band is an [INTERPRETATION], not a
+// corpus-derived number: C3-C5, starting exactly where the bass band tops
+// out (C3), giving melody two full octaves of clearly-above-the-bass
+// space rather than a number picked with no reasoning at all.
+inline int clampMelodyRegisterPitch(int rawPitch)
+{
+    constexpr int kMelodyRegisterMin = 48; // C3
+    constexpr int kMelodyRegisterMax = 72; // C5
+    return clampRegisterPitch(rawPitch, kMelodyRegisterMin, kMelodyRegisterMax);
 }
 
 // Parameters for the master-bus correction chain.
