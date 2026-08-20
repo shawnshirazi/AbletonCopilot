@@ -452,6 +452,7 @@ AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
     d.serumInstanceLoaded  = voice.instance.load(std::memory_order_acquire) != nullptr;
     d.capturedPresetActive = voice.capturedPresetActive.load(std::memory_order_acquire);
     d.noteOnEventsSent    = voice.noteOnEventsSent.load(std::memory_order_relaxed);
+    d.noteOffEventsSent   = voice.noteOffEventsSent.load(std::memory_order_relaxed);
     d.lastBlockPeakOut    = voice.lastBlockPeakOut.load(std::memory_order_relaxed);
     d.suppressOwnPlayback = suppressOwnPlayback.load(std::memory_order_relaxed);
     {
@@ -1205,8 +1206,16 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
         {
             auto& voice = melodyVoices[t];
             auto* serum = voice.instance.load(std::memory_order_acquire);
-            if (serum == nullptr)
-                continue;
+            // NOTE: no early-continue here when serum == nullptr. A track's
+            // MIDI pattern (BassEngine/MelodyEngine -> setGeneratedMelodyPattern
+            // -> the note-on/off scheduling below) is a real, independent
+            // artifact that exists regardless of whether that track's own
+            // Serum2 instance has finished loading yet - matching the
+            // required BassEngine -> MIDI -> PluginProcessor -> Serum2
+            // pipeline, where the MIDI stage doesn't depend on the
+            // instrument stage. Only actually rendering audio through
+            // Serum2 (serum->processBlock, further below) needs a loaded
+            // instance - that check happens later, right before it's used.
 
             std::array<int8_t, kMelodySteps> localMelody;
             int localMelodyRoot;
@@ -1254,6 +1263,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                     {
                         serumMidi.addEvent(juce::MidiMessage::noteOff(1, voice.soundingPitch), 0);
                         voice.noteOn = false;
+                        voice.noteOffEventsSent.fetch_add(1, std::memory_order_relaxed);
                     }
                     voice.gateSamplesRemaining = -1; // a new step always cancels any still-armed gate from the previous note
 
@@ -1309,6 +1319,7 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 voice.noteOn        = false;
                 voice.lastStepIndex = -1;
                 voice.gateSamplesRemaining = -1;
+                voice.noteOffEventsSent.fetch_add(1, std::memory_order_relaxed);
             }
 
             // Early gate-off: if a gate is armed and its countdown reaches
@@ -1330,8 +1341,16 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                     serumMidi.addEvent(juce::MidiMessage::noteOff(1, voice.soundingPitch), offset);
                     voice.noteOn = false;
                     voice.gateSamplesRemaining = -1;
+                    voice.noteOffEventsSent.fetch_add(1, std::memory_order_relaxed);
                 }
             }
+
+            // Everything from here on actually renders audio through this
+            // voice's Serum2 instance - the MIDI itself (above) was built
+            // unconditionally, but there's nothing to render into if this
+            // track's instance hasn't loaded (or ever will).
+            if (serum == nullptr)
+                continue;
 
             const int numSamples = buffer.getNumSamples();
             voice.scratch.setSize(2, numSamples, false, false, true);

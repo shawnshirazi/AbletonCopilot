@@ -47,6 +47,15 @@ namespace
     }
 }
 
+// Compile-time proof that Engine::GrooveLoop has exactly one member -
+// DropPattern drum - and nothing bass/melody/pad-shaped: sizeof equality
+// with DropPattern itself. A bass/pad field of any real size (vectors are
+// never zero-sized as a struct member) would break this; this is the same
+// check as GrooveLoop.h's own header comment, verified mechanically here
+// rather than just asserted in a comment.
+static_assert(sizeof(GrooveLoop) == sizeof(DropPattern),
+              "GrooveLoop must contain drums only - see GrooveLoop.h's own header comment");
+
 int main()
 {
     // ---- 1. Generated loop is exactly 8 bars (128 steps) for every drum
@@ -54,7 +63,9 @@ int main()
     // split out into its own independent generation step - see
     // GrooveLoop.h's own header comment, and Source/tests/
     // test_independent_tracks.cpp for bass's own length/determinism/
-    // variation/bar-1 tests via Engine::generateBassPattern directly). ----
+    // variation/bar-1 tests via Engine::generateBassPattern directly). Also
+    // see this file's own static_assert above for a compile-time proof
+    // that GrooveLoop contains nothing beyond drums. ----
     {
         for (uint32_t seed = 1; seed <= 30; ++seed)
         {

@@ -217,7 +217,16 @@ public:
         bool    serumInstanceLoaded    = false; // voice.instance != nullptr right now
         bool    generatedPatternActive = false; // setGeneratedMelodyPattern has a non-empty pattern stored for this track
         int     generatedTotalSteps    = 0;
-        int64_t noteOnEventsSent       = 0;     // cumulative count of real noteOn events queued into this voice's Serum2 instance
+        // noteOnEventsSent/noteOffEventsSent count real MIDI events built
+        // into this voice's own serumMidi buffer each block - this happens
+        // unconditionally, independent of whether a Serum2 instance has
+        // finished loading yet (see processBlock's melody-voice loop: the
+        // `serum == nullptr` check only gates actually rendering audio
+        // through the instance, not building/counting the MIDI itself) -
+        // so these prove the MIDI pattern is real even before/without a
+        // loaded instrument.
+        int64_t noteOnEventsSent       = 0;
+        int64_t noteOffEventsSent      = 0;
         float   lastBlockPeakOut       = 0.0f;  // peak |sample| in this voice's own scratch buffer AFTER serum->processBlock(), BEFORE any downstream suppression/mixing gate - proves whether Serum's own output is silent independent of whether it reaches the main mix
         bool    suppressOwnPlayback    = false; // the shared gate that silences ALL melody-voice (and drum) output when true - see setSuppressOwnPlayback
         int     generatedGateLengthCount = 0;   // number of non-zero entries in generatedGateLengthSteps - proves setGeneratedMelodyPattern's optional gate array actually reached this voice (0 for every track that never passed one, e.g. Melody)
@@ -427,6 +436,7 @@ private:
         // whether anything downstream would have blocked it from reaching
         // the main output.
         std::atomic<int64_t> noteOnEventsSent { 0 };
+        std::atomic<int64_t> noteOffEventsSent { 0 };
         std::atomic<float>   lastBlockPeakOut { 0.0f };
 
         // Audio-thread-only playback state.

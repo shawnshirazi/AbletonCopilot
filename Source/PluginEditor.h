@@ -39,6 +39,26 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
+    // Test/diagnostic-only (same convention as PluginProcessor's own
+    // getMelodyVoiceDiagnostics/GeneratedRoleLoadDiagnostics): the real,
+    // post-layout on-screen bounds of a track's Capture/Open Serum 2/
+    // status controls - proves they have genuine, non-zero, reachable
+    // bounds (the actual Bug B this pass fixed: these controls used to sit
+    // inside an unrelated kShowFullUI-gated block and were never given
+    // real bounds at all) without exposing the private MelodyTrackPanel
+    // type itself outside this editor. trackIndex out of range (including
+    // "no such panel yet") returns panelExists = false and all-zero
+    // rectangles - never a guess.
+    struct CapturePanelBoundsDiagnostics
+    {
+        bool panelExists              = false;
+        juce::Rectangle<int> panelBounds;
+        juce::Rectangle<int> captureButtonBounds;
+        juce::Rectangle<int> openSerumButtonBounds;
+        juce::Rectangle<int> statusLabelBounds;
+    };
+    CapturePanelBoundsDiagnostics getCapturePanelBoundsDiagnostics(int trackIndex) const;
+
 private:
     void timerCallback() override;
     void runAnalysis();

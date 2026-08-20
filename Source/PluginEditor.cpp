@@ -664,6 +664,22 @@ AbletonCopilotAudioProcessorEditor::~AbletonCopilotAudioProcessorEditor()
 
 //==============================================================================
 
+AbletonCopilotAudioProcessorEditor::CapturePanelBoundsDiagnostics
+    AbletonCopilotAudioProcessorEditor::getCapturePanelBoundsDiagnostics(int trackIndex) const
+{
+    CapturePanelBoundsDiagnostics d;
+    if (trackIndex < 0 || trackIndex >= melodyPanels.size())
+        return d;
+
+    auto* panel = melodyPanels[trackIndex];
+    d.panelExists              = true;
+    d.panelBounds               = panel->getBounds();
+    d.captureButtonBounds       = panel->captureButton.getBounds();
+    d.openSerumButtonBounds     = panel->openSerumButton.getBounds();
+    d.statusLabelBounds         = panel->statusLabel.getBounds();
+    return d;
+}
+
 void AbletonCopilotAudioProcessorEditor::resized()
 {
     static bool loggedFirstResized = false;
