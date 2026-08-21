@@ -204,6 +204,24 @@ public:
     void setVoiceAuditionActive(int trackIndex, bool active);
     bool isVoiceAuditionActive(int trackIndex) const noexcept;
 
+    // Offline (message-thread, non-realtime) render of trackIndex's
+    // ALREADY-STORED generated pattern through its Serum2 instance IN
+    // ISOLATION - never touches drums, never touches any other track,
+    // never touches live mute/solo state, never regenerates or modifies
+    // anything. This is what a candidate-evaluation pass renders and
+    // hands to FeatureExtractor for real spectral/register/stereo-width
+    // analysis (see Source/CandidateEvaluator.h) - "does this sound good
+    // in this exact musical context" answered from real rendered audio,
+    // not metadata. Returns an empty buffer (0 samples) if this track has
+    // no loaded Serum2 instance yet or no generated pattern stored -
+    // never a guess, never silence pretending to be a real render.
+    // `registerOctaveShift` transposes every triggered note by that many
+    // OCTAVES (12 semitones each) before the existing per-role clamp is
+    // applied - lets a caller evaluate "this preset one octave down"
+    // without touching the real generated pattern or the live register-
+    // clamp logic used during actual playback.
+    juce::AudioBuffer<float> renderVoiceAuditionAudio(int trackIndex, int numBars, int registerOctaveShift = 0);
+
     // Rebuilds that voice's static, role-based default EQ (see
     // PluginProcessor.cpp's kVoiceEqSettings) - call whenever a track's
     // category is set (initial default, category switch, or a new track

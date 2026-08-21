@@ -418,6 +418,100 @@ bool AbletonCopilotAudioProcessor::isVoiceAuditionActive(int trackIndex) const n
     return melodyVoices[trackIndex].auditionActive.load(std::memory_order_acquire);
 }
 
+juce::AudioBuffer<float> AbletonCopilotAudioProcessor::renderVoiceAuditionAudio(int trackIndex, int numBars, int registerOctaveShift)
+{
+    juce::AudioBuffer<float> out; // 0 samples = "couldn't render" - checked explicitly below, never silently faked
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks || numBars <= 0)
+        return out;
+
+    auto& voice = melodyVoices[trackIndex];
+    auto* serum = voice.instance.load(std::memory_order_acquire);
+    if (serum == nullptr)
+        return out; // no loaded instance - nothing to render through, not a guess
+
+    std::vector<int8_t> offsets;
+    int keyRoot = 0;
+    int totalSteps = 0;
+    {
+        juce::ScopedLock sl(voice.lock);
+        offsets    = voice.generatedOffsets;
+        keyRoot    = voice.keyRoot;
+        totalSteps = voice.generatedTotalSteps;
+    }
+    if (offsets.empty() || totalSteps <= 0)
+        return out; // no generated pattern stored for this track
+
+    const double sr  = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+    const double bpm = (double) currentBpm.load(std::memory_order_relaxed) > 0.0
+                            ? (double) currentBpm.load(std::memory_order_relaxed)
+                            : 124.0; // same real-reference-tempo fallback as audition's own internal clock
+
+    const int kStepsPerBar   = 16; // matches Engine::kGrooveLoopStepsPerBar / kMelodySteps's own 16th-note grid
+    const int stepsToRender  = juce::jmin(totalSteps, numBars * kStepsPerBar);
+    const double secPerStep  = 60.0 / bpm / 4.0;
+    const int samplesPerStep = juce::jmax(1, (int) std::lround(secPerStep * sr));
+    const int totalSamples   = stepsToRender * samplesPerStep;
+
+    out.setSize(2, totalSamples);
+    out.clear();
+
+    bool noteOn = false;
+    int  soundingPitch = -1;
+    int  samplePos = 0;
+    const int chunkSize = 512;
+
+    for (int step = 0; step < stepsToRender; ++step)
+    {
+        juce::MidiBuffer stepMidi;
+        if (noteOn)
+        {
+            stepMidi.addEvent(juce::MidiMessage::noteOff(1, soundingPitch), 0);
+            noteOn = false;
+        }
+
+        const int8_t offset = offsets[(size_t) step];
+        if (offset != kMelodyOffValue)
+        {
+            int pitch = 36 + keyRoot + offset + registerOctaveShift * 12;
+            if (trackIndex == 0)
+                pitch = clampBassRegisterPitch(pitch);
+            else if (trackIndex == 1)
+                pitch = clampMelodyRegisterPitch(pitch);
+            pitch = juce::jlimit(0, 127, pitch);
+            stepMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), 0);
+            noteOn = true;
+            soundingPitch = pitch;
+        }
+
+        int remaining = samplesPerStep;
+        bool firstChunk = true;
+        juce::MidiBuffer emptyMidi;
+        while (remaining > 0)
+        {
+            const int chunk = juce::jmin(chunkSize, remaining);
+            juce::AudioBuffer<float> scratch(2, chunk);
+            scratch.clear();
+            serum->processBlock(scratch, firstChunk ? stepMidi : emptyMidi);
+            for (int ch = 0; ch < juce::jmin(2, scratch.getNumChannels()); ++ch)
+                out.copyFrom(ch, samplePos, scratch, ch, 0, chunk);
+            samplePos += chunk;
+            remaining -= chunk;
+            firstChunk = false;
+        }
+    }
+
+    if (noteOn)
+    {
+        juce::MidiBuffer tailMidi;
+        tailMidi.addEvent(juce::MidiMessage::noteOff(1, soundingPitch), 0);
+        juce::AudioBuffer<float> scratch(2, chunkSize);
+        scratch.clear();
+        serum->processBlock(scratch, tailMidi);
+    }
+
+    return out;
+}
+
 //==============================================================================
 // Hosted Serum2 — hardcoded search-by-name for now (see chat: general
 // instrument picker is a bigger, separate build). Search + instantiate run
