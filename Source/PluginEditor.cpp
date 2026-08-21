@@ -2433,7 +2433,46 @@ void AbletonCopilotAudioProcessorEditor::timerCallback()
 
     for (auto* panel : melodyPanels)
     {
-        panel->statusLabel.setText(processor.getMelodyTrackStatus(panel->trackIndex), juce::dontSendNotification);
+        auto diag = processor.getMelodyVoiceDiagnostics(panel->trackIndex);
+
+        // One-shot: the moment this track's Serum2 instance is first seen
+        // loaded, try to bring back whatever this panel is already cycled
+        // to from a previous session's real Capture - this is the actual
+        // fix for "Bass/Melody still sound like Init after reopening the
+        // plugin" (see this pass's own audit/report): without this, a
+        // freshly-instantiated Serum2 always starts on its own factory
+        // Init patch and NOTHING ever re-applied a prior capture unless
+        // the user manually clicked the per-track Generate button or
+        // cycled presets by hand. Skipped entirely if a real host/project
+        // state restore already happened for this voice (hostStateRestored) -
+        // that IS the correct state already; guessing over it would be
+        // wrong, not helpful. Never fabricates anything: loadCapturedPreset
+        // only ever applies a real, previously captured Serum2 state file.
+        if (diag.serumInstanceLoaded && !panel->autoLoadAttempted)
+        {
+            panel->autoLoadAttempted = true; // exactly one attempt, success or not
+            if (!diag.hostStateRestored)
+            {
+                scanPresetsForTrack(*panel);
+                if (!panel->presetFiles.isEmpty())
+                {
+                    if (panel->presetIndex < 0)
+                        panel->presetIndex = 0;
+                    if (processor.loadCapturedPreset(panel->trackIndex, panel->presetFiles.getReference(panel->presetIndex)))
+                    {
+                        panel->lastConfirmedPresetName = panel->presetFiles.getReference(panel->presetIndex).getFileNameWithoutExtension();
+                        melodyGrid.setTrackPresetName(panel->trackIndex, panel->lastConfirmedPresetName);
+                    }
+                }
+            }
+            diag = processor.getMelodyVoiceDiagnostics(panel->trackIndex); // re-read: capturedPresetActive may have just changed above
+        }
+
+        panel->statusLabel.setText(
+            diag.serumInstanceLoaded
+                ? SerumPresetStatus::panelStatusLine(panel->lastConfirmedPresetName, diag.capturedPresetActive)
+                : processor.getMelodyTrackStatus(panel->trackIndex),
+            juce::dontSendNotification);
         panel->openSerumButton.setEnabled(processor.getHostedSerumInstance(panel->trackIndex) != nullptr);
     }
 
@@ -2756,6 +2795,21 @@ namespace
                    .getChildFile("AbletonCopilot/CapturedPresets")
                    .getChildFile(categoryDisplayName(category));
     }
+
+    // The track-INDEX-based role name (Bass=0/Melody=1/Pad=2) - same fixed
+    // convention already established for the mute row (see
+    // AbletonCopilotAudioProcessorEditor's ctor, kVoiceNames), used here
+    // for the panel heading instead of categoryDisplayName(panel.category)
+    // deliberately: category is a separate, orthogonal preset-taxonomy
+    // label (e.g. track 1's category is MelodyCategory::Lead, for preset-
+    // folder/prompt-parsing purposes), whereas "which of Bass/Melody/Pad
+    // is this panel" is what the user actually needs to see at a glance.
+    juce::String voiceRoleName(int trackIndex)
+    {
+        static const char* const kNames[3] = { "BASS", "MELODY", "PAD" };
+        return (trackIndex >= 0 && trackIndex < 3) ? juce::String(kNames[trackIndex])
+                                                    : ("TRACK " + juce::String(trackIndex));
+    }
 }
 
 void AbletonCopilotAudioProcessorEditor::scanPresetsForTrack(MelodyTrackPanel& panel)
@@ -2949,9 +3003,22 @@ void AbletonCopilotAudioProcessorEditor::openSerumWindowForTrack(MelodyTrackPane
 
 void AbletonCopilotAudioProcessorEditor::updateTrackTitle(MelodyTrackPanel& panel)
 {
-    const bool capturedActive = processor.getMelodyVoiceDiagnostics(panel.trackIndex).capturedPresetActive;
-    panel.titleLabel.setText(
-        SerumPresetStatus::titleText(categoryDisplayName(panel.category), panel.lastConfirmedPresetName, capturedActive),
+    // Heading: which of Bass/Melody/Pad this panel is (see voiceRoleName's
+    // own comment for why this is trackIndex-based, not category-based).
+    panel.titleLabel.setText(voiceRoleName(panel.trackIndex), juce::dontSendNotification);
+
+    // Status line: "Serum 2: FACTORY INIT" / "Serum 2: <captured name>" -
+    // the exact wording requested for this display - once that track's
+    // instance has actually finished loading; the real load-status text
+    // (e.g. "Loading Serum 2...") beforehand, never a premature "FACTORY
+    // INIT" claim about an instance that doesn't exist yet. Immediate,
+    // synchronous update here (not left to wait for timerCallback's next
+    // ~33ms tick) so a Capture/cycle action reflects instantly.
+    const auto diag = processor.getMelodyVoiceDiagnostics(panel.trackIndex);
+    panel.statusLabel.setText(
+        diag.serumInstanceLoaded
+            ? SerumPresetStatus::panelStatusLine(panel.lastConfirmedPresetName, diag.capturedPresetActive)
+            : processor.getMelodyTrackStatus(panel.trackIndex),
         juce::dontSendNotification);
 }
 

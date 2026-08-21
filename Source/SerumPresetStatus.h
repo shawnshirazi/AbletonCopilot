@@ -66,4 +66,21 @@ namespace SerumPresetStatus
             : juce::String("(no captured sounds yet \xe2\x80\x94 click Capture)");
         return categoryDisplayName + "  \xe2\x80\x94  " + name;
     }
+
+    // Same honesty gate, for the per-track panel's own "Serum 2: ..."
+    // status line (MelodyTrackPanel::statusLabel, once that track's
+    // Serum2 instance has finished loading) - the exact "Serum 2:
+    // FACTORY INIT" / "Serum 2: <name>" wording requested for that
+    // specific display. Callers must only use this once
+    // MelodyVoiceDiagnostics::serumInstanceLoaded is true for the track -
+    // while still loading, the real load-status text (PluginProcessor::
+    // getMelodyTrackStatus) is what belongs there instead, since "FACTORY
+    // INIT" would be premature (there's no instance yet to be at any
+    // patch, factory or otherwise).
+    inline juce::String panelStatusLine(const juce::String& confirmedName, bool capturedPresetActive)
+    {
+        if (confirmedName.isNotEmpty() && capturedPresetActive)
+            return "Serum 2: " + confirmedName;
+        return juce::String("Serum 2: FACTORY INIT");
+    }
 }

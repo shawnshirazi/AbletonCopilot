@@ -245,6 +245,19 @@ private:
         // SerumPresetStatus.h for the shared honesty contract.
         juce::String lastConfirmedPresetName;
 
+        // One-shot latch: the moment this track's Serum2 instance first
+        // finishes loading, timerCallback() attempts exactly one automatic
+        // load of whatever capture this panel is already cycled to (if
+        // any exist on disk and this voice's state didn't just come from
+        // a real host/project restore - see PluginProcessor::
+        // MelodyVoiceDiagnostics::hostStateRestored). This is what makes
+        // a previously-captured sound actually come back after closing
+        // and reopening the plugin, instead of silently sitting at
+        // Serum2's own factory Init until the user manually re-selects it.
+        // Set true after the one attempt regardless of success, so it
+        // never fights a user's own later manual capture/cycle choice.
+        bool autoLoadAttempted = false;
+
         juce::Label       titleLabel;
         juce::TextButton  prevPresetButton { "<" };
         juce::TextButton  nextPresetButton { ">" };

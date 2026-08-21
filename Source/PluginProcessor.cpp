@@ -453,6 +453,7 @@ AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
     d.capturedPresetActive = voice.capturedPresetActive.load(std::memory_order_acquire);
     d.noteOnEventsSent    = voice.noteOnEventsSent.load(std::memory_order_relaxed);
     d.noteOffEventsSent   = voice.noteOffEventsSent.load(std::memory_order_relaxed);
+    d.hostStateRestored   = voice.pendingState.getSize() > 0;
     d.lastBlockPeakOut    = voice.lastBlockPeakOut.load(std::memory_order_relaxed);
     d.suppressOwnPlayback = suppressOwnPlayback.load(std::memory_order_relaxed);
     {

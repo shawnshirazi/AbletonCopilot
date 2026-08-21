@@ -242,6 +242,20 @@ public:
         // or a preset name without checking this first - see
         // PluginEditor's serumStatusFor/updateTrackTitle.
         bool    capturedPresetActive   = false;
+
+        // True iff a host-restored state blob (setStateInformation's
+        // project-load path) has ever been queued for this voice - see
+        // MelodyVoice::pendingState. Distinct from capturedPresetActive:
+        // a host restore genuinely changed this voice's live Serum2 sound
+        // (it's real, applied state), it just has no on-disk preset NAME
+        // to honestly report - so capturedPresetActive correctly stays
+        // false for it, but callers that would otherwise auto-apply a
+        // guessed on-disk capture (see PluginEditor's timerCallback) must
+        // check this first and skip doing so, or they'd silently
+        // overwrite a legitimate project-restored sound with an unrelated
+        // guess. Never cleared once set - once true for a voice, stays
+        // true for that voice's lifetime.
+        bool    hostStateRestored      = false;
     };
     MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
