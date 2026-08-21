@@ -40,14 +40,17 @@ namespace SerumPresetStatus
     }
 
     // Same honesty gate, terse form for the structured DRUMS/BASS/MELODY/
-    // PAD/SECTION status block (RuntimeStatusText.h) - explicit
-    // "FACTORY INIT — NO CAPTURE" rather than the longer suggestion text,
-    // per the exact phrasing requested for that display.
+    // PAD/SECTION status block (RuntimeStatusText.h) - "Preset: <name>" /
+    // "Preset: Factory Init (not captured)", the exact wording requested
+    // for both this side-by-side block AND the per-track panel's own
+    // status line (see panelStatusLine below - same wording, kept as a
+    // separate function since callers need it in a different loading-
+    // state context, not because the text itself should ever differ).
     inline juce::String compactPresetLine(const juce::String& confirmedName, bool capturedPresetActive)
     {
         if (confirmedName.isNotEmpty() && capturedPresetActive)
-            return confirmedName;
-        return juce::String("FACTORY INIT \xe2\x80\x94 NO CAPTURE"); // em-dash, see titleText's own comment
+            return "Preset: " + confirmedName;
+        return juce::String("Preset: Factory Init (not captured)");
     }
 
     // Same honesty gate, for MelodyTrackPanel's own title label (which has
@@ -67,20 +70,18 @@ namespace SerumPresetStatus
         return categoryDisplayName + "  \xe2\x80\x94  " + name;
     }
 
-    // Same honesty gate, for the per-track panel's own "Serum 2: ..."
+    // Same honesty gate, for the per-track panel's own "Preset: ..."
     // status line (MelodyTrackPanel::statusLabel, once that track's
-    // Serum2 instance has finished loading) - the exact "Serum 2:
-    // FACTORY INIT" / "Serum 2: <name>" wording requested for that
-    // specific display. Callers must only use this once
+    // Serum2 instance has finished loading) - "Preset: <name>" /
+    // "Preset: Factory Init (not captured)", the exact wording requested
+    // for that specific display. Callers must only use this once
     // MelodyVoiceDiagnostics::serumInstanceLoaded is true for the track -
     // while still loading, the real load-status text (PluginProcessor::
-    // getMelodyTrackStatus) is what belongs there instead, since "FACTORY
-    // INIT" would be premature (there's no instance yet to be at any
-    // patch, factory or otherwise).
+    // getMelodyTrackStatus) is what belongs there instead, since
+    // "Factory Init" would be premature (there's no instance yet to be
+    // at any patch, factory or otherwise).
     inline juce::String panelStatusLine(const juce::String& confirmedName, bool capturedPresetActive)
     {
-        if (confirmedName.isNotEmpty() && capturedPresetActive)
-            return "Serum 2: " + confirmedName;
-        return juce::String("Serum 2: FACTORY INIT");
+        return compactPresetLine(confirmedName, capturedPresetActive);
     }
 }

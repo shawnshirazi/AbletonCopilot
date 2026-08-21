@@ -260,6 +260,29 @@ public:
     MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
 
+    // Test/diagnostic-only: a single recorded note-on/off event actually
+    // built into a melody voice's own serumMidi buffer during processBlock
+    // (see that loop's own comment on why this is captured unconditionally,
+    // independent of whether a Serum2 instance is loaded), with a sample-
+    // accurate ABSOLUTE timestamp - this voice's own running total of
+    // samples actually processed, not a per-block-relative offset. Exists
+    // so tests can prove real event ORDERING/timing (e.g. "a retrigger's
+    // note-off strictly precedes its note-on"), not just cumulative
+    // counts (noteOnEventsSent/noteOffEventsSent above already cover the
+    // count side).
+    struct VoiceMidiEventRecord
+    {
+        bool    isNoteOn = false;
+        int     pitch = -1;
+        int64_t absoluteSample = 0;
+    };
+    // Up to the most recent kMaxRecentVoiceMidiEvents events recorded for
+    // this voice, oldest first - real events only, built from the exact
+    // juce::MidiBuffer each block actually assembled for this voice, never
+    // reconstructed or inferred after the fact.
+    static constexpr int kMaxRecentVoiceMidiEvents = 8192;
+    std::vector<VoiceMidiEventRecord> getRecentVoiceMidiEvents(int trackIndex) const;
+
     // --- Deterministic drum-MIDI output (Phase 1 engine, Source/Engine/) ---
     // Emits real MIDI notes to the host (General MIDI drum map, channel 10)
     // so a downstream instrument (e.g. a Drum Rack on the same MIDI track)
@@ -438,6 +461,16 @@ private:
         // already used for generated-drum note-off/swing scheduling.
         std::vector<int8_t>                        generatedGateLengthSteps;
         int                                         gateSamplesRemaining = -1; // audio-thread only; -1 = no gate armed for the currently-sounding note
+
+        // Test/diagnostic-only (see getRecentVoiceMidiEvents's own
+        // comment). Audio thread appends under midiEventLock each block;
+        // message thread reads a copy. processedSampleCount is this
+        // voice's own running total of samples actually processed - audio
+        // thread only, advanced once per processBlock call regardless of
+        // whether any event occurred that block.
+        mutable juce::CriticalSection              midiEventLock;
+        std::vector<VoiceMidiEventRecord>           recentMidiEvents;
+        int64_t                                     processedSampleCount = 0;
 
         // Runtime proof for getMelodyVoiceDiagnostics() - written from the
         // audio thread in processBlock, read from the message thread.

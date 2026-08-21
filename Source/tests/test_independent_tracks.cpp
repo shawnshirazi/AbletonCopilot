@@ -562,9 +562,9 @@ int main()
             // or loadCapturedPreset called on it anywhere in this test, so
             // its capturedPresetActive must still be false (matches
             // SerumPresetStatus::panelStatusLine's own contract: empty/
-            // false -> "Serum 2: FACTORY INIT"). ----
+            // false -> "Preset: Factory Init (not captured)"). ----
             CHECK(processor.getMelodyVoiceDiagnostics(2).capturedPresetActive == false);
-            CHECK(SerumPresetStatus::panelStatusLine("", false) == "Serum 2: FACTORY INIT");
+            CHECK(SerumPresetStatus::panelStatusLine("", false) == "Preset: Factory Init (not captured)");
 
             // ---- 8. A real captured state is reported correctly - once
             // named (the UI-side confirmation step captureCurrentSound/
@@ -572,7 +572,7 @@ int main()
             // combination of a non-empty confirmed name and
             // capturedPresetActive==true is exactly what
             // panelStatusLine requires to show the real name. ----
-            CHECK(SerumPresetStatus::panelStatusLine("My Bass Sound", true) == "Serum 2: My Bass Sound");
+            CHECK(SerumPresetStatus::panelStatusLine("My Bass Sound", true) == "Preset: My Bass Sound");
             CHECK(processor.getMelodyVoiceDiagnostics(0).capturedPresetActive == true);
             CHECK(processor.getMelodyVoiceDiagnostics(1).capturedPresetActive == true);
 
@@ -698,6 +698,105 @@ int main()
         for (int t = 0; t < 3; ++t)
             CHECK(processor.getMelodyVoiceDiagnostics(t).capturedPresetActive == false);
     }
+
+    // ==== THIS pass's own 9-item list (note-scheduling correctness +
+    // Serum2 preset identity - see this pass's own report). Items 1-4
+    // (independent instances, capture/restore isolation, truthful
+    // status) are already fully covered above by this same file's
+    // existing blocks - re-verified here only where this pass added new
+    // API (panelStatusLine's updated "Preset: ..." wording, checked
+    // above at lines ~567/575). ====
+
+    // ---- 5. Bass never has two simultaneously active notes - and more
+    // precisely, whenever a retrigger occurs (a new onset while the
+    // previous Bass note was still sounding), its note-off strictly
+    // PRECEDES the next note-on in real, sample-accurate, absolute time -
+    // not just buffer-insertion order (which was already correct before
+    // this pass's fix; the bug was the two landing on the identical
+    // sample, giving Serum2's synth engine no rendered time to actually
+    // release the old voice - see this pass's own report for the full
+    // diagnosis). Uses the real, current Engine::generateBassPattern
+    // output (the protected baseline - unmodified this pass), run
+    // through the REAL processBlock trigger loop across one full 8-bar
+    // loop, with every event's actual timestamp captured via
+    // getRecentVoiceMidiEvents (built from the exact serumMidi buffer
+    // each block, never reconstructed or inferred). ----
+    {
+        Engine::BassPatternParams bp;
+        bp.seed = 12345u;
+        const auto bassPattern = Engine::generateBassPattern(bp);
+        std::vector<int8_t> bassOffsets(bassPattern.begin(), bassPattern.end());
+        processor.setGeneratedMelodyPattern(0, bassOffsets, 0);
+        processor.setMelodyTrackMuted(0, false);
+
+        TestPlayHead playHead;
+        processor.setPlayHead(&playHead);
+        runSteps(processor, playHead, Engine::kGrooveLoopTotalSteps);
+        processor.setPlayHead(nullptr);
+
+        const auto events = processor.getRecentVoiceMidiEvents(0);
+        // Must have real events to check - an empty result would make
+        // every CHECK below vacuously true, proving nothing.
+        CHECK(!events.empty());
+
+        bool    voiceCurrentlyOn        = false;
+        int64_t lastNoteOffTime         = -1;
+        bool    sawAnyRetrigger         = false;
+        bool    noOverlapEver           = true;
+        bool    retriggersStrictlyAfter = true;
+        for (const auto& e : events)
+        {
+            if (e.isNoteOn)
+            {
+                if (voiceCurrentlyOn)
+                    noOverlapEver = false; // a note-on while already on = a genuine overlap
+                if (lastNoteOffTime >= 0)
+                {
+                    sawAnyRetrigger = true;
+                    if (!(lastNoteOffTime < e.absoluteSample))
+                        retriggersStrictlyAfter = false;
+                }
+                voiceCurrentlyOn = true;
+            }
+            else
+            {
+                voiceCurrentlyOn = false;
+                lastNoteOffTime  = e.absoluteSample;
+            }
+        }
+        CHECK(noOverlapEver);
+        CHECK(sawAnyRetrigger); // proves this pattern/seed actually exercised a real retrigger
+        CHECK(retriggersStrictlyAfter);
+    }
+
+    // ---- 6/8 (bass half). Bass note positions/pitches are byte-
+    // identical to the protected baseline, and the pattern is exactly 8
+    // bars - Engine/BassEngine.cpp, Engine/BassArchetype.cpp untouched
+    // this pass (confirmed by this pass's own diff scope, see the
+    // report); same fixed-seed FNV-1a fingerprint already established
+    // earlier in this file, re-asserted here under this pass's own
+    // numbered list. ----
+    {
+        Engine::BassPatternParams bp99;
+        bp99.seed = 99u;
+        const auto bass99 = Engine::generateBassPattern(bp99);
+        CHECK(fnv1a(bass99) == 3951081041601211395ULL);
+        CHECK((int) bass99.size() == Engine::kGrooveLoopTotalSteps);
+    }
+
+    // ---- 7/8 (melody half). Melody's generated MIDI is byte-identical
+    // to the protected baseline, and is exactly 8 bars -
+    // MusicTheory/MelodyMotifGenerator.cpp untouched this pass. ----
+    {
+        const auto melody99 = MelodyMotifGenerator::generateMelodyMotif(0, true, MelodyCategory::Lead, MelodyStyle::Default, 99u);
+        CHECK(fnv1a(melody99) == 5991604956591893218ULL);
+        CHECK((int) melody99.size() == Engine::kGrooveLoopTotalSteps);
+    }
+
+    // ---- 9. Existing tests remain green - not a single in-file
+    // assertion; verified by running the complete existing test suite
+    // (all zero-JUCE Engine binaries + every other JUCE-linked test file)
+    // alongside this one - see this pass's own report for the counts. ----
 
     tempDir.deleteRecursively();
     TEST_SUMMARY_AND_EXIT();

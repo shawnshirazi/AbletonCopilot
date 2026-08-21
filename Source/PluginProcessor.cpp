@@ -474,6 +474,17 @@ bool AbletonCopilotAudioProcessor::isMelodyTrackLoaded(int trackIndex) const
     return melodyVoices[trackIndex].loaded.load(std::memory_order_relaxed);
 }
 
+std::vector<AbletonCopilotAudioProcessor::VoiceMidiEventRecord>
+    AbletonCopilotAudioProcessor::getRecentVoiceMidiEvents(int trackIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
+        return {};
+
+    auto& voice = melodyVoices[trackIndex];
+    juce::ScopedLock sl(voice.midiEventLock);
+    return voice.recentMidiEvents;
+}
+
 void AbletonCopilotAudioProcessor::setGeneratedDrumPattern(const std::vector<GeneratedDrumRole>& roles)
 {
     // Every role's velocity array is sized to the same grid (Engine::totalSteps
@@ -1288,7 +1299,32 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                         else if (t == 1)
                             pitch = clampMelodyRegisterPitch(pitch);
                         pitch = juce::jlimit(0, 127, pitch);
-                        serumMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), 0);
+                        // Retrigger overlap fix (see this pass's own
+                        // report for the full diagnosis): when this same
+                        // call just added a note-off for the previous
+                        // note (right above), that note-off and this
+                        // note-on used to both land at sample offset 0 -
+                        // correctly ORDERED in the buffer (off before on),
+                        // but with ZERO temporal separation, giving
+                        // Serum2's synth engine no rendered time to
+                        // actually complete the previous voice's release
+                        // before the new voice started - which is what
+                        // let the two voices' audio audibly overlap even
+                        // though this scheduler's own bookkeeping
+                        // (voice.noteOn) never allowed two simultaneously
+                        // "on" states. A 1-sample gap costs nothing
+                        // musically (1/44100s is inaudible, doesn't move
+                        // the note's real position/rhythm) but guarantees
+                        // a genuine off-then-on ordering in rendered time,
+                        // not just buffer-insertion order. Applied to
+                        // every generated-pattern voice uniformly (Bass,
+                        // Melody, Pad) - MelodyMotifGenerator's own output
+                        // (std::array<int8_t,128>, one pitch-offset per
+                        // step, confirmed by direct inspection) has no
+                        // chord/polyphony representation, so this can
+                        // never suppress intentional overlapping notes.
+                        const int noteOnOffsetSamples = juce::jlimit(0, juce::jmax(0, buffer.getNumSamples() - 1), 1);
+                        serumMidi.addEvent(juce::MidiMessage::noteOn(1, pitch, (juce::uint8) 100), noteOnOffsetSamples);
                         voice.noteOn        = true;
                         voice.soundingPitch = pitch;
                         voice.noteOnEventsSent.fetch_add(1, std::memory_order_relaxed);
@@ -1345,6 +1381,29 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                     voice.noteOffEventsSent.fetch_add(1, std::memory_order_relaxed);
                 }
             }
+
+            // Test/diagnostic-only capture (see getRecentVoiceMidiEvents's
+            // own comment): record every event actually built into this
+            // block's serumMidi, with a sample-accurate ABSOLUTE
+            // timestamp, before it's consumed below - unconditional, same
+            // as the MIDI-building above, independent of whether serum is
+            // loaded, so the scheduler's real behaviour is provable even
+            // without a loaded instance.
+            if (!serumMidi.isEmpty())
+            {
+                juce::ScopedLock sl(voice.midiEventLock);
+                for (const auto metadata : serumMidi)
+                {
+                    const auto msg = metadata.getMessage();
+                    if (!msg.isNoteOnOrOff())
+                        continue;
+                    voice.recentMidiEvents.push_back({ msg.isNoteOn(), msg.getNoteNumber(),
+                                                        voice.processedSampleCount + metadata.samplePosition });
+                    if ((int) voice.recentMidiEvents.size() > kMaxRecentVoiceMidiEvents)
+                        voice.recentMidiEvents.erase(voice.recentMidiEvents.begin());
+                }
+            }
+            voice.processedSampleCount += buffer.getNumSamples();
 
             // Everything from here on actually renders audio through this
             // voice's Serum2 instance - the MIDI itself (above) was built

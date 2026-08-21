@@ -3007,11 +3007,12 @@ void AbletonCopilotAudioProcessorEditor::updateTrackTitle(MelodyTrackPanel& pane
     // own comment for why this is trackIndex-based, not category-based).
     panel.titleLabel.setText(voiceRoleName(panel.trackIndex), juce::dontSendNotification);
 
-    // Status line: "Serum 2: FACTORY INIT" / "Serum 2: <captured name>" -
-    // the exact wording requested for this display - once that track's
-    // instance has actually finished loading; the real load-status text
-    // (e.g. "Loading Serum 2...") beforehand, never a premature "FACTORY
-    // INIT" claim about an instance that doesn't exist yet. Immediate,
+    // Status line: "Preset: <captured name>" / "Preset: Factory Init (not
+    // captured)" - the exact wording requested for this display - once
+    // that track's instance has actually finished loading; the real
+    // load-status text (e.g. "Loading Serum 2...") beforehand, never a
+    // premature "Factory Init" claim about an instance that doesn't exist
+    // yet. Immediate,
     // synchronous update here (not left to wait for timerCallback's next
     // ~33ms tick) so a Capture/cycle action reflects instantly.
     const auto diag = processor.getMelodyVoiceDiagnostics(panel.trackIndex);
