@@ -512,6 +512,75 @@ juce::AudioBuffer<float> AbletonCopilotAudioProcessor::renderVoiceAuditionAudio(
     return out;
 }
 
+juce::AudioBuffer<float> AbletonCopilotAudioProcessor::renderStandardizedNote(int trackIndex, int midiPitch, int lengthSteps,
+                                                                                 int velocity, int releaseTailSteps)
+{
+    juce::AudioBuffer<float> out; // 0 samples = "couldn't render" - never a fabricated result
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks || lengthSteps <= 0 || midiPitch < 0 || midiPitch > 127)
+        return out;
+
+    auto& voice = melodyVoices[trackIndex];
+    auto* serum = voice.instance.load(std::memory_order_acquire);
+    if (serum == nullptr)
+        return out; // no loaded instance - nothing real to render through
+
+    const double sr  = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+    const double bpm = (double) currentBpm.load(std::memory_order_relaxed) > 0.0
+                            ? (double) currentBpm.load(std::memory_order_relaxed)
+                            : 124.0; // same real-reference-tempo fallback used throughout this file's other offline renders
+
+    const double secPerStep  = 60.0 / bpm / 4.0;
+    const int samplesPerStep = juce::jmax(1, (int) std::lround(secPerStep * sr));
+    const int totalSteps     = lengthSteps + juce::jmax(0, releaseTailSteps);
+    const int totalSamples   = totalSteps * samplesPerStep;
+
+    out.setSize(2, totalSamples);
+    out.clear();
+
+    const int chunkSize = 512;
+    const juce::uint8 vel = (juce::uint8) juce::jlimit(1, 127, velocity);
+
+    // Note-on at sample 0, note-off exactly lengthSteps later, then
+    // releaseTailSteps more of silence-fed rendering so release/decay
+    // behaviour actually appears in the buffer.
+    const int noteOffSample = lengthSteps * samplesPerStep;
+
+    int samplePos = 0;
+    bool noteOffSent = false;
+    juce::MidiBuffer emptyMidi;
+    while (samplePos < totalSamples)
+    {
+        const int chunk = juce::jmin(chunkSize, totalSamples - samplePos);
+        juce::MidiBuffer chunkMidi;
+        if (samplePos == 0)
+            chunkMidi.addEvent(juce::MidiMessage::noteOn(1, midiPitch, vel), 0);
+        if (!noteOffSent && noteOffSample >= samplePos && noteOffSample < samplePos + chunk)
+        {
+            chunkMidi.addEvent(juce::MidiMessage::noteOff(1, midiPitch), noteOffSample - samplePos);
+            noteOffSent = true;
+        }
+
+        juce::AudioBuffer<float> scratch(2, chunk);
+        scratch.clear();
+        serum->processBlock(scratch, chunkMidi.isEmpty() ? emptyMidi : chunkMidi);
+        for (int ch = 0; ch < juce::jmin(2, scratch.getNumChannels()); ++ch)
+            out.copyFrom(ch, samplePos, scratch, ch, 0, chunk);
+
+        samplePos += chunk;
+    }
+
+    if (!noteOffSent)
+    {
+        juce::MidiBuffer tailMidi;
+        tailMidi.addEvent(juce::MidiMessage::noteOff(1, midiPitch), 0);
+        juce::AudioBuffer<float> scratch(2, chunkSize);
+        scratch.clear();
+        serum->processBlock(scratch, tailMidi);
+    }
+
+    return out;
+}
+
 //==============================================================================
 // Hosted Serum2 — hardcoded search-by-name for now (see chat: general
 // instrument picker is a bigger, separate build). Search + instantiate run

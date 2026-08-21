@@ -32,6 +32,13 @@
       <FILE id="Sps1hdr" name="SerumPresetStatus.h" compile="0" resource="0" file="Source/SerumPresetStatus.h"/>
       <FILE id="Srec1hdr" name="SoundRecommendation.h" compile="0" resource="0" file="Source/SoundRecommendation.h"/>
       <FILE id="Cev1hdr" name="CandidateEvaluator.h" compile="0" resource="0" file="Source/CandidateEvaluator.h"/>
+      <FILE id="Sdna1hdr" name="SoundDnaLibrary.h" compile="0" resource="0" file="Source/SoundDnaLibrary.h"/>
+      <FILE id="Sdna1cpp" name="SoundDnaLibrary.cpp" compile="1" resource="0" file="Source/SoundDnaLibrary.cpp"/>
+      <FILE id="Sst1hdr" name="SerumSoundTest.h" compile="0" resource="0" file="Source/SerumSoundTest.h"/>
+      <FILE id="Sll1hdr" name="SoundLibraryLearner.h" compile="0" resource="0" file="Source/SoundLibraryLearner.h"/>
+      <FILE id="Sll1cpp" name="SoundLibraryLearner.cpp" compile="1" resource="0" file="Source/SoundLibraryLearner.cpp"/>
+      <FILE id="Serauto1hdr" name="SerumAutomation.h" compile="0" resource="0" file="Source/SerumAutomation.h"/>
+      <FILE id="Serauto1cpp" name="SerumAutomation.cpp" compile="1" resource="0" file="Source/SerumAutomation.cpp"/>
       <FILE id="Rst1hdr" name="RuntimeStatusText.h" compile="0" resource="0" file="Source/RuntimeStatusText.h"/>
       <FILE id="Mc1hdr" name="MelodyCategory.h" compile="0" resource="0"
             file="Source/MelodyCategory.h"/>
@@ -174,7 +181,7 @@
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"
                JUCE_PLUGINHOST_VST3="1"/>
   <EXPORTFORMATS>
-    <XCODE_MAC targetFolder="Builds/MacOSX">
+    <XCODE_MAC targetFolder="Builds/MacOSX" extraLinkerFlags="-framework ApplicationServices">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="AbletonCopilot"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="AbletonCopilot"/>

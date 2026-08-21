@@ -490,6 +490,17 @@ private:
     // part of mainContent inside mainViewport.
     juce::Label serumTracksHeadingLabel;
 
+    // Sound DNA library - Phase 1 minimal UI (Source/SoundLibraryLearner.h/
+    // SoundDnaLibrary.h): a single button that runs a small real test
+    // batch (3 candidates per role) end to end and a status label showing
+    // real, live progress - no Sound Browser yet, per this phase's own
+    // explicit scope. Deliberately synchronous (blocks briefly while the
+    // batch runs) for this first pass - a disclosed v1 simplification,
+    // not an oversight; a background-thread version is future work.
+    juce::TextButton learnLibraryButton { "Learn Sound Library (Test Batch)" };
+    juce::Label      learnLibraryStatusLabel;
+    void learnLibraryClicked();
+
     // Everything below the fixed header/Generate row lives in mainContent,
     // sized every resized() call to its actual needed height (mute rows +
     // compact status + the pattern grid + diagnostics, and - when

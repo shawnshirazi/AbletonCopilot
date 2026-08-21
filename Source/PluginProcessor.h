@@ -222,6 +222,20 @@ public:
     // clamp logic used during actual playback.
     juce::AudioBuffer<float> renderVoiceAuditionAudio(int trackIndex, int numBars, int registerOctaveShift = 0);
 
+    // Offline (message-thread, non-realtime) render of a SINGLE
+    // deterministic note - NOT this track's generated pattern - through
+    // that track's Serum2 instance in isolation. This is the Sound DNA
+    // library's standardized test primitive (Source/SerumSoundTest.h):
+    // whatever REAL Serum 2 state is currently loaded on this track gets
+    // played the exact same fixed pitch/length/velocity every time, so
+    // results are comparable across candidates. Renders `lengthSteps` of
+    // held note plus `releaseTailSteps` more of ringing-out afterward (so
+    // release/decay behaviour is actually captured). Never touches the
+    // stored generated pattern, never touches any other track. Returns an
+    // empty buffer if this track has no loaded Serum2 instance.
+    juce::AudioBuffer<float> renderStandardizedNote(int trackIndex, int midiPitch, int lengthSteps,
+                                                      int velocity, int releaseTailSteps);
+
     // Rebuilds that voice's static, role-based default EQ (see
     // PluginProcessor.cpp's kVoiceEqSettings) - call whenever a track's
     // category is set (initial default, category switch, or a new track

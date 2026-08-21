@@ -6,6 +6,7 @@
 #include "RuntimeStatusText.h"
 #include "SerumPresetStatus.h"
 #include "SoundRecommendation.h"
+#include "SoundLibraryLearner.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -516,6 +517,17 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     addMelodyTrackButton.onClick = [this] { addMelodyTrackClicked(); };
     mainContent.addAndMakeVisible(addMelodyTrackButton);
 
+    learnLibraryButton.setColour(juce::TextButton::buttonColourId,  kPanel);
+    learnLibraryButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    learnLibraryButton.onClick = [this] { learnLibraryClicked(); };
+    mainContent.addAndMakeVisible(learnLibraryButton);
+
+    learnLibraryStatusLabel.setText("Sound DNA library: not learned yet.", juce::dontSendNotification);
+    learnLibraryStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    learnLibraryStatusLabel.setFont(small());
+    learnLibraryStatusLabel.setJustificationType(juce::Justification::topLeft);
+    mainContent.addAndMakeVisible(learnLibraryStatusLabel);
+
     // Track 0 — always present ("Bass" by default; Generate re-detects the
     // category from whatever prompt is typed). The processor's own
     // constructor already allocated this slot (so audio works even if the
@@ -978,6 +990,11 @@ void AbletonCopilotAudioProcessorEditor::resized()
 
         addMelodyTrackButton.setBounds(12, y, 220, 26);
         y += 26 + 20;
+
+        learnLibraryButton.setBounds(12, y, 260, 26);
+        y += 26 + 6;
+        learnLibraryStatusLabel.setBounds(12, y, innerWidth, 60);
+        y += 60 + 20;
     }
 
     mainContent.setSize(contentWidth, y);
@@ -3056,6 +3073,75 @@ void AbletonCopilotAudioProcessorEditor::openSerumWindowForTrack(MelodyTrackPane
 
     panel.serumWindow->setVisible(true);
     panel.serumWindow->toFront(true);
+}
+
+void AbletonCopilotAudioProcessorEditor::learnLibraryClicked()
+{
+    // Phase 1 Sound DNA library test batch - 3 candidates per role,
+    // deliberately synchronous (blocks the UI briefly while it runs) per
+    // this phase's own "smallest working version" scope. Drives
+    // melodyPanels[0]/[1]/[2] (Bass/Melody(Lead)/Pad) - their Serum2
+    // instances/windows, no second hosting path.
+    struct RoleSpec { int trackIndex; const char* role; const char* windowTitleHint; };
+    const RoleSpec roles[3] = {
+        { 0, "Bass",   "BASS" }, // categoryDisplayName(MelodyCategory::Bass)
+        { 1, "Melody", "LEAD" }, // track 1's real category is MelodyCategory::Lead - "LEAD" is the ACTUAL window title openSerumWindowForTrack creates, not "MELODY"
+        { 2, "Pad",    "PAD" },
+    };
+
+    juce::StringArray summaryLines;
+    int totalLearned = 0, totalFailed = 0, totalSkipped = 0;
+
+    for (auto& r : roles)
+    {
+        if (r.trackIndex >= melodyPanels.size())
+            continue;
+        auto& panel = *melodyPanels[r.trackIndex];
+
+        learnLibraryStatusLabel.setText(juce::String(r.role) + ": waiting for Serum 2 to finish loading...",
+                                          juce::dontSendNotification);
+        repaint();
+
+        // Bounded wait for this track's Serum2 instance to finish loading
+        // - same real-load-time expectation as everywhere else in this
+        // codebase (~1s in a real host), not an indefinite hang.
+        int waitedMs = 0;
+        while (processor.getHostedSerumInstance(r.trackIndex) == nullptr && waitedMs < 8000)
+        {
+            juce::Thread::sleep(100);
+            waitedMs += 100;
+        }
+        if (processor.getHostedSerumInstance(r.trackIndex) == nullptr)
+        {
+            summaryLines.add(juce::String(r.role) + ": Serum 2 never finished loading - skipped this role.");
+            continue;
+        }
+
+        openSerumWindowForTrack(panel);
+        juce::Thread::sleep(300); // let the real Serum 2 editor window actually finish appearing before automation looks for it
+
+        const auto result = SoundLibraryLearner::learnBatch(
+            processor, r.trackIndex, r.role, /*maxPerCategory*/ 3, r.windowTitleHint,
+            [this](const SoundLibraryLearner::ProgressEvent& ev)
+            {
+                learnLibraryStatusLabel.setText(ev.message, juce::dontSendNotification);
+                repaint();
+            });
+
+        totalLearned += result.learned;
+        totalFailed  += result.failed;
+        totalSkipped += result.skipped;
+        summaryLines.add(juce::String(r.role) + ": Learned " + juce::String(result.learned)
+                          + "  Failed " + juce::String(result.failed)
+                          + "  Skipped " + juce::String(result.skipped));
+    }
+
+    learnLibraryStatusLabel.setText(
+        "Sound DNA library test batch complete. " + summaryLines.joinIntoString("   |   ")
+            + "   (Total: Learned " + juce::String(totalLearned) + ", Failed " + juce::String(totalFailed)
+            + ", Skipped " + juce::String(totalSkipped) + ")",
+        juce::dontSendNotification);
+    repaint();
 }
 
 void AbletonCopilotAudioProcessorEditor::toggleAuditionForTrack(MelodyTrackPanel& panel)
