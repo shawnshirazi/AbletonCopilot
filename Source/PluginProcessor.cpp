@@ -400,6 +400,24 @@ void AbletonCopilotAudioProcessor::setMelodyTrackSolo(int trackIndex, bool solo)
         soloedMelodyTrackCount.fetch_sub(1, std::memory_order_relaxed);
 }
 
+void AbletonCopilotAudioProcessor::setVoiceAuditionActive(int trackIndex, bool active)
+{
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
+        return;
+
+    auto& voice = melodyVoices[trackIndex];
+    if (active)
+        voice.auditionStartPending.store(true, std::memory_order_release);
+    voice.auditionActive.store(active, std::memory_order_release);
+}
+
+bool AbletonCopilotAudioProcessor::isVoiceAuditionActive(int trackIndex) const noexcept
+{
+    if (trackIndex < 0 || trackIndex >= kMaxMelodyTracks)
+        return false;
+    return melodyVoices[trackIndex].auditionActive.load(std::memory_order_acquire);
+}
+
 //==============================================================================
 // Hosted Serum2 — hardcoded search-by-name for now (see chat: general
 // instrument picker is a bigger, separate build). Search + instantiate run
@@ -454,6 +472,7 @@ AbletonCopilotAudioProcessor::MelodyVoiceDiagnostics
     d.noteOnEventsSent    = voice.noteOnEventsSent.load(std::memory_order_relaxed);
     d.noteOffEventsSent   = voice.noteOffEventsSent.load(std::memory_order_relaxed);
     d.hostStateRestored   = voice.pendingState.getSize() > 0;
+    d.auditionActive      = voice.auditionActive.load(std::memory_order_acquire);
     d.lastBlockPeakOut    = voice.lastBlockPeakOut.load(std::memory_order_relaxed);
     d.suppressOwnPlayback = suppressOwnPlayback.load(std::memory_order_relaxed);
     {
@@ -1247,26 +1266,80 @@ void AbletonCopilotAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             // Mute/solo gate only the triggering of new notes — same
             // convention as the drum rows: a note already sounding keeps
             // ringing out via its own note-off below rather than being cut
-            // off abruptly.
-            const bool audible = !voice.muted.load(std::memory_order_relaxed)
-                               && (soloTrackCount == 0 || voice.solo.load(std::memory_order_relaxed));
+            // off abruptly. Auditioning always overrides mute (see
+            // setVoiceAuditionActive's own comment) - the whole point of
+            // auditioning is to hear it regardless of that track's current
+            // mute state.
+            const bool auditioning = voice.auditionActive.load(std::memory_order_acquire);
+            const bool audible = auditioning
+                               || (!voice.muted.load(std::memory_order_relaxed)
+                                   && (soloTrackCount == 0 || voice.solo.load(std::memory_order_relaxed)));
 
             juce::MidiBuffer serumMidi;
 
-            if (isPlayingNow)
-            {
-                // Arrangement-driven generated patterns are typically much
-                // longer than kMelodySteps (a full multi-section
-                // arrangement vs. a fixed 8 bars) - use their own real
-                // length for the wrap so the whole arrangement plays
-                // through once per loop instead of being truncated to 8
-                // bars. Falls back to the normal offsets/kMelodySteps
-                // behaviour for any track that never called
-                // setGeneratedMelodyPattern (unchanged from before).
-                const int totalStepsForWrap = useGeneratedPattern ? localGeneratedTotalSteps : kMelodySteps;
-                const int stepFloor   = (int) std::floor(ppq * 4.0);
-                const int wrappedStep = ((stepFloor % totalStepsForWrap) + totalStepsForWrap) % totalStepsForWrap;
+            // Arrangement-driven generated patterns are typically much
+            // longer than kMelodySteps (a full multi-section arrangement
+            // vs. a fixed 8 bars) - use their own real length for the wrap
+            // so the whole arrangement plays through once per loop instead
+            // of being truncated to 8 bars. Falls back to the normal
+            // offsets/kMelodySteps behaviour for any track that never
+            // called setGeneratedMelodyPattern (unchanged from before).
+            const int totalStepsForWrap = useGeneratedPattern ? localGeneratedTotalSteps : kMelodySteps;
+            int  wrappedStep    = -1;
+            bool haveStepSource = false;
 
+            // Audition drives this voice from its OWN internal sample
+            // clock, independent of the host transport - so browsing/
+            // auditioning Serum 2 sounds works whether or not the DAW is
+            // currently playing (this plugin's processBlock is still
+            // called continuously by the host/standalone wrapper either
+            // way). Uses the exact same stored generatedOffsets/
+            // generatedGateLengthSteps as normal playback below - never a
+            // separate test pattern, never regenerated - only the step-
+            // position SOURCE differs. Mutually exclusive with host-
+            // transport-driven playback for a given voice (never both
+            // computing wrappedStep in the same call).
+            if (auditioning)
+            {
+                if (voice.auditionStartPending.exchange(false, std::memory_order_acq_rel))
+                {
+                    voice.auditionSampleCounter = 0;
+                    voice.lastStepIndex         = -1; // force an immediate retrigger at step 0
+                }
+                // currentBpm is only ever populated from a real host
+                // tempo query (see processBlock's own ppq-reading block
+                // above) - it can genuinely still be 0 here (e.g. the host
+                // transport has never started even once, or a standalone
+                // instance that hasn't queried tempo yet). Audition must
+                // work regardless (the whole point is "whether or not the
+                // DAW's transport happens to be playing") - falls back to
+                // 124 BPM, the same real-reference-tempo default
+                // PluginEditor::refreshLoopBpm() already uses for the
+                // identical reason (melodic_techno_research.md section 3.2).
+                double bpmForAudition = (double) currentBpm.load(std::memory_order_relaxed);
+                if (bpmForAudition <= 0.0)
+                    bpmForAudition = 124.0;
+                if (bpmForAudition > 0.0 && getSampleRate() > 0.0 && totalStepsForWrap > 0)
+                {
+                    const double samplesPerStep = (60.0 / bpmForAudition / 4.0) * getSampleRate();
+                    if (samplesPerStep > 0.0)
+                    {
+                        const int64_t stepFloor64 = (int64_t) ((double) voice.auditionSampleCounter / samplesPerStep);
+                        wrappedStep    = (int) (stepFloor64 % (int64_t) totalStepsForWrap);
+                        haveStepSource = true;
+                    }
+                }
+                voice.auditionSampleCounter += buffer.getNumSamples();
+            }
+            else if (isPlayingNow)
+            {
+                const int stepFloor = (int) std::floor(ppq * 4.0);
+                wrappedStep    = ((stepFloor % totalStepsForWrap) + totalStepsForWrap) % totalStepsForWrap;
+                haveStepSource = true;
+            }
+
+            if (haveStepSource)
+            {
                 if (wrappedStep != voice.lastStepIndex)
                 {
                     voice.lastStepIndex = wrappedStep;

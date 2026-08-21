@@ -5,6 +5,7 @@
 #include "Engine/BreakdownArrangement.h"
 #include "RuntimeStatusText.h"
 #include "SerumPresetStatus.h"
+#include "SoundRecommendation.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -39,6 +40,11 @@ AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::MelodyTrackPanel(
     captureButton.onClick = [this] { owner.captureCurrentSound(*this); };
     addAndMakeVisible(captureButton);
 
+    auditionButton.setColour(juce::TextButton::buttonColourId,  kPanelAlt);
+    auditionButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    auditionButton.onClick = [this] { owner.toggleAuditionForTrack(*this); };
+    addAndMakeVisible(auditionButton);
+
     openSerumButton.setColour(juce::TextButton::buttonColourId,  kPanelAlt);
     openSerumButton.setColour(juce::TextButton::textColourOffId, kAccent);
     openSerumButton.onClick = [this] { owner.openSerumWindowForTrack(*this); };
@@ -48,6 +54,22 @@ AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::MelodyTrackPanel(
     statusLabel.setColour(juce::Label::textColourId, kTextDim);
     statusLabel.setFont(small());
     addAndMakeVisible(statusLabel);
+
+    recommendedLabel.setColour(juce::Label::textColourId, kTextPrimary);
+    recommendedLabel.setFont(small());
+    addAndMakeVisible(recommendedLabel);
+
+    roleLabel.setColour(juce::Label::textColourId, kTextDim);
+    roleLabel.setFont(small());
+    addAndMakeVisible(roleLabel);
+
+    whyLabel.setColour(juce::Label::textColourId, kTextDim);
+    whyLabel.setFont(small());
+    addAndMakeVisible(whyLabel);
+
+    candidatesLabel.setColour(juce::Label::textColourId, kTextDim);
+    candidatesLabel.setFont(small());
+    addAndMakeVisible(candidatesLabel);
 
     promptBox.setColour(juce::TextEditor::backgroundColourId, kPanelAlt);
     promptBox.setColour(juce::TextEditor::textColourId, kTextPrimary);
@@ -68,6 +90,11 @@ AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::MelodyTrackPanel(
     // prompt box only exists to feed it, so it's hidden alongside it.
     generateButton.setVisible(kShowExperimentalFeatures);
     promptBox.setVisible(kShowExperimentalFeatures);
+
+    // Real initial recommendation text (role-only defaults, since no
+    // pattern has been generated for this track yet) rather than blank
+    // labels until the first Generate click.
+    owner.updateRecommendationLabels(*this);
 }
 
 void AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::paint(juce::Graphics& g)
@@ -83,6 +110,8 @@ void AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::resized()
     auto titleRow = area.removeFromTop(22);
     openSerumButton.setBounds(titleRow.removeFromRight(100));
     titleRow.removeFromRight(6);
+    auditionButton.setBounds(titleRow.removeFromRight(80));
+    titleRow.removeFromRight(6);
     captureButton.setBounds(titleRow.removeFromRight(70));
     titleRow.removeFromRight(6);
     nextPresetButton.setBounds(titleRow.removeFromRight(22));
@@ -92,6 +121,15 @@ void AbletonCopilotAudioProcessorEditor::MelodyTrackPanel::resized()
 
     area.removeFromTop(2);
     statusLabel.setBounds(area.removeFromTop(14));
+
+    area.removeFromTop(4);
+    recommendedLabel.setBounds(area.removeFromTop(14));
+    area.removeFromTop(2);
+    roleLabel.setBounds(area.removeFromTop(14));
+    area.removeFromTop(2);
+    whyLabel.setBounds(area.removeFromTop(14));
+    area.removeFromTop(2);
+    candidatesLabel.setBounds(area.removeFromTop(14));
 
     area.removeFromTop(6);
     auto promptRow = area.removeFromTop(26);
@@ -1587,6 +1625,15 @@ void AbletonCopilotAudioProcessorEditor::refreshLoopDisplay()
 
     exportDrumStemsButton.setEnabled(currentDrumGroove.has_value()); // Export Drum Stems only needs drum roles
 
+    // Recompute the sound-character recommendation for all 3 tracks from
+    // whatever's currently stored - the same "read only, never regenerate"
+    // contract as the rest of this function. Bass/Melody's recommendation
+    // genuinely depends on their real generated MIDI; Pad's is static this
+    // phase (no generator yet) - see updateRecommendationLabels's own
+    // comment.
+    for (int t = 0; t < melodyPanels.size(); ++t)
+        updateRecommendationLabels(*melodyPanels[t]);
+
     std::vector<GeneratedDrumGridComponent::RowDisplay> displayRows;
     juce::StringArray summaryParts;
     int totalHits = 0;
@@ -2474,6 +2521,16 @@ void AbletonCopilotAudioProcessorEditor::timerCallback()
                 : processor.getMelodyTrackStatus(panel->trackIndex),
             juce::dontSendNotification);
         panel->openSerumButton.setEnabled(processor.getHostedSerumInstance(panel->trackIndex) != nullptr);
+
+        // Audition button text/colour always reflect the processor's own
+        // isVoiceAuditionActive() - the source of truth - not just this
+        // button's own last-clicked state, so it stays correct even if
+        // audition state ever changes from somewhere other than this
+        // button (e.g. a future "stop all auditions" action).
+        const bool auditionActiveNow = diag.auditionActive;
+        panel->auditionButton.setButtonText(auditionActiveNow ? "Stop Audition" : "Audition");
+        panel->auditionButton.setColour(juce::TextButton::buttonColourId,
+                                          auditionActiveNow ? kAccent.withAlpha(0.35f) : kPanelAlt);
     }
 
     repaint();
@@ -2999,6 +3056,64 @@ void AbletonCopilotAudioProcessorEditor::openSerumWindowForTrack(MelodyTrackPane
 
     panel.serumWindow->setVisible(true);
     panel.serumWindow->toFront(true);
+}
+
+void AbletonCopilotAudioProcessorEditor::toggleAuditionForTrack(MelodyTrackPanel& panel)
+{
+    // Simple toggle, reading current state from the processor itself (not
+    // local UI bookkeeping) so it can never drift out of sync with what's
+    // actually playing - see PluginProcessor::setVoiceAuditionActive's own
+    // comment for exactly what this does and doesn't affect. Button text/
+    // colour update immediately here (not left to wait for the next timer
+    // tick) for instant feedback; timerCallback() keeps it correct on an
+    // ongoing basis too (e.g. if audition were ever stopped by some other
+    // path).
+    const bool nowActive = !processor.isVoiceAuditionActive(panel.trackIndex);
+    processor.setVoiceAuditionActive(panel.trackIndex, nowActive);
+    panel.auditionButton.setButtonText(nowActive ? "Stop Audition" : "Audition");
+    panel.auditionButton.setColour(juce::TextButton::buttonColourId, nowActive ? kAccent.withAlpha(0.35f) : kPanelAlt);
+}
+
+void AbletonCopilotAudioProcessorEditor::updateRecommendationLabels(MelodyTrackPanel& panel)
+{
+    // Maps this panel's track index to the recommendation engine's Role
+    // and the real, already-generated offsets array for that track (never
+    // a fresh/different pattern - the same data setGeneratedMelodyPattern
+    // was last given). Pad (track 2, or any index beyond Bass/Melody) has
+    // no generated pattern this phase, so it gets an empty PatternStats -
+    // SoundRecommendation::recommend falls back to its static, role-only
+    // Pad character in that case (see that function's own comment).
+    SoundRecommendation::Role role = SoundRecommendation::Role::Pad;
+    SoundRecommendation::PatternStats stats;
+
+    if (panel.trackIndex == 0)
+    {
+        role  = SoundRecommendation::Role::Bass;
+        stats = SoundRecommendation::analyzePattern(currentBassMotif, Engine::kBassOffValue);
+    }
+    else if (panel.trackIndex == 1)
+    {
+        role  = SoundRecommendation::Role::Melody;
+        stats = SoundRecommendation::analyzePattern(currentMelodyMotif, MelodyGridComponent::kMelodyOff);
+    }
+    // else: Pad, stats stays default/empty (hasNotes == false)
+
+    const auto rec = SoundRecommendation::recommend(role, stats);
+
+    panel.recommendedLabel.setText("Recommended: " + rec.character, juce::dontSendNotification);
+    panel.roleLabel.setText("Role: " + rec.roleText, juce::dontSendNotification);
+    panel.whyLabel.setText("Why: " + rec.why, juce::dontSendNotification);
+
+    if (rec.candidateNames.isEmpty())
+    {
+        panel.candidatesLabel.setText("Browse: " + rec.candidateFolderHint + " in Serum 2", juce::dontSendNotification);
+    }
+    else
+    {
+        panel.candidatesLabel.setText(
+            "Try (" + rec.candidateFolderHint + "): " + rec.candidateNames.joinIntoString(", "),
+            juce::dontSendNotification);
+    }
 }
 
 void AbletonCopilotAudioProcessorEditor::updateTrackTitle(MelodyTrackPanel& panel)

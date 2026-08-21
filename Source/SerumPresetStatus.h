@@ -40,16 +40,19 @@ namespace SerumPresetStatus
     }
 
     // Same honesty gate, terse form for the structured DRUMS/BASS/MELODY/
-    // PAD/SECTION status block (RuntimeStatusText.h) - "Preset: <name>" /
-    // "Preset: Factory Init (not captured)", the exact wording requested
-    // for both this side-by-side block AND the per-track panel's own
-    // status line (see panelStatusLine below - same wording, kept as a
-    // separate function since callers need it in a different loading-
-    // state context, not because the text itself should ever differ).
+    // PAD/SECTION status block (RuntimeStatusText.h) - "Preset: <name>
+    // Captured [checkmark]" / "Preset: Factory Init (not captured)", the
+    // exact wording requested for both this side-by-side block AND the
+    // per-track panel's own status line (see panelStatusLine below - same
+    // wording, kept as a separate function since callers need it in a
+    // different loading-state context, not because the text itself should
+    // ever differ). The explicit "Captured" checkmark only ever appears
+    // alongside a real confirmed name under the same two-condition gate as
+    // everything else in this file - never shown on its own.
     inline juce::String compactPresetLine(const juce::String& confirmedName, bool capturedPresetActive)
     {
         if (confirmedName.isNotEmpty() && capturedPresetActive)
-            return "Preset: " + confirmedName;
+            return "Preset: " + confirmedName + "  Captured " + juce::String(juce::CharPointer_UTF8("\xe2\x9c\x93"));
         return juce::String("Preset: Factory Init (not captured)");
     }
 

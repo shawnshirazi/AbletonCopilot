@@ -96,6 +96,24 @@ namespace
         }
     }
 
+    // Calls processBlock repeatedly with NO playhead set at all (matching
+    // processor.setPlayHead(nullptr) - getPlayHead() returns nullptr,
+    // isPlayingNow stays false for every call) - the real way to prove
+    // audition triggers notes from its own internal clock, genuinely
+    // independent of host transport, not just "coincidentally still
+    // working while a playhead happens to report playing."
+    void runBlocksNoPlayhead(AbletonCopilotAudioProcessor& processor, int numBlocks, int blockSize)
+    {
+        juce::AudioBuffer<float> buffer(2, blockSize);
+        juce::MidiBuffer midi;
+        for (int b = 0; b < numBlocks; ++b)
+        {
+            buffer.clear();
+            midi.clear();
+            processor.processBlock(buffer, midi);
+        }
+    }
+
     // FNV-1a over a fixed-seed pattern's raw bytes - a cheap, exact
     // regression fingerprint for "MIDI generation is byte-identical
     // before and after the Serum-capture changes" (this pass's own test
@@ -125,6 +143,14 @@ int main()
 
     AbletonCopilotAudioProcessor processor;
     processor.setPlayHead(nullptr); // explicit: no host attached yet, matches a fresh plugin instance
+    // A real VST3/AU/standalone host wrapper always calls
+    // setRateAndBufferSizeDetails() before prepareToPlay() - that's what
+    // makes getSampleRate() valid inside processBlock in real use. This
+    // bare test harness bypasses the host wrapper entirely, so it must
+    // call it explicitly too, or getSampleRate() stays 0 for the whole
+    // test (discovered by this pass's own audition tests - the first code
+    // path in this file to genuinely depend on a real getSampleRate()).
+    processor.setRateAndBufferSizeDetails(44100.0, 512);
     processor.prepareToPlay(44100.0, 512);
 
     // ---- 4. Bass and Melody use different instrument instances (checked
@@ -572,7 +598,8 @@ int main()
             // combination of a non-empty confirmed name and
             // capturedPresetActive==true is exactly what
             // panelStatusLine requires to show the real name. ----
-            CHECK(SerumPresetStatus::panelStatusLine("My Bass Sound", true) == "Preset: My Bass Sound");
+            CHECK(SerumPresetStatus::panelStatusLine("My Bass Sound", true)
+                    == "Preset: My Bass Sound  Captured " + juce::String(juce::CharPointer_UTF8("\xe2\x9c\x93")));
             CHECK(processor.getMelodyVoiceDiagnostics(0).capturedPresetActive == true);
             CHECK(processor.getMelodyVoiceDiagnostics(1).capturedPresetActive == true);
 
@@ -797,6 +824,108 @@ int main()
     // assertion; verified by running the complete existing test suite
     // (all zero-JUCE Engine binaries + every other JUCE-linked test file)
     // alongside this one - see this pass's own report for the counts. ----
+
+    // ==== Sound-recommendation/audition workflow pass - the remaining
+    // items from that pass's own test list (recommendation-content tests
+    // live in test_sound_recommendation.cpp; these are the ones that
+    // genuinely need a real processor). ====
+
+    // ---- Audition uses the actual generated MIDI, not an unrelated test
+    // pattern, and works with NO host playhead at all (its own internal
+    // clock, genuinely independent of host transport - the whole point).
+    // A distinctive, easily-recognized bass pattern (a single onset at a
+    // known pitch offset, repeating every 4 steps) is set, audition is
+    // started, and the recorded MIDI events (getRecentVoiceMidiEvents -
+    // built from the real serumMidi buffer each block, never
+    // reconstructed) are checked for that EXACT pitch, proving the
+    // generated data - not a substitute - drove what was heard. ----
+    {
+        std::vector<int8_t> distinctiveBass((size_t) Engine::kGrooveLoopTotalSteps, Engine::kBassOffValue);
+        for (int s = 0; s < Engine::kGrooveLoopTotalSteps; s += 4)
+            distinctiveBass[(size_t) s] = 5; // a specific, recognizable offset
+        processor.setGeneratedMelodyPattern(0, distinctiveBass, 0);
+        processor.setMelodyTrackMuted(0, false);
+
+        // Baseline count BEFORE audition starts - getRecentVoiceMidiEvents
+        // is a bounded ring of this whole test RUN's events for track 0
+        // (earlier blocks in this file already generated real events for
+        // it), so only the events APPENDED after this point are this
+        // sub-test's own - anything before the baseline is leftover
+        // history from earlier, unrelated test blocks, not audition
+        // output.
+        const size_t beforeCount = processor.getRecentVoiceMidiEvents(0).size();
+
+        processor.setPlayHead(nullptr); // NO host playhead at all
+        CHECK(processor.isVoiceAuditionActive(0) == false);
+        processor.setVoiceAuditionActive(0, true);
+        CHECK(processor.isVoiceAuditionActive(0) == true);
+        CHECK(processor.getMelodyVoiceDiagnostics(0).auditionActive == true);
+
+        runBlocksNoPlayhead(processor, 400, 512); // plenty of real blocks for the internal clock to advance through several steps
+
+        const auto events = processor.getRecentVoiceMidiEvents(0);
+        CHECK(events.size() > beforeCount); // real NEW events were generated with no playhead at all - proves the internal clock, not host ppq, drove this
+
+        const int expectedPitch = clampBassRegisterPitch(36 + 0 + 5); // same formula processBlock itself uses
+        bool sawExpectedPitch = false, sawUnexpectedPitch = false;
+        for (size_t i = beforeCount; i < events.size(); ++i)
+        {
+            const auto& e = events[i];
+            if (!e.isNoteOn) continue;
+            if (e.pitch == expectedPitch) sawExpectedPitch = true;
+            else sawUnexpectedPitch = true;
+        }
+        CHECK(sawExpectedPitch);
+        CHECK(!sawUnexpectedPitch); // every note-on came from the SAME real pattern, never a different/test pattern
+
+        // ---- Audition bypasses mute (must always be audible while
+        // active) - re-mute the track and confirm audition still produces
+        // note-ons. ----
+        processor.setMelodyTrackMuted(0, true);
+        const int64_t beforeMuteRetest = processor.getMelodyVoiceDiagnostics(0).noteOnEventsSent;
+        runBlocksNoPlayhead(processor, 400, 512);
+        CHECK(processor.getMelodyVoiceDiagnostics(0).noteOnEventsSent > beforeMuteRetest);
+        processor.setMelodyTrackMuted(0, false);
+
+        // ---- Audition does not regenerate or modify the stored pattern -
+        // the same before/after-diagnostic-equality technique already
+        // established elsewhere in this file. ----
+        const auto diagWhileAuditioning = processor.getMelodyVoiceDiagnostics(0);
+        CHECK(diagWhileAuditioning.generatedPatternActive);
+        CHECK(diagWhileAuditioning.generatedTotalSteps == Engine::kGrooveLoopTotalSteps);
+
+        processor.setVoiceAuditionActive(0, false);
+        CHECK(processor.isVoiceAuditionActive(0) == false);
+        const auto diagAfterStop = processor.getMelodyVoiceDiagnostics(0);
+        CHECK(diagAfterStop.generatedPatternActive == diagWhileAuditioning.generatedPatternActive);
+        CHECK(diagAfterStop.generatedTotalSteps == diagWhileAuditioning.generatedTotalSteps);
+    }
+
+    // ---- Auditioning Bass does not alter Melody (independence, re-
+    // verified with the new audition mechanism specifically - starting
+    // Bass's audition must never touch Melody's own audition flag,
+    // generated pattern, or note-on count). ----
+    {
+        std::vector<int8_t> melodyOffsets((size_t) Engine::kGrooveLoopTotalSteps, MelodyGridComponent::kMelodyOff);
+        melodyOffsets[2] = 7;
+        processor.setGeneratedMelodyPattern(1, melodyOffsets, 0);
+        processor.setMelodyTrackMuted(1, false);
+        CHECK(processor.isVoiceAuditionActive(1) == false);
+
+        const auto melodyDiagBefore = processor.getMelodyVoiceDiagnostics(1);
+
+        processor.setPlayHead(nullptr);
+        processor.setVoiceAuditionActive(0, true);
+        runBlocksNoPlayhead(processor, 200, 512);
+
+        CHECK(processor.isVoiceAuditionActive(1) == false); // Bass auditioning never flips Melody's own flag
+        const auto melodyDiagAfter = processor.getMelodyVoiceDiagnostics(1);
+        CHECK(melodyDiagAfter.noteOnEventsSent == melodyDiagBefore.noteOnEventsSent); // Melody never triggered - only Bass was auditioning, host wasn't playing
+        CHECK(melodyDiagAfter.generatedTotalSteps == melodyDiagBefore.generatedTotalSteps);
+        CHECK(melodyDiagAfter.generatedPatternActive == melodyDiagBefore.generatedPatternActive);
+
+        processor.setVoiceAuditionActive(0, false);
+    }
 
     tempDir.deleteRecursively();
     TEST_SUMMARY_AND_EXIT();

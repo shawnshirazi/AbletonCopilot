@@ -185,6 +185,25 @@ public:
     void setMelodyTrackSolo(int trackIndex, bool solo);
     juce::AudioPluginInstance* getHostedSerumInstance(int trackIndex) const noexcept;
 
+    // Starts/stops looping playback of trackIndex's ALREADY-STORED
+    // generated pattern (whatever setGeneratedMelodyPattern last set -
+    // never a separate test pattern, never regenerated, never modified by
+    // this call) using an internal sample clock independent of the host
+    // transport - so browsing/auditioning Serum 2 sounds against the real
+    // generated material works whether or not the DAW's transport happens
+    // to be playing (processBlock is still called continuously by the
+    // host/standalone wrapper either way - only note-TRIGGERING was ever
+    // gated on isPlayingNow). Bypasses that voice's own mute while active
+    // (auditioning must always be audible - see processBlock's own
+    // comment); never touches solo state, never touches any other track,
+    // never modifies the stored pattern. Starting audition resets that
+    // voice's internal clock back to step 0 (see processBlock's
+    // auditionStartPending handling) so repeated auditions - e.g. after
+    // tweaking the Serum 2 preset - always start from the same point for
+    // a fair comparison.
+    void setVoiceAuditionActive(int trackIndex, bool active);
+    bool isVoiceAuditionActive(int trackIndex) const noexcept;
+
     // Rebuilds that voice's static, role-based default EQ (see
     // PluginProcessor.cpp's kVoiceEqSettings) - call whenever a track's
     // category is set (initial default, category switch, or a new track
@@ -256,6 +275,11 @@ public:
         // guess. Never cleared once set - once true for a voice, stays
         // true for that voice's lifetime.
         bool    hostStateRestored      = false;
+
+        // Mirrors voice.auditionActive - read from the processor, not
+        // UI-side button-toggle bookkeeping, so a test/caller can confirm
+        // audition state actually took effect.
+        bool    auditionActive         = false;
     };
     MelodyVoiceDiagnostics getMelodyVoiceDiagnostics(int trackIndex) const;
     bool         isMelodyTrackLoaded(int trackIndex) const;
@@ -450,6 +474,16 @@ private:
         // (see processBlock's melody-voice trigger loop) until cleared.
         std::vector<int8_t>                        generatedOffsets;
         int                                         generatedTotalSteps = 0;
+
+        // Audition state (see setVoiceAuditionActive's own comment).
+        // auditionActive/auditionStartPending are the only fields the
+        // message thread writes here; auditionSampleCounter is audio-
+        // thread-only (reset by the audio thread itself when it observes
+        // auditionStartPending, never written directly from the message
+        // thread, so there's no data race on a non-atomic field).
+        std::atomic<bool> auditionActive        { false };
+        std::atomic<bool> auditionStartPending  { false };
+        int64_t            auditionSampleCounter = 0;
 
         // Real gate-length data (Source/Engine/BassArchetype.h's archetype
         // note lengths) - empty = no explicit gate anywhere, exactly the

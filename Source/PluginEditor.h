@@ -262,12 +262,31 @@ private:
         juce::TextButton  prevPresetButton { "<" };
         juce::TextButton  nextPresetButton { ">" };
         juce::TextButton  captureButton    { "Capture" };
+        // Toggles looping playback of this track's own already-generated
+        // pattern through its Serum2 instance, driven by an internal clock
+        // independent of host transport (see PluginProcessor::
+        // setVoiceAuditionActive) - so the user can browse/tweak a Serum2
+        // sound and hear it against the real generated material without
+        // needing the DAW transport running. Button text/colour reflect
+        // the processor's own isVoiceAuditionActive() each timer tick, not
+        // just a local toggle flag - see timerCallback().
+        juce::TextButton  auditionButton   { "Audition" };
         juce::TextButton  openSerumButton  { "Open Serum 2" };
         juce::Label       statusLabel;
+        // Sound-recommendation display (Source/SoundRecommendation.h) -
+        // recomputed every time this track's pattern is (re)generated (see
+        // refreshLoopDisplay()), from the ACTUAL generated MIDI's measured
+        // density/note-hold-length, grounded in MLPipeline/musical_target
+        // research - never random text, never claims a preset was
+        // selected (see SoundRecommendation.h's own honesty contract).
+        juce::Label       recommendedLabel;
+        juce::Label       roleLabel;
+        juce::Label       whyLabel;
+        juce::Label       candidatesLabel;
         juce::TextEditor  promptBox;
         juce::TextButton  generateButton { "Generate" };
 
-        static constexpr int kHeight = 92;
+        static constexpr int kHeight = 172;
 
     private:
         AbletonCopilotAudioProcessorEditor& owner;
@@ -281,6 +300,8 @@ private:
     void generateForTrack(MelodyTrackPanel& panel);
     void openSerumWindowForTrack(MelodyTrackPanel& panel);
     void updateTrackTitle(MelodyTrackPanel& panel);
+    void toggleAuditionForTrack(MelodyTrackPanel& panel);
+    void updateRecommendationLabels(MelodyTrackPanel& panel);
 
     AbletonCopilotAudioProcessor& processor;
 
