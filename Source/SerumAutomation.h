@@ -28,6 +28,20 @@ namespace SerumAutomation
     // (and separately failing) once per candidate.
     bool isAutomationAvailable();
 
+    // Same trust check as isAutomationAvailable(), but if not yet trusted
+    // this also asks the OS to show its native "<App> would like to
+    // control this computer using accessibility features" consent dialog
+    // (AXIsProcessTrustedWithOptions with the prompt option) instead of
+    // silently returning false. Manually adding this app via System
+    // Settings -> Privacy & Security -> Accessibility's own "+" button was
+    // found, on this project's actual dev machine, to NOT reliably grant
+    // AXIsProcessTrusted() to an ad-hoc-signed local build (confirmed with
+    // a minimal isolated throwaway test app - reproducible failure) -
+    // triggering the OS's own native prompt is the path that was actually
+    // verified to work. Callers should call this ONCE per batch (a real
+    // system dialog, not silent) rather than on every candidate.
+    bool requestAutomationPermission();
+
     // The real, CURRENT on-screen bounds of one of THIS process's own
     // windows whose title contains `windowTitleHint` (e.g. the exact
     // title PluginEditor::openSerumWindowForTrack sets - "Serum 2 —

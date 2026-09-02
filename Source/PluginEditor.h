@@ -501,6 +501,11 @@ private:
     juce::Label      learnLibraryStatusLabel;
     void learnLibraryClicked();
 
+    // Diagnostic-only non-interactive trigger for learnLibraryClicked() -
+    // see the SDNA_AUTORUN/SDNA_TEST_ROLE comments at its two use sites
+    // (constructor, timerCallback). 0 means "not armed" (the normal case).
+    juce::uint32 sdnaAutorunAtMs = 0;
+
     // Everything below the fixed header/Generate row lives in mainContent,
     // sized every resized() call to its actual needed height (mute rows +
     // compact status + the pattern grid + diagnostics, and - when

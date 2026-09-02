@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <cstdlib>
 
 using namespace UIStyle;
 
@@ -689,6 +690,17 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     }
 
     startTimerHz(30);
+
+    // Diagnostic-only: SDNA_AUTORUN drives the Sound DNA learner
+    // non-interactively (paired with SDNA_TEST_ROLE in learnLibraryClicked)
+    // so an automation/instrumentation pass can be verified with a real,
+    // scripted run instead of a manual click - unset in normal use, so a
+    // normal interactive session is completely unaffected. Fires once,
+    // after a fixed settle delay (learnLibraryClicked's own per-role wait
+    // loop, up to 8s, still covers Serum 2 not being hosted yet by then).
+    if (std::getenv("SDNA_AUTORUN") != nullptr)
+        sdnaAutorunAtMs = juce::Time::getMillisecondCounter() + 2000;
+
     StartupTiming::mark("Editor ctor end");
 }
 
@@ -2364,6 +2376,14 @@ void AbletonCopilotAudioProcessorEditor::paintLiveMeters(juce::Graphics& g,
 
 void AbletonCopilotAudioProcessorEditor::timerCallback()
 {
+    // Diagnostic-only: fires learnLibraryClicked() exactly once, driven by
+    // SDNA_AUTORUN (armed in the constructor) - see that comment for why.
+    if (sdnaAutorunAtMs != 0 && juce::Time::getMillisecondCounter() >= sdnaAutorunAtMs)
+    {
+        sdnaAutorunAtMs = 0;
+        learnLibraryClicked();
+    }
+
     // Keeps the "Xs ago" elapsed counter climbing while the library scan
     // is in flight - a real, ticking number is what actually distinguishes
     // "still scanning" from "frozen", which a static label can't.
@@ -3083,11 +3103,30 @@ void AbletonCopilotAudioProcessorEditor::learnLibraryClicked()
     // melodyPanels[0]/[1]/[2] (Bass/Melody(Lead)/Pad) - their Serum2
     // instances/windows, no second hosting path.
     struct RoleSpec { int trackIndex; const char* role; const char* windowTitleHint; };
-    const RoleSpec roles[3] = {
+    const RoleSpec kAllRoles[3] = {
         { 0, "Bass",   "BASS" }, // categoryDisplayName(MelodyCategory::Bass)
         { 1, "Melody", "LEAD" }, // track 1's real category is MelodyCategory::Lead - "LEAD" is the ACTUAL window title openSerumWindowForTrack creates, not "MELODY"
         { 2, "Pad",    "PAD" },
     };
+
+    // Diagnostic-only isolation switch: with SDNA_TEST_ROLE unset (the
+    // normal case for a real button click) this runs all 3 roles exactly
+    // as before. Set to "Bass"/"Melody"/"Pad" to run ONLY that one role -
+    // used to prove the automation/capture pipeline on the smallest
+    // possible real test before trusting the full batch.
+    std::vector<RoleSpec> roles;
+    if (const char* only = std::getenv("SDNA_TEST_ROLE"))
+    {
+        const juce::String want(only);
+        for (auto& r : kAllRoles)
+            if (want.equalsIgnoreCase(r.role))
+                roles.push_back(r);
+    }
+    else
+    {
+        for (auto& r : kAllRoles)
+            roles.push_back(r);
+    }
 
     juce::StringArray summaryLines;
     int totalLearned = 0, totalFailed = 0, totalSkipped = 0;
@@ -3142,6 +3181,20 @@ void AbletonCopilotAudioProcessorEditor::learnLibraryClicked()
             + ", Skipped " + juce::String(totalSkipped) + ")",
         juce::dontSendNotification);
     repaint();
+
+    juce::Logger::writeToLog("[diag] BATCH COMPLETE: Learned " + juce::String(totalLearned)
+                                  + " Failed " + juce::String(totalFailed)
+                                  + " Skipped " + juce::String(totalSkipped));
+
+    if (std::getenv("SDNA_AUTORUN") != nullptr)
+    {
+        // Non-interactive test-harness run (see the SDNA_AUTORUN check in
+        // timerCallback() that fired this call): quit automatically once
+        // this one batch is done so a launching script gets a clean
+        // process exit instead of a dangling GUI process.
+        if (auto* app = juce::JUCEApplicationBase::getInstance())
+            app->systemRequestedQuit();
+    }
 }
 
 void AbletonCopilotAudioProcessorEditor::toggleAuditionForTrack(MelodyTrackPanel& panel)

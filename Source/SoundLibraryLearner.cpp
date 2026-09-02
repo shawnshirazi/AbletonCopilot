@@ -3,9 +3,36 @@
 #include "SerumSoundTest.h"
 #include "SoundRecommendation.h"
 #include <algorithm>
+#include <unistd.h>
 
 namespace SoundLibraryLearner
 {
+    namespace
+    {
+        // Best-effort visual evidence of what Serum 2 is actually showing
+        // before/after a preset-advance click. Serum 2's own preset-name
+        // label is NOT exposed as an AX text element (SerumAutomation.h's
+        // own top comment - a real AX-tree dump showed zero accessible
+        // sub-elements on its content canvas), so a screen pixel capture of
+        // the target window is the only way to independently confirm the
+        // visible preset changed. Diagnostic-only: a failure here (e.g. no
+        // Screen Recording permission) must never fail the actual learn.
+        void captureDiagnosticScreenshot(const SerumAutomation::WindowBounds& b, const juce::File& outFile)
+        {
+            if (!b.found || b.w <= 0.0f || b.h <= 0.0f)
+                return;
+            juce::StringArray args {
+                "/usr/sbin/screencapture", "-x",
+                "-R" + juce::String((int) b.x) + "," + juce::String((int) b.y) + ","
+                     + juce::String((int) b.w) + "," + juce::String((int) b.h),
+                outFile.getFullPathName()
+            };
+            juce::ChildProcess proc;
+            if (proc.start(args))
+                proc.waitForProcessToFinish(3000);
+        }
+    }
+
     std::vector<Candidate> discoverCandidates(const juce::String& role, int maxPerCategory, const juce::File& factoryRoot)
     {
         std::vector<Candidate> result;
@@ -65,10 +92,22 @@ namespace SoundLibraryLearner
                             ProgressCallback onProgress)
     {
         BatchResult result;
+
+        // Persistent, append-only diagnostic transcript - onProgress only
+        // reaches a transient UI label (each call overwrites the last), so
+        // without this file every message before the most recent one is
+        // unrecoverable once the run finishes. Also holds the before/after
+        // screenshots below. Never gates/fails the actual learn.
+        const auto diagDir = SoundDna::libraryDir().getChildFile("diag");
+        diagDir.createDirectory();
+        const auto diagLog = diagDir.getChildFile("test_log.txt");
+
         auto report = [&](const juce::String& msg, int idx, int total)
         {
             if (onProgress)
                 onProgress({ msg, idx, total });
+            juce::Logger::writeToLog(msg);
+            diagLog.appendText(msg + "\n", false, false);
         };
 
         const auto factoryRoot = SoundRecommendation::defaultSerumFactoryPresetsRoot();
@@ -81,7 +120,7 @@ namespace SoundLibraryLearner
         std::vector<SoundDna::LearnedSound> library;
         SoundDna::loadLibraryIndex(library);
 
-        const bool automationOk = SerumAutomation::isAutomationAvailable();
+        const bool automationOk = SerumAutomation::requestAutomationPermission();
         if (!automationOk)
             report("Accessibility permission not granted to this process - real factory-library "
                    "candidates cannot be automatically loaded/verified this run (System Settings -> "
@@ -141,12 +180,39 @@ namespace SoundLibraryLearner
             juce::MemoryBlock before;
             processor.captureMelodyTrackState(trackIndex, before);
 
+            const auto boundsBeforeClick = SerumAutomation::findOwnWindow(windowTitleHint);
+            const juce::String diagBase  = role + "_" + juce::String(index);
+            report("  [diag] pid=" + juce::String((int) getpid())
+                       + " window=\"" + windowTitleHint + "\""
+                       + " bounds=(" + juce::String((int) boundsBeforeClick.x) + "," + juce::String((int) boundsBeforeClick.y)
+                       + " " + juce::String((int) boundsBeforeClick.w) + "x" + juce::String((int) boundsBeforeClick.h) + ")"
+                       + " windowFound=" + (boundsBeforeClick.found ? juce::String("yes") : juce::String("no"))
+                       + " expectedCandidate=\"" + cand.sourceHint + "\""
+                       + " fpBefore=" + SoundDna::fingerprintForCapturedState(before),
+                   index, totalOnDisk);
+            captureDiagnosticScreenshot(boundsBeforeClick, diagDir.getChildFile(diagBase + "_before.png"));
+
             report("  advancing Serum 2's browser...", index, totalOnDisk);
             const bool clicked = SerumAutomation::clickNextPreset(windowTitleHint);
-            juce::Thread::sleep(150); // let Serum 2 finish updating internally before reading state back
+            // 150ms was proven too short on this machine: a direct, isolated
+            // CGEventPost test at this exact click coordinate visibly
+            // advanced Serum 2's preset browser (confirmed by screenshot),
+            // yet captureMelodyTrackState() below still saw byte-identical
+            // state at 150ms - Serum 2's UI-driven preset selection needs
+            // more time to propagate into its serialized VST state than
+            // the visible name-bar update takes. 400ms is the fix.
+            juce::Thread::sleep(400);
 
             juce::MemoryBlock after;
             const bool captured = processor.captureMelodyTrackState(trackIndex, after);
+
+            const auto boundsAfterClick = SerumAutomation::findOwnWindow(windowTitleHint);
+            captureDiagnosticScreenshot(boundsAfterClick, diagDir.getChildFile(diagBase + "_after.png"));
+            report("  [diag] fpAfter=" + (captured ? SoundDna::fingerprintForCapturedState(after) : juce::String("n/a"))
+                       + " stateChanged=" + ((captured && after.getSize() > 0 && after != before) ? "yes" : "no")
+                       + " captureSucceeded=" + (captured ? "yes" : "no")
+                       + " clickDispatched=" + (clicked ? "yes" : "no"),
+                   index, totalOnDisk);
 
             if (!clicked || !captured || after.getSize() == 0 || after == before)
             {
