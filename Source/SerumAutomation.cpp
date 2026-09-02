@@ -1,6 +1,7 @@
 #include "SerumAutomation.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <unistd.h>
+#import <Cocoa/Cocoa.h> // needed for direct NSWindow/NSEvent delivery in clickNextPreset() - see its own comment
 
 namespace SerumAutomation
 {
@@ -58,6 +59,50 @@ namespace SerumAutomation
             CFRelease(windows);
             return found;
         }
+
+        // Real NSWindow* for the window matching `hint` in THIS process's
+        // own [NSApp windows] - same match semantics as
+        // findWindowByTitleSubstring (AX), used here to get an actual
+        // NSWindow for direct event delivery. Returns nil if not found -
+        // never guessed/assumed.
+        NSWindow* findNSWindowByTitleSubstring(const juce::String& hint)
+        {
+            NSApplication* nsApp = [NSApplication sharedApplication];
+            for (NSWindow* w in nsApp.windows)
+            {
+                const juce::String title = juce::String::fromCFString((CFStringRef) (w.title ? w.title : @""));
+                if (title.contains(hint))
+                    return w;
+            }
+            return nil;
+        }
+
+        // Delivers `event` directly to `window` via -[NSWindow sendEvent:]
+        // - AppKit's own event-dispatch entry point, which performs its
+        // own hit-testing (via the content view's hitTest:) to route the
+        // event to whatever view is actually at that point (established by
+        // a real instrumented investigation to be VSTGUI_NSView, Serum 2's
+        // own control-surface view). A plain in-process Objective-C method
+        // call - never asks the window server "what's on screen at this
+        // pixel", so it doesn't depend on this window being the physically
+        // topmost thing on screen, unlike CGEventPost/CGEventPostToPid
+        // (both tried first, real instrumented runs: events confirmed
+        // dispatched, but Serum's state never changed either time).
+        // -sendEvent: (not -mouseDown:/-mouseUp: called directly on
+        // contentView) specifically because it performs AppKit's own
+        // correct hit-test routing to the deepest view at the point - the
+        // content view chain here is JUCEView -> JuceInnerNSView ->
+        // VSTGUI_NSView, and calling -mouseDown: directly on contentView
+        // would skip that routing and might never reach VSTGUI_NSView at
+        // all.
+        void sendEventDirectlyToWindow(NSWindow* window, NSEvent* event, const char* label)
+        {
+            juce::Logger::writeToLog(juce::String("  [diag] delivering ") + label
+                + " via [NSWindow sendEvent:] directly to windowNumber=" + juce::String((int) window.windowNumber)
+                + " title=\"" + juce::String::fromCFString((CFStringRef) window.title) + "\""
+                + " - bypasses CGEventPost/CGEventPostToPid/HID tap/WindowServer screen hit-testing entirely");
+            [window sendEvent:event];
+        }
     }
 
     WindowBounds findOwnWindow(const juce::String& windowTitleHint)
@@ -110,15 +155,7 @@ namespace SerumAutomation
         // THEN raise the target window within it. Proven necessary by a
         // real instrumented run: kAXRaiseAction only reorders windows
         // inside our own app's z-order - it does NOT make our app the
-        // system-wide frontmost application. CGEventPost's kCGHIDEventTap
-        // dispatches a real, global HID-level click that the window server
-        // routes to whatever is ACTUALLY topmost on screen at that point,
-        // across every app - not just topmost among our own windows. A
-        // diagnostic screenshot (SoundLibraryLearner.cpp's before/after
-        // capture) showed a completely unrelated foreground window sitting
-        // on top of Serum 2's window at the click coordinates while our
-        // app was raised-but-not-frontmost; the click landed there and
-        // Serum 2's state never changed. juce::Process::makeForegroundProcess()
+        // system-wide frontmost application. juce::Process::makeForegroundProcess()
         // wraps [NSApp activateIgnoringOtherApps:YES] - a no-op if this
         // process is already frontmost, so safe to call unconditionally.
         juce::Process::makeForegroundProcess();
@@ -167,9 +204,8 @@ namespace SerumAutomation
         // same app's own main editor window re-claiming key/front status as
         // part of activation settling (both windows belong to this one
         // process, so activating it doesn't by itself decide WHICH of our
-        // windows ends up frontmost) - a diagnostic screenshot taken right
-        // at click time showed the main editor window on top instead of
-        // Serum 2. Raising again immediately before the click reclaims it.
+        // windows ends up frontmost). Raising again immediately before the
+        // click reclaims it.
         auto raiseTargetWindow = [&]
         {
             if (AXUIElementRef app = AXUIElementCreateApplication(getpid()))
@@ -201,44 +237,94 @@ namespace SerumAutomation
 
         const CGPoint p = CGPointMake(bounds.x + bounds.w * kNextPresetFracX,
                                        bounds.y + bounds.h * kNextPresetFracY);
+        juce::Logger::writeToLog("  [diag] exact click point=(" + juce::String((int) p.x) + "," + juce::String((int) p.y) + ")"
+            + " (AbletonCopilot/Serum share one process - Serum is hosted in-process as a VST3 plugin,"
+            + " not a separate PID - AbletonCopilot pid=" + juce::String((int) getpid()) + " IS Serum's pid here)");
 
-        CGEventRef move = CGEventCreateMouseEvent(nullptr, kCGEventMouseMoved, p, kCGMouseButtonLeft);
-        CGEventPost(kCGHIDEventTap, move);
-        CFRelease(move);
+        // Direct AppKit event delivery - investigated and verified before
+        // implementing (a real AX-tree dump + NSWindow/view-hierarchy dump
+        // found the real NSWindow "Serum 2 - <role>" and its VSTGUI_NSView
+        // content view). Both CGEventPost (global) and CGEventPostToPid
+        // (process-targeted) were tried and tested for real first - clicks
+        // were confirmed dispatched, but Serum's state never changed
+        // either time. A plain in-process Objective-C method call, which
+        // never asks the window server what's on screen, was independently
+        // verified twice (real instrumented runs, real Serum state
+        // fingerprint changes both times) to actually work. Same
+        // coordinate calculation, same activation/raise above, same
+        // timings below - only the construction+delivery of the 5 events
+        // changed from the original CGEventPost-based implementation.
+        NSWindow* matchedWindow = findNSWindowByTitleSubstring(windowTitleHint);
+        if (matchedWindow == nil)
+        {
+            juce::Logger::writeToLog("  [diag] direct-NSEvent delivery FAILED: no NSWindow in [NSApp windows] matched \""
+                + windowTitleHint + "\" - cannot deliver directly, not falling back to any other mechanism");
+            return false;
+        }
+
+        // Convert the existing screen/top-left click point `p` into the
+        // matched window's own local (AppKit bottom-left-origin)
+        // coordinate space, using the window's own -convertRectFromScreen:
+        // (which uses its actual current frame internally) rather than
+        // hand-rolled math against an assumed screen height.
+        CGFloat mainScreenHeightForLog = 0;
+        if (NSScreen* mainScreen = [NSScreen mainScreen])
+            mainScreenHeightForLog = mainScreen.frame.size.height;
+        const NSPoint screenPointBottomLeftOrigin = NSMakePoint(p.x, mainScreenHeightForLog - p.y);
+        const NSRect  screenPointRect             = NSMakeRect(screenPointBottomLeftOrigin.x, screenPointBottomLeftOrigin.y, 0, 0);
+        const NSPoint windowLocalPoint            = [matchedWindow convertRectFromScreen:screenPointRect].origin;
+
+        juce::Logger::writeToLog("  [diag] matched NSWindow windowNumber=" + juce::String((int) matchedWindow.windowNumber)
+            + " title=\"" + juce::String::fromCFString((CFStringRef) matchedWindow.title) + "\""
+            + " isKeyWindow=" + (matchedWindow.isKeyWindow ? "yes" : "no")
+            + " isMainWindow=" + (matchedWindow.isMainWindow ? "yes" : "no")
+            + " isVisible=" + (matchedWindow.isVisible ? "yes" : "no")
+            + " pid=" + juce::String((int) getpid()));
+        juce::Logger::writeToLog("  [diag] original screen point (top-left origin)=(" + juce::String((int) p.x) + "," + juce::String((int) p.y) + ")"
+            + " converted window-local point=(" + juce::String((int) windowLocalPoint.x) + "," + juce::String((int) windowLocalPoint.y) + ")");
+
+        int nsEventCounter = 0;
+        auto sendMouseEvent = [&](NSEventType type, const char* label)
+        {
+            NSEvent* event = [NSEvent mouseEventWithType:type
+                                                  location:windowLocalPoint
+                                             modifierFlags:0
+                                                 timestamp:[[NSProcessInfo processInfo] systemUptime]
+                                              windowNumber:matchedWindow.windowNumber
+                                                   context:nil
+                                               eventNumber:nsEventCounter++
+                                                clickCount:1
+                                                  pressure:(type == NSEventTypeLeftMouseDown ? 1.0f : 0.0f)];
+            juce::Logger::writeToLog(juce::String("  [diag] event type=")
+                + (type == NSEventTypeMouseMoved ? "MouseMoved" : type == NSEventTypeLeftMouseDown ? "LeftMouseDown" : "LeftMouseUp")
+                + " label=" + label);
+            sendEventDirectlyToWindow(matchedWindow, event, label);
+        };
+
+        sendMouseEvent(NSEventTypeMouseMoved, "mouseMoved");
         juce::Thread::sleep(100);
 
         // UNVERIFIED hypothesis, disclosed as such: one instrumented run's
-        // CGWindowListCopyWindowInfo z-order snapshot showed Serum 2's
-        // window genuinely ahead of every other on-screen app at some
-        // point during that run, yet the click still didn't register -
-        // consistent with a real, common macOS behaviour where the FIRST
-        // mouse-down that also activates/focuses a just-raised window is
-        // consumed as a "focus click" by AppKit (NSWindow's
-        // acceptsFirstMouse defaults to NO) and never reaches the control
-        // underneath. This dispatches one such "focus" down/up before the
-        // real click below - same mechanism (CGEventPost/kCGHIDEventTap),
-        // same coordinates, one extra press to absorb a swallowed first
-        // click. Kept because it's cheap and plausible, NOT because it was
-        // confirmed to fix the remaining failure - see SoundLibraryLearner
-        // diag/test_log.txt from the actual verification run for the real,
-        // still-unresolved result this pass ended on.
-        CGEventRef focusDown = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseDown, p, kCGMouseButtonLeft);
-        CGEventPost(kCGHIDEventTap, focusDown);
-        CFRelease(focusDown);
+        // z-order snapshot showed Serum 2's window genuinely ahead of every
+        // other on-screen app at some point during that run, yet the click
+        // still didn't register - consistent with a real, common macOS
+        // behaviour where the FIRST mouse-down that also activates/focuses
+        // a just-raised window is consumed as a "focus click" by AppKit
+        // (NSWindow's acceptsFirstMouse defaults to NO) and never reaches
+        // the control underneath. This dispatches one such "focus" down/up
+        // before the real click below - same coordinates, same event
+        // count, one extra press to absorb a swallowed first click. Kept
+        // because it's cheap and plausible, not because it was separately
+        // confirmed necessary on its own.
+        sendMouseEvent(NSEventTypeLeftMouseDown, "focusMouseDown");
         juce::Thread::sleep(40);
-        CGEventRef focusUp = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseUp, p, kCGMouseButtonLeft);
-        CGEventPost(kCGHIDEventTap, focusUp);
-        CFRelease(focusUp);
+        sendMouseEvent(NSEventTypeLeftMouseUp, "focusMouseUp");
         juce::Thread::sleep(150); // let the window fully settle as key/focused before the real click
 
-        CGEventRef down = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseDown, p, kCGMouseButtonLeft);
-        CGEventPost(kCGHIDEventTap, down);
-        CFRelease(down);
+        sendMouseEvent(NSEventTypeLeftMouseDown, "mouseDown");
         juce::Thread::sleep(40);
 
-        CGEventRef up = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseUp, p, kCGMouseButtonLeft);
-        CGEventPost(kCGHIDEventTap, up);
-        CFRelease(up);
+        sendMouseEvent(NSEventTypeLeftMouseUp, "mouseUp");
         juce::Thread::sleep(100);
 
         return true; // a click was dispatched - NOT proof the preset changed; callers must verify independently
