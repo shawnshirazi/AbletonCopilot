@@ -525,6 +525,7 @@ namespace Engine
             case SongStyle::Trance:        return "Trance";
             case SongStyle::NeoRave:       return "Neo-Rave Trance";
             case SongStyle::MelodicTechno: return "Melodic Techno";
+            case SongStyle::ProgressiveTechno: return "Progressive Techno";
         }
         return "?";
     }
@@ -536,6 +537,7 @@ namespace Engine
             case SongStyle::Trance:        return 140.0;
             case SongStyle::NeoRave:       return 147.0;
             case SongStyle::MelodicTechno: return 124.0;
+            case SongStyle::ProgressiveTechno: return 125.0;
         }
         return 124.0;
     }
@@ -545,6 +547,8 @@ namespace Engine
         SongParams params = paramsIn;
         if (params.bpm <= 0.0)
             params.bpm = defaultBpm(params.style);
+        if (params.style == SongStyle::ProgressiveTechno)
+            return generateProgressiveSong(params);
         if (params.style != SongStyle::MelodicTechno)
             return generateTranceSong(params);
 

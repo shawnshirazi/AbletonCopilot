@@ -168,6 +168,7 @@
         <FILE id="Gzp1hdr" name="Gzip.h" compile="0" resource="0" file="Source/Engine/Gzip.h"/>
         <FILE id="Trc1cpp" name="TranceGenerator.cpp" compile="1" resource="0" file="Source/Engine/TranceGenerator.cpp"/>
         <FILE id="Sgi1hdr" name="SongInternal.h" compile="0" resource="0" file="Source/Engine/SongInternal.h"/>
+        <FILE id="Prg1cpp" name="ProgressiveGenerator.cpp" compile="1" resource="0" file="Source/Engine/ProgressiveGenerator.cpp"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

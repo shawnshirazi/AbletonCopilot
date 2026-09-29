@@ -30,5 +30,6 @@ namespace Engine
         std::vector<SongClip> splitIntoClips(const Song& song, std::vector<AbsNote> notes);
 
         Song generateTranceSong(const SongParams& params);
+        Song generateProgressiveSong(const SongParams& params);
     }
 }

@@ -53,7 +53,9 @@ namespace Engine
     {
         Trance,        // melodic/uplifting "Prismatic" trance - 140 BPM, rolling bass, supersaw anthem lead
         NeoRave,       // neo-rave / hard-house trance - 147 BPM, offbeat saw bass, acid line, gated pad
-        MelodicTechno  // the original 124 BPM melodic techno generator
+        MelodicTechno, // the original 124 BPM melodic techno generator
+        ProgressiveTechno // 125 BPM, built around a phasing 5-step arp cell over extended chords
+                          // (modelled on a reference loop - see ProgressiveGenerator.cpp)
     };
 
     const char* styleName(SongStyle style);

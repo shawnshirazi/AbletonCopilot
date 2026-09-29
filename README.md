@@ -6,11 +6,12 @@ Serum 2, and can compose a complete track from scratch as an Ableton Live Set.
 
 ## Generate a full track from scratch
 
-There are three styles (`--style`):
+There are four styles (`--style`):
 
 | Style | Tempo | Length | What it is |
 |---|---|---|---|
-| **`trance`** (default) | 140 | 192 bars, about 5:30 | The main sound of Tiësto's PRISMATIC show: rolling 16th bass, open hats on the offbeats, snare-roll builds, a 32-bar breakdown, a supersaw anthem lead over a pluck, one chord per bar in the drops |
+| **`progressive`** (default) | 125 | 176 bars, about 5:40 | Built around a phasing arp: a 5-note cell running against the 4/4 bar over extended chords (add9, sus, maj7#11, 13), each cell anticipating the next chord, with a climbing top voice. Modelled on a reference loop the user chose; see `MLPipeline/musical_target/progressive_arp_reference.md` |
+| `trance` | 140 | 192 bars, about 5:30 | The main sound of Tiësto's PRISMATIC show: rolling 16th bass, open hats on the offbeats, snare-roll builds, a 32-bar breakdown, a supersaw anthem lead over a pluck, one chord per bar in the drops |
 | `neorave` | 147 | 160 bars, about 4:20 | PRISMATIC's harder lane: offbeat saw bass, an acid 303 line, a trance-gate pad, perfect-fifth rave stabs |
 | `melodic-techno` | 124 | 200 bars, about 6:30 | The original generator, described below |
 
@@ -68,14 +69,14 @@ editing only known fields. Checks run on every change:
 To regenerate the embedded template after changing it: `python3 Tools/als_template/make_als_template.py`.
 
 ### From the plugin
-Studio tab, **Generate Full Track (.als)**. Pick a folder. It writes a trance track at 140 BPM in the
-plugin's selected key, with a new seed on every click.
+Studio tab, **Generate Full Track (.als)**. Pick a folder. It writes a progressive techno track at
+125 BPM in the plugin's selected key, with a new seed on every click.
 
 ### From the command line (no JUCE or Xcode needed)
 ```bash
 Tools/build_generate_track.sh
-./build/generate_track --style trance --key Gm --seed 7 --wav --out ~/Music
-# options: --style trance|neorave|melodic-techno  --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
+./build/generate_track --style progressive --key Dm --seed 7 --wav --out ~/Music
+# options: --style progressive|trance|neorave|melodic-techno  --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
 #          --bars-per-chord N  --out DIR  --no-als  --no-mid  --wav
 ```
 `--wav` also renders an audio preview (`Source/Engine/SongRenderer.h`), so you can hear the

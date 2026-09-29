@@ -7,10 +7,11 @@
 //   ./build/generate_track --style trance --seed 7 --wav --out ~/Music/AbletonCopilot
 //
 // Options:
-//   --style S         trance (default; Tiesto PRISMATIC-style, 140 BPM),
-//                     neorave (147 BPM offbeat/acid trance), melodic-techno (124 BPM)
+//   --style S         progressive (default; 125 BPM, phasing arp over extended chords),
+//                     trance (Tiesto PRISMATIC-style, 140 BPM), neorave (147 BPM
+//                     offbeat/acid trance), melodic-techno (124 BPM)
 //   --seed N          reproducible variation (default: random)
-//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default Gm for trance styles, Am for melodic techno)
+//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default Dm progressive, Gm trance styles, Am melodic techno)
 //   --bpm B           60-200 (default: the style's tempo)
 //   --progression I   0..3, the style's progression list (default: from seed)
 //   --bars-per-chord N  harmonic rhythm, melodic techno only (default 8)
@@ -76,7 +77,7 @@ namespace
 
     int usage()
     {
-        std::fprintf(stderr, "usage: generate_track [--style trance|neorave|melodic-techno] [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
+        std::fprintf(stderr, "usage: generate_track [--style progressive|trance|neorave|melodic-techno] [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
                              "[--bars-per-chord 8] [--out DIR] [--no-als] [--no-mid] [--wav]\n");
         return 2;
     }
@@ -85,7 +86,7 @@ namespace
 int main(int argc, char** argv)
 {
     Engine::SongParams params;
-    params.style = Engine::SongStyle::Trance;
+    params.style = Engine::SongStyle::ProgressiveTechno;
     params.bpm   = 0.0; // style default
     bool keyGiven = false;
     params.seed = (uint32_t) std::chrono::system_clock::now().time_since_epoch().count() % 10000u;
@@ -105,12 +106,13 @@ int main(int argc, char** argv)
         else if (a == "--style" && (v = next()))
         {
             const std::string st = v;
-            if (st == "trance") params.style = Engine::SongStyle::Trance;
+            if (st == "progressive" || st == "progressive-techno") params.style = Engine::SongStyle::ProgressiveTechno;
+            else if (st == "trance") params.style = Engine::SongStyle::Trance;
             else if (st == "neorave" || st == "neo-rave") params.style = Engine::SongStyle::NeoRave;
             else if (st == "melodic-techno" || st == "techno") params.style = Engine::SongStyle::MelodicTechno;
             else
             {
-                std::fprintf(stderr, "unknown style '%s' (trance, neorave, melodic-techno)\n", v);
+                std::fprintf(stderr, "unknown style '%s' (progressive, trance, neorave, melodic-techno)\n", v);
                 return 2;
             }
         }
@@ -128,7 +130,9 @@ int main(int argc, char** argv)
         else if (a == "--wav")    writeWav = true;
         else return usage();
     }
-    if (!keyGiven && params.style != Engine::SongStyle::MelodicTechno)
+    if (!keyGiven && params.style == Engine::SongStyle::ProgressiveTechno)
+        params.rootNote = 2; // D minor - the key of the reference arp loop
+    else if (!keyGiven && params.style != Engine::SongStyle::MelodicTechno)
         params.rootNote = 7; // G minor - the most common tonic in the PRISMATIC data (with F minor)
     if (params.bpm <= 0.0)
         params.bpm = Engine::defaultBpm(params.style);

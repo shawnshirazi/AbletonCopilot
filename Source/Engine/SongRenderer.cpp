@@ -284,7 +284,8 @@ namespace Engine
             const double sr = c.mix.sr;
             // Slow swells for melodic techno; faster trance pads; near-instant
             // for the 16th-note chops of a trance-gate pad.
-            const bool   mt         = c.song.style == SongStyle::MelodicTechno;
+            const bool   mt         = c.song.style == SongStyle::MelodicTechno
+                                      || c.song.style == SongStyle::ProgressiveTechno; // slow swells
             const double noteSec    = (double) noteLen / sr;
             const double attack     = std::min(mt ? 1.4 : 0.3, std::max(0.003, noteSec * 0.25));
             const double releaseSec = noteSec < 0.5 ? 0.06 : (mt ? 2.2 : 1.2);
@@ -355,6 +356,40 @@ namespace Engine
                 if (j >= noteLen) amp *= (float) std::exp(-(double) (j - noteLen) / sr / 0.05);
                 const float v = lp.low * amp * 0.30f * vel * c.mix.sc(s0 + j, 0.35f);
                 c.mix.add(s0 + j, v, 0.0f, 0.4f, 0.28f);
+            }
+        }
+
+        // Warm, wide progressive arp - matched to the reference loop's measured
+        // character: ~97% of its energy below 2 kHz, a ~50 ms hold then a gentle
+        // ~9 dB fall across the 16th (notes blur into each other), wide stereo
+        // (side/mid 0.48), and a strong dotted-8th echo. Two detuned saws + a
+        // pulse, panned apart, through a soft low-pass that the arrangement's
+        // brightness curve opens.
+        void renderWarmArp(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const double f = mtof(pitch);
+            const size_t tail = (size_t) (0.16 * sr);
+            SawOsc a, b, sq;
+            Svf fl, fr;
+            const float br = c.brightnessAtSample(s0);
+            for (size_t j = 0; j < noteLen + tail; ++j)
+            {
+                const double t = j / sr;
+                if (j % 8 == 0)
+                {
+                    const double cutoff = 520.0 + 2700.0 * br * br + 1800.0 * br * std::exp(-t / 0.07);
+                    fl.set(cutoff, 1.25, sr);
+                    fr.set(cutoff, 1.25, sr);
+                }
+                const float pulse = sq.nextSquare(f * 0.5, sr) * 0.18f; // sub-octave body
+                fl.process(a.next(f * 0.9965, sr) * 0.5f + pulse);
+                fr.process(b.next(f * 1.0035, sr) * 0.5f + pulse);
+                double env = t < 0.05 ? 1.0 : std::exp(-(t - 0.05) / 0.11);
+                if (j >= noteLen) env *= std::exp(-(double) (j - noteLen) / sr / 0.05);
+                const float g = (float) std::min(1.0, t / 0.003) * (float) env * 0.5f * vel * c.mix.sc(s0 + j, 0.35f);
+                c.mix.add(s0 + j, fl.low * g, -0.9f, 0.25f, 0.42f);
+                c.mix.add(s0 + j, fr.low * g, 0.9f, 0.25f, 0.42f);
             }
         }
 
@@ -668,9 +703,13 @@ namespace Engine
                         case SongTrackRole::Acid:      renderAcid(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Bass: renderBass(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Pad:  renderPad(ctx, s0, len, note.pitch, vel, padSeed = padSeed * 1664525u + 1013904223u); break;
-                        case SongTrackRole::Arp:  renderArp(ctx, s0, len, note.pitch, vel); break;
+                        case SongTrackRole::Arp:
+                            if (song.style == SongStyle::ProgressiveTechno) renderWarmArp(ctx, s0, len, note.pitch, vel);
+                            else renderArp(ctx, s0, len, note.pitch, vel);
+                            break;
                         case SongTrackRole::Lead:
-                            if (song.style == SongStyle::MelodicTechno) renderLead(ctx, s0, len, note.pitch, vel);
+                            if (song.style == SongStyle::MelodicTechno || song.style == SongStyle::ProgressiveTechno)
+                                renderLead(ctx, s0, len, note.pitch, vel);
                             else renderSuperLead(ctx, s0, len, note.pitch, vel, song.style == SongStyle::NeoRave);
                             break;
                         case SongTrackRole::Fx:   renderFx(ctx, s0, len, note.pitch, vel); break;
