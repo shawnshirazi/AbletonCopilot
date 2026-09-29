@@ -56,11 +56,32 @@ note is expected, so they were treated as detection errors and corrected above.
 | Brightness | the spectral centroid moves between 1.25 and 2.9 kHz from bar to bar (filter automation) |
 | Echo | onset-envelope autocorrelation peaks at a dotted-8th (3/16) lag (0.96), which suggests a dotted-8th delay |
 
-## How the generator matches it
-- The progression "i-i(sus)-VI-iv" reproduces bars 1–4 note for note. The only differences are
-  the transcription errors listed above.
-- Bars 5–8 have the same notes and cell lengths, shifted by one 16th, because the loop adds one
-  extra note just before each chord change (a human-timing detail).
-- The generator's other progressions reuse the same cell shapes over other diatonic chords.
-- `renderWarmArp` in `SongRenderer.cpp` is tuned to the sound profile above. The rendered
-  Breakdown (arp + pad + sub) measures 19/56/24/1.4/0.3% across the same bands, with width 0.44.
+## How the generator uses it
+The loop is **inspiration, not a template**. The user said it was "just a sample". The generator
+(`ProgressiveGenerator.cpp`) never copies it. It writes new material with the same techniques:
+- **Arp:** a polymetric cell of 5 steps (60%) or 6 steps against the 16-step bar, over a wide
+  open voicing (low root, 5th, octave, colour tones), in one of several note orders. Cells
+  anticipate the next chord and the octave tone shimmers low/high/high. The cell has 3 notes in
+  the intro and opens up to the full cell after it.
+- **Harmony:** 8 diatonic minor progressions, 2 bars per chord. Each chord gets an extended colour
+  (add9, a sus4 that climbs to the 5th, maj7(#11), 6/9, ...), chosen so the arp's top voice
+  moves smoothly and leans upwards, which gives the reference's "yearning" line.
+- **Pad:** the same chords with semitone clusters spread apart.
+- **Lead:** an 8-bar call-and-response phrase. It is built as a skeleton of chord-tone targets on
+  the strong beats, with the weak notes filled by passing and neighbour tones. The best of 2000
+  candidates is kept, scored on these rules:
+  - no semitone against the moving arp unless the lead doubles an arp tone
+  - no flat-9 rub at all against the sustained pad
+  - chord tones on strong beats
+  - mostly stepwise motion
+  - leaps recovered by a step the other way
+  - one late climax, no see-sawing or stuttering
+  - a smooth loop-around
+  - the phrase ends on the tonic
+
+  The main drop's third quarter plays a raised climax variant.
+- **Key:** random per seed unless one is given.
+- `renderWarmArp` in `SongRenderer.cpp` is tuned to the sound profile measured above.
+
+Audit over 12 seeds (2,359 lead notes): 0 clashes, every phrase ends on the tonic or the 5th,
+and 59–83% of the melodic motion is stepwise.

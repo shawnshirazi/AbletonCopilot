@@ -68,7 +68,11 @@ namespace Engine
 
     std::string Song::keyName() const
     {
-        std::string name = noteName(rootNote);
+        // Conventional spelling: flats for the keys musicians write with flats.
+        static const char* kMinor[12] = { "C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B" };
+        static const char* kMajor[12] = { "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" };
+        const int pc = ((rootNote % 12) + 12) % 12;
+        std::string name = scale == ScaleType::Ionian ? kMajor[pc] : kMinor[pc];
         switch (scale)
         {
             case ScaleType::Aeolian: return name + " minor";

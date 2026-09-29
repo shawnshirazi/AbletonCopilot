@@ -11,7 +11,7 @@
 //                     trance (Tiesto PRISMATIC-style, 140 BPM), neorave (147 BPM
 //                     offbeat/acid trance), melodic-techno (124 BPM)
 //   --seed N          reproducible variation (default: random)
-//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default Dm progressive, Gm trance styles, Am melodic techno)
+//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default: a minor key picked by the seed for progressive, Gm trance styles, Am melodic techno)
 //   --bpm B           60-200 (default: the style's tempo)
 //   --progression I   0..3, the style's progression list (default: from seed)
 //   --bars-per-chord N  harmonic rhythm, melodic techno only (default 8)
@@ -131,7 +131,11 @@ int main(int argc, char** argv)
         else return usage();
     }
     if (!keyGiven && params.style == Engine::SongStyle::ProgressiveTechno)
-        params.rootNote = 2; // D minor - the key of the reference arp loop
+    {
+        // A different minor key per seed (A D E F G C F# B Bb C#).
+        static const int kRoots[] = { 9, 2, 4, 5, 7, 0, 6, 11, 10, 1 };
+        params.rootNote = kRoots[((params.seed * 2654435761u) >> 16) % 10];
+    }
     else if (!keyGiven && params.style != Engine::SongStyle::MelodicTechno)
         params.rootNote = 7; // G minor - the most common tonic in the PRISMATIC data (with F minor)
     if (params.bpm <= 0.0)
