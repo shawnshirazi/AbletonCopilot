@@ -1,0 +1,73 @@
+artist,title,bpm,key,genre,genre_source,source,version_match,note
+Tiësto & FORS,Bring Me To Life,131,G minor,Trance (Main Floor),reported,beatport.com/track/bring-me-to-life/22684780 (via search); tunebat says 130 / F major,yes,described as progressive trance
+Tiësto & Brieanna Grace,Beautiful Places,90,E minor,Dance / Pop,reported,beatport.com/track/beautiful-places/24240742 (via search),yes,90 BPM value doubtful (likely half-time detection or radio version); excluded from BPM stats
+Tiësto ft. Olivia Sebastianelli,Don't Lose Your Head,134,,Trance (inferred),inferred,search snippet (spinnin/beatport),yes,key not found
+KUKO,Voicemail (Tiësto Remix),150,Bb minor,Trance (Main Floor) / Hard Trance,reported,beatport.com/release/voicemail/7297477 (via search),yes,
+Benleh,Keep Going,146,Ab minor,Trance (Main Floor),reported,beatportal article + beatport (via search),yes,90s trance + eurodance + fast techno
+Bryan Kearney & Modeā,Ready To Fly,143,D minor,Trance (Main Floor),reported,beatport.com/release/ready-to-fly-extended-mix/6791174 (via search),yes,#1 Beatport Trance (Main Floor)
+Tiësto & Caleb Arredondo,Echo Sax Finale,134,F minor,Trance (inferred),inferred,beatport/mixgraph (via search),yes,
+Faithless,Insomnia (Disclosure 2025 Edit),138,B minor,Trance (Main Floor),reported,beatport.com/track/insomnia/22432053 (via search); alt key F# minor,yes,
+Ben Gold,Blackcard,146,F minor,Trance (Main Floor),reported,mixgraph.io/tracks/ben-gold-blackcard (via search),yes,
+Cosmic Gate,Exploration Of Space,138,A minor,Trance (Main Floor),inferred,beatport original mix (via search),approx,played as original (009) and Olly James Remix (007)
+Samer Soltan,Catch The Heat,124,C#,Dance / Pop,reported,search snippet (promo listing),yes,mode not given
+KI/KI,5AM,148,D minor,Trance (Main Floor),inferred,beatport (Camelot 7A) via search,yes,
+KI/KI,Going Existential In The Rave,148,D major,Trance (Main Floor),inferred,beatport release 6950753 (via search),yes,
+Lumine,Here For Us,139,G minor,Trance (Main Floor),inferred,beatport release 6992406 (via search),yes,'trance + hard house'
+S3PPA,Inner Peace,140,Bb minor,Trance (inferred),inferred,mixgraph.io (via search),yes,
+NYCO,Some Love,150,A minor,Trance (neo-trance),inferred,search snippet reported 75 BPM (half-time); doubled,yes,BPM doubled from 75
+CIElll,Tethered,142,E minor,Trance (Main Floor),reported,beatport.com/track/tethered/28942076 (via search),yes,
+JENO & Wempe,Contra,141,C minor,Trance (inferred),inferred,beatport release 6886655 (via search),yes,
+TWOFACED,Yearning,139,B major,Trance (inferred),inferred,beatport.com/track/yearning/24475836 (via search),yes,
+DJ HEARTSTRING & SWIM,Forever (If U Need It),144,Eb major,Trance (inferred),inferred,beatport.com/track/forever-if-u-need-it/21058174 (via search),yes,
+DEVERAUX,You Got Me Acting Crazy,145,E minor,Trance (inferred),inferred,search snippet (Camelot 9A),yes,
+CIS,He The Best,147,,Trance (inferred),inferred,search snippet,yes,key not found
+Ferry Tayle & Tonks pres. Mirage,Remember The Future,139,,Trance (Main Floor),inferred,shazam/search snippet,yes,ASOT/Armada
+Charlotte de Witte,Become,132,C# minor,Techno (inferred),inferred,search snippet,yes,
+Eli Brown,Damaged,140,Bb minor,Mainstage,reported,beatport.com/track/damaged/30302997 (via search),yes,'goes trance'
+MEDUZA & Kevin de Vries,7 Days,128,Bb major,Melodic House & Techno,reported,mixgraph.io (via search),yes,
+Funk Tribu,Azul,148,G minor,Trance (Main Floor),reported,beatport.com/track/azul/20527979 (via search),yes,
+Pegassi,227Kg,146,E (mode?),Trance (Main Floor),inferred,shazam / songbpm (via search),yes,
+Marlon Hoffstadt & Hannah Laing ft. Caroline Roxy,Stomp Your Feet,155,Gb major,Hard Dance / Neo Rave,reported,beatport.com/track/stomp-your-feet/23938952 (via search),yes,
+Olly James & Caroline Roxy,"Trance, Acid, Techno",147,Gb major,Trance (Main Floor) / Hard Trance,reported,search snippet (Insomniac/Beatport),yes,
+Funk Tribu,Speakers Blowing,148,Ab major,Trance (Main Floor),inferred,search snippet (Camelot 4B),yes,
+Bo Bensdorp,Ascension,137,,Trance (inferred),inferred,shazam (via search),approx,
+Artche,Lay Your Guard Down,121,Db major,Melodic House & Techno,reported,search snippet (Beatport 3B),yes,
+Fahlberg,Still Waiting For A Sign,123,D minor,Melodic House & Techno (inferred),inferred,search snippet,yes,
+Kevin de Vries & Platero,Man Like Me,128,F minor,Bass House,reported,search snippet (Beatport),yes,
+Andrew Meller,Echoes Of Love,128,A minor,Melodic House & Techno (inferred),inferred,beatport release 6973153 (via search),yes,Diynamic
+CamelPhat & Volkoder,Unique Moment,128,A major,Indie Dance,reported,search snippet (Beatport),yes,
+Adam Beyer & Massano,Lazer Beams (remix),127,E major,Melodic House & Techno,reported,beatport.com/track/lazer-beams/28146065 (via search),yes,
+Layton Giordani ft. Camden Cox,Destiny,129,C minor,Melodic House & Techno,reported,beatport.com/track/destiny/23963881 (via search),yes,
+Daxson,Manifesto,138,G minor,Trance (Main Floor),inferred,search snippet (Perfecto Fluoro),yes,
+Richard Durand,Rubicon,138,Db major,Trance (Main Floor),inferred,beatport.com/track/rubicon/23103790 (via search),yes,FSOE
+Genix & Bebi,Feels Like,135,F# minor,Trance (Main Floor),reported,beatport.com/track/feels-like/23329691 (via search),yes,Anjunabeats
+The Thrillseekers,When Darkness Falls,138,A major,Trance (Main Floor),inferred,beatport.com/track/when-darkness-falls/28410076 (via search),yes,
+Glowal,Robats,126,G major,Melodic House & Techno (inferred),inferred,beatport release 6870845 (via search),yes,Diynamic
+Mathame ft. Jex,Endless,133,D minor,Melodic House & Techno (inferred),inferred,beatport.com/track/endless/24273739 (via search),yes,
+Lilly Palmer,Bigger Than Techno,150,F minor,Techno (Peak Time) (inferred),inferred,beatport.com/track/bigger-than-techno/24062484 (via search),yes,
+Marlon Hoffstadt,Breathe,147,Ab minor,Trance (inferred),inferred,beatport.com/track/breathe/27640263 (via search),yes,
+Ronski Speed,Rendezvous,138,A minor,Trance (Main Floor) / Uplifting,reported,search snippet (Pure Trance NEON),yes,
+Skrillex & Feid,Noche Without You,140,G minor,Latin Electronic,reported,search snippet (Beatport),yes,
+Swedish House Mafia & Lykke Li,Happiness Is So Sad,134,C minor,Dance / Pop (inferred),inferred,shazam/search snippet,yes,also played as Mark Roma Remix
+Kölsch,Picasso,126,F major,Melodic House & Techno,reported,mixgraph.io (via search),yes,
+Adriatique ft. Rhys From The Sticks,Coming Home,126,F minor,Melodic House & Techno,reported,beatport.com/track/coming-home/29469669 (via search),yes,
+Giuseppe Ottaviani & Billy Gillies,Doves,142,C# minor,Trance (Main Floor),inferred,traxsource (via search),yes,
+Ferry Corsten & Leon Bolier & Mostly Cloudy,Bring Me Back To Life,138,D minor,Trance (Main Floor),inferred,beatport release 7305855 (via search),yes,
+Talla 2XLC & York,Ghosts,140,G minor,Trance (Main Floor),inferred,beatport.com/track/ghosts/28754861 (via search),yes,
+Gareth Emery & Annabel & dj try,Under The Sky (Broken Tides),144,Bb minor,Trance (Main Floor),reported,beatport.com/track/under-the-sky-broken-tides/29537566 (via search),yes,
+YORK x Bella Claxton x Mike Momburg,On The Beach,140,F minor,Trance (Main Floor),inferred,beatport.com/track/on-the-beach/30295501 (via search),yes,
+Bryan Kearney,Forevermore,140,G major,Trance (Main Floor),inferred,beatport.com/track/forevermore/30186670 (via search),yes,
+HACKETT,Thin Air,144,F minor,Trance (inferred),inferred,search snippet (OBSCUUR),yes,
+Einmusik,Do You Think Of Me,125,G minor,Melodic House & Techno,inferred,beatport (Joachim Pastor remix) via search,approx,version played unknown
+camoufly,Ultramoon,138,Eb major,Trance (inferred),inferred,beatport.com/track/t/29497268 (via search),yes,
+Kryder,Eivissa,128,C# minor,House,inferred,search snippet (SIZE),yes,
+Solarstone,Solarcoaster (Superstrings Remix),146,Eb minor,Trance (Main Floor),reported,beatport.com/track/t/29507885 (via search),yes,
+SØNIN & Leon Bolier,Sirocco,134,C# minor,Trance (Progressive),inferred,search snippet (Camelot 12A),yes,Enhanced Progressive
+Cosmic Gate & CMD/CTRL,Need A Little Love,124,Bb major,Melodic House & Techno,reported,beatport.com/track/need-a-little-love/23124709 (via search),yes,
+Innēr Sense,People Can Fly,128,A major,Techno (Peak Time / Driving),reported,beatport.com/track/people-can-fly/22686827 (via search),yes,
+KE-YEN,YOUR WHOLE LIFE IS JUST A DREAM,140,Eb minor,Trance (Main Floor),reported,mixgraph.io (via search),yes,
+Tiësto ft. BT,"Love Comes Again (original, reference)",136,C minor,Trance,reported,beatport original (via search),no,2026 remixes played (Innēr Sense/Zarka/Emre Gulmez) not found
+Tiësto,"Flight 643 (original, reference)",137,C minor,Trance,reported,beatport original (via search),no,Krevix remix played; not found
+Tiësto,"Nyana (original, reference)",140,C minor,Trance,reported,beatport original (via search),no,Cameron Mo & Seegmo remix played; not found
+Scot Project,"H2 (original, reference)",150,B minor,Trance / Hard Trance,reported,beatport/search,no,Barqiemoon Summer Mix played; not found
+Eric Prydz,"Opus (original, reference)",129,A major,Progressive House,reported,tunebat (via search),no,Trashock Remix played; not found

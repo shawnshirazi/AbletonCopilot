@@ -45,8 +45,27 @@ namespace Engine
     // inside the 160-248-bar range of the references (research 3.3 #6).
     std::vector<SongSectionSpec> fullMelodicTechnoStructure();
 
+    // Which genre the song is written in. Trance / NeoRave follow the
+    // measured style of Tiesto's PRISMATIC radio show (39 episodes, 691
+    // track entries - see MLPipeline/musical_target/prismatic_style.md):
+    // ~65% trance, median 140 BPM, minor keys.
+    enum class SongStyle
+    {
+        Trance,        // melodic/uplifting "Prismatic" trance - 140 BPM, rolling bass, supersaw anthem lead
+        NeoRave,       // neo-rave / hard-house trance - 147 BPM, offbeat saw bass, acid line, gated pad
+        MelodicTechno  // the original 124 BPM melodic techno generator
+    };
+
+    const char* styleName(SongStyle style);
+    double defaultBpm(SongStyle style);
+
     struct SongParams
     {
+        // The style decides the structure, tempo range and every part's
+        // writing. `structure` below is only used by MelodicTechno; `bpm`
+        // <= 0 means "the style's default tempo".
+        SongStyle style       = SongStyle::MelodicTechno;
+
         uint32_t  seed        = 1;
         double    bpm         = 124.0;
         int       rootNote    = 9; // 0=C ... 9=A (A minor is the genre's most common key)
@@ -79,7 +98,7 @@ namespace Engine
         std::vector<SongNote> notes;
     };
 
-    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx };
+    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx, SnareRoll, Pluck, Acid };
 
     struct SongTrack
     {
@@ -113,6 +132,7 @@ namespace Engine
     struct Song
     {
         std::string title;
+        SongStyle   style    = SongStyle::MelodicTechno;
         double      bpm      = 124.0;
         int         rootNote = 9;
         ScaleType   scale    = ScaleType::Aeolian;
@@ -137,10 +157,12 @@ namespace Engine
     {
         constexpr int kKick      = 36; // C1
         constexpr int kRim       = 37; // C#1 (perc A)
+        constexpr int kSnare     = 38; // D1  (snare roll / fills)
         constexpr int kClap      = 39; // D#1
         constexpr int kHatClosed = 42; // F#1
         constexpr int kPercB     = 45; // A1  (perc B / low tom)
         constexpr int kHatOpen   = 46; // A#1
+        constexpr int kRide      = 51; // D#2
     }
 
     // FX lane pitches - load an FX Drum Rack / one-shot samples on these.
@@ -149,5 +171,6 @@ namespace Engine
         constexpr int kImpact     = 36; // C1 - hit on the downbeat of each drop / break
         constexpr int kRiser      = 38; // D1 - held through the build into a drop
         constexpr int kDownlifter = 40; // E1 - start of a break / outro
+        constexpr int kCrash      = 49; // C#2 - crash cymbal on phrase starts
     }
 }

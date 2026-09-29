@@ -225,7 +225,7 @@ namespace Engine
                     metal += osc[(size_t) k].nextSquare(kMetal[k] * 1.9, sr);
                 hp.process(nz.next() * 0.65f + metal * 0.08f);
                 const float env = (float) std::exp(-t / decay);
-                c.mix.add(s0 + j, hp.high * env * 0.95f * vel, open ? -0.2f : 0.18f, open ? 0.08f : 0.0f);
+                c.mix.add(s0 + j, hp.high * env * (c.song.style == SongStyle::MelodicTechno ? 0.95f : 0.55f) * vel, open ? -0.2f : 0.18f, open ? 0.08f : 0.0f);
             }
         }
 
@@ -263,7 +263,12 @@ namespace Engine
             {
                 const double t = j / sr;
                 if (j % 8 == 0)
-                    lp.set(160.0 + 320.0 * bright + (300.0 + 900.0 * bright) * std::exp(-t / 0.09), 1.3, sr);
+                {
+                    if (c.song.style == SongStyle::MelodicTechno)
+                        lp.set(160.0 + 320.0 * bright + (300.0 + 900.0 * bright) * std::exp(-t / 0.09), 1.3, sr);
+                    else // punchy trance roller / clean neo-rave saw: brighter, faster envelope
+                        lp.set(240.0 + 700.0 * bright + 2200.0 * bright * std::exp(-t / 0.045), 1.2, sr);
+                }
                 subPhase += 2.0 * kPi * f / sr;
                 lp.process(saw.next(f, sr) * 0.7f);
                 float amp = (float) std::min(1.0, t / 0.003);
@@ -277,7 +282,12 @@ namespace Engine
         void renderPad(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel, uint32_t seed)
         {
             const double sr = c.mix.sr;
-            const double attack = 1.4, releaseSec = 2.2;
+            // Slow swells for melodic techno; faster trance pads; near-instant
+            // for the 16th-note chops of a trance-gate pad.
+            const bool   mt         = c.song.style == SongStyle::MelodicTechno;
+            const double noteSec    = (double) noteLen / sr;
+            const double attack     = std::min(mt ? 1.4 : 0.3, std::max(0.003, noteSec * 0.25));
+            const double releaseSec = noteSec < 0.5 ? 0.06 : (mt ? 2.2 : 1.2);
             const size_t release = (size_t) (releaseSec * sr);
             static constexpr double kDetune[3] = { -0.11, 0.0, 0.12 };
             static constexpr float  kPan[3]    = { -0.6f, 0.0f, 0.6f };
@@ -348,12 +358,172 @@ namespace Engine
             }
         }
 
+        // 7-voice detuned supersaw, the core trance sound. Writes a stereo pair.
+        struct SuperSaw
+        {
+            static constexpr int kVoices = 7;
+            std::array<SawOsc, kVoices> osc {};
+            explicit SuperSaw(uint32_t seed)
+            {
+                Noise nz;
+                nz.s = seed | 1u;
+                for (auto& o : osc) o.phase = (nz.next() + 1.0f) * 0.5f;
+            }
+            void next(double pitch, double detuneSemis, double sr, float& l, float& r)
+            {
+                static constexpr double kSpread[kVoices] = { -1.0, -0.62, -0.3, 0.0, 0.28, 0.6, 0.97 };
+                l = r = 0.0f;
+                for (int k = 0; k < kVoices; ++k)
+                {
+                    const float v = osc[(size_t) k].next(mtof(pitch + kSpread[k] * detuneSemis), sr);
+                    const float pan = (float) kSpread[k] * 0.8f;
+                    l += v * (1.0f - pan) * 0.5f;
+                    r += v * (1.0f + pan) * 0.5f;
+                }
+                l /= 3.0f;
+                r /= 3.0f;
+            }
+        };
+
+        // Trance anthem lead: supersaw through an open low-pass, short
+        // attack, a little vibrato on held notes, heavy delay + reverb.
+        void renderSuperLead(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel, bool stab)
+        {
+            const double sr = c.mix.sr;
+            const size_t release = (size_t) ((stab ? 0.08 : 0.22) * sr);
+            SuperSaw ss((uint32_t) (s0 * 2654435761u) ^ (uint32_t) pitch);
+            Svf fl, fr;
+            const float br = c.brightnessAtSample(s0);
+            for (size_t j = 0; j < noteLen + release; ++j)
+            {
+                const double t = j / sr;
+                if (j % 16 == 0)
+                {
+                    const double cutoff = (stab ? 900.0 : 1300.0) + 6500.0 * br * br
+                                          + (stab ? 3000.0 * std::exp(-t / 0.06) : 0.0);
+                    fl.set(cutoff, 0.9, sr);
+                    fr.set(cutoff, 0.9, sr);
+                }
+                const double vib = (!stab && t > 0.3) ? 0.1 * std::sin(2.0 * kPi * 5.5 * t) : 0.0;
+                float l, r;
+                ss.next(pitch + vib, stab ? 0.18 : 0.24, sr, l, r);
+                fl.process(l);
+                fr.process(r);
+                float amp = (float) std::min(1.0, t / 0.004);
+                if (j >= noteLen) amp *= (float) std::exp(-(double) (j - noteLen) / sr / (stab ? 0.025 : 0.07));
+                const float g = amp * 0.34f * vel * c.mix.sc(s0 + j, 0.4f);
+                c.mix.add(s0 + j, fl.low * g, -0.5f, 0.35f, 0.22f);
+                c.mix.add(s0 + j, fr.low * g, 0.5f, 0.35f, 0.22f);
+            }
+        }
+
+        // Trance pluck: supersaw with a fast filter + amp decay.
+        void renderPluck(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const size_t len = std::max(noteLen, (size_t) (0.28 * sr));
+            SuperSaw ss((uint32_t) (s0 * 40503u) ^ (uint32_t) pitch);
+            Svf fl, fr;
+            const float br = c.brightnessAtSample(s0);
+            for (size_t j = 0; j < len; ++j)
+            {
+                const double t = j / sr;
+                if (j % 8 == 0)
+                {
+                    const double cutoff = 350.0 + 900.0 * br + 6000.0 * br * std::exp(-t / 0.07);
+                    fl.set(cutoff, 1.4, sr);
+                    fr.set(cutoff, 1.4, sr);
+                }
+                float l, r;
+                ss.next(pitch, 0.12, sr, l, r);
+                fl.process(l);
+                fr.process(r);
+                const float amp = (float) (std::min(1.0, t / 0.002) * std::exp(-t / 0.16));
+                const float g = amp * 0.42f * vel * c.mix.sc(s0 + j, 0.45f);
+                c.mix.add(s0 + j, fl.low * g, -0.45f, 0.25f, 0.3f);
+                c.mix.add(s0 + j, fr.low * g, 0.45f, 0.25f, 0.3f);
+            }
+        }
+
+        // Acid 303: saw into a resonant low-pass with an accent-driven envelope.
+        void renderAcid(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const double f = mtof(pitch);
+            const size_t tail = (size_t) (0.02 * sr);
+            SawOsc saw;
+            Svf lp;
+            const float br = c.brightnessAtSample(s0);
+            const bool accent = vel > 0.9f;
+            for (size_t j = 0; j < noteLen + tail; ++j)
+            {
+                const double t = j / sr;
+                if (j % 8 == 0)
+                    lp.set(250.0 + 900.0 * br + (accent ? 3500.0 : 1600.0) * br * std::exp(-t / (accent ? 0.09 : 0.05)),
+                           accent ? 9.0 : 6.0, sr);
+                lp.process(saw.next(f, sr));
+                float amp = (float) std::min(1.0, t / 0.002);
+                if (j >= noteLen) amp *= 1.0f - (float) (j - noteLen) / (float) tail;
+                const float v = std::tanh(lp.low * 1.8f) * amp * (accent ? 0.30f : 0.22f) * c.mix.sc(s0 + j, 0.5f);
+                c.mix.add(s0 + j, v, 0.1f, 0.12f, 0.2f);
+            }
+        }
+
+        // Snare for rolls and fills: tone + high-passed noise, into the reverb.
+        void renderSnare(Ctx& c, size_t s0, float vel)
+        {
+            const double sr = c.mix.sr;
+            const size_t len = (size_t) (0.22 * sr);
+            double phase = 0.0;
+            Svf hp;
+            hp.set(1800.0, 0.8, sr);
+            Noise nz;
+            nz.s = 0x5A4Eu;
+            for (size_t j = 0; j < len; ++j)
+            {
+                const double t = j / sr;
+                phase += 2.0 * kPi * (185.0 + 60.0 * std::exp(-t / 0.01)) / sr;
+                hp.process(nz.next());
+                const float v = (float) (std::sin(phase) * std::exp(-t / 0.05)) * 0.35f + hp.high * (float) std::exp(-t / 0.07) * 0.9f;
+                c.mix.add(s0 + j, v * vel * 0.7f, 0.0f, 0.3f);
+            }
+        }
+
+        // Crash (FX lane) and ride (perc lane): inharmonic metal + noise.
+        void renderCymbal(Ctx& c, size_t s0, float vel, bool crash)
+        {
+            const double sr = c.mix.sr;
+            static constexpr double kMetal[6] = { 263.0, 400.0, 421.0, 474.0, 587.0, 845.0 };
+            std::array<SawOsc, 6> osc {};
+            Svf hp;
+            hp.set(crash ? 4200.0 : 6500.0, 0.7, sr);
+            Noise nz;
+            nz.s = crash ? 0xC4A5u : 0x41DEu;
+            const double decay = crash ? 1.1 : 0.3;
+            const size_t len = (size_t) (decay * 4.0 * sr);
+            for (size_t j = 0; j < len; ++j)
+            {
+                const double t = j / sr;
+                float metal = 0.0f;
+                for (int k = 0; k < 6; ++k)
+                    metal += osc[(size_t) k].nextSquare(kMetal[k] * (crash ? 3.1 : 4.3), sr);
+                hp.process(nz.next() * (crash ? 0.8f : 0.3f) + metal * 0.12f);
+                const float env = (float) std::exp(-t / decay);
+                c.mix.add(s0 + j, hp.high * env * (crash ? 0.45f : 0.22f) * vel, crash ? 0.1f : 0.45f, crash ? 0.25f : 0.05f);
+            }
+        }
+
         void renderFx(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
         {
             const double sr = c.mix.sr;
             Noise nz;
             nz.s = 0xF00Du + (uint32_t) pitch;
             Svf f;
+            if (pitch == SongFxNotes::kCrash)
+            {
+                renderCymbal(c, s0, vel, true);
+                return;
+            }
             if (pitch == SongFxNotes::kImpact)
             {
                 double phase = 0.0;
@@ -489,11 +659,20 @@ namespace Engine
                         case SongTrackRole::Kick: renderKick(ctx, s0, vel); break;
                         case SongTrackRole::Clap: renderClap(ctx, s0, vel); break;
                         case SongTrackRole::Hats: renderHat(ctx, s0, vel, note.pitch == SongDrumNotes::kHatOpen); break;
-                        case SongTrackRole::Perc: renderPerc(ctx, s0, vel, note.pitch == SongDrumNotes::kRim); break;
+                        case SongTrackRole::Perc:
+                            if (note.pitch == SongDrumNotes::kRide) renderCymbal(ctx, s0, vel, false);
+                            else renderPerc(ctx, s0, vel, note.pitch == SongDrumNotes::kRim);
+                            break;
+                        case SongTrackRole::SnareRoll: renderSnare(ctx, s0, vel); break;
+                        case SongTrackRole::Pluck:     renderPluck(ctx, s0, len, note.pitch, vel); break;
+                        case SongTrackRole::Acid:      renderAcid(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Bass: renderBass(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Pad:  renderPad(ctx, s0, len, note.pitch, vel, padSeed = padSeed * 1664525u + 1013904223u); break;
                         case SongTrackRole::Arp:  renderArp(ctx, s0, len, note.pitch, vel); break;
-                        case SongTrackRole::Lead: renderLead(ctx, s0, len, note.pitch, vel); break;
+                        case SongTrackRole::Lead:
+                            if (song.style == SongStyle::MelodicTechno) renderLead(ctx, s0, len, note.pitch, vel);
+                            else renderSuperLead(ctx, s0, len, note.pitch, vel, song.style == SongStyle::NeoRave);
+                            break;
                         case SongTrackRole::Fx:   renderFx(ctx, s0, len, note.pitch, vel); break;
                     }
                 }

@@ -1,0 +1,4542 @@
+{
+ "show": "PRISMATIC by Tiësto",
+ "note": "Tracklists gathered via web-search snippets of 1001tracklists.com / tranceattack.net (direct fetch blocked by egress proxy). 'partial' episodes are incomplete. Order = play order.",
+ "episodes": [
+  {
+   "episode": 1,
+   "title": "PRISMATIC 001",
+   "date": "2026-01-02",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1tdhp02k/tiesto-prismatic-001-2026-01-02.html",
+   "tracks": [
+    {
+     "artist": "Tiësto & FORS",
+     "title": "Bring Me To Life",
+     "remix": null,
+     "label": "MUSICAL FREEDOM/ATLANTIC"
+    },
+    {
+     "artist": "BLR & Amber Revival",
+     "title": "Feeling Good",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Xashes & Human Rias",
+     "title": "This Is The End",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Theme From Norefjell",
+     "remix": "Ørjan Nilsen Remix",
+     "label": "BLACK HOLE"
+    },
+    {
+     "artist": "Innēr Sense",
+     "title": "People Can Fly",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Beautiful Places",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Faithless",
+     "title": "Insomnia",
+     "remix": "Disclosure 2025 Edit",
+     "label": null
+    },
+    {
+     "artist": "Luvstruck",
+     "title": "Walking With Elephants",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Paul Denton",
+     "title": "Ping",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Chris Metcalfe",
+     "title": "Running Man",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nitrous Oxide",
+     "title": "Stardust",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "S3PPA",
+     "title": "Rock That Body",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ryan Case",
+     "title": "FLY",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Milion & Freddi & Saidah",
+     "title": "Tears",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Entasia",
+     "title": "Eutopia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pagan",
+     "title": "Destination",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "227Kg",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Funk Tribu",
+     "title": "Azul",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LUCØ (US)",
+     "title": "Falling Back",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cara Elizabeth",
+     "title": "Freaks",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 2,
+   "title": "PRISMATIC 002",
+   "date": "2026-01-09",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/2kmdhg8t/tiesto-prismatic-002-2026-01-09.html",
+   "tracks": [
+    {
+     "artist": "Tiësto",
+     "title": "Beautiful Places",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Max Styler & Three Drives",
+     "title": "Greece 2000",
+     "remix": "Max Styler Rework",
+     "label": null
+    },
+    {
+     "artist": "Korolova & Switch Disco",
+     "title": "Empty Skies",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Matthew Vertino & BAR/TY B",
+     "title": "Notturna",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ricky Rulano & DSTRQT",
+     "title": "How Should Love Feel",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Yulia Niko ft. Novel",
+     "title": "Boundless",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Semblance Smile",
+     "title": "Days & Moments",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Apropos",
+     "title": "Destruction",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Leena Punks & Rowland Giles",
+     "title": "Holding On",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marco V",
+     "title": "Godd",
+     "remix": "Mr. Sid & March Forward Remix",
+     "label": null
+    },
+    {
+     "artist": "Mia Mendi & Blake Light",
+     "title": "Lose Yourself",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Robert Nickson",
+     "title": "Nine Lives",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Ten Seconds Before Sunrise",
+     "remix": "Ciaran McAuley Remix",
+     "label": null
+    },
+    {
+     "artist": "Mike Mago & Dragonette",
+     "title": "Outlines",
+     "remix": "Nova Blue Remix",
+     "label": null
+    },
+    {
+     "artist": "LAMMER & Freddi",
+     "title": "Like That",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mosimann & Ixxel",
+     "title": "Drop That Beat",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "HOF",
+     "title": "We Won't Stop",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Anyken",
+     "title": "The Cosmos",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ahmed Helmy & Doppenberg pres. HEL:BRG",
+     "title": "Break It Down",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Faster Horses & Morgan Seatree",
+     "title": "In My Heart",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Robyn",
+     "title": "Dopamine",
+     "remix": "Marlon Hoffstadt Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 3,
+   "title": "PRISMATIC 003",
+   "date": "2026-01-16",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/289f1q01/tiesto-prismatic-003-2026-01-16.html",
+   "tracks": [
+    {
+     "artist": "Tiësto & Brieanna Grace",
+     "title": "Beautiful Places",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "KASIA & Eli & Dani & Stylo",
+     "title": "All I See Is Us",
+     "remix": null,
+     "label": "INTERSTELLAR"
+    },
+    {
+     "artist": "Daijo",
+     "title": "Broken Dreams",
+     "remix": null,
+     "label": "REVEALED"
+    },
+    {
+     "artist": "Nitrous Oxide & Seb Hennig",
+     "title": "Igni",
+     "remix": null,
+     "label": "ENHANCED PROG"
+    },
+    {
+     "artist": "RUMPUS",
+     "title": "Hide And Seek",
+     "remix": null,
+     "label": "PURPLE TEA"
+    },
+    {
+     "artist": "Out Of Mind",
+     "title": "Follow My Way",
+     "remix": null,
+     "label": "HARABE BLACK"
+    },
+    {
+     "artist": "Cosmic Gate & CMD/CTRL",
+     "title": "Need A Little Love",
+     "remix": null,
+     "label": "WAKE YOUR MIND (BLACK HOLE)"
+    },
+    {
+     "artist": "Omnia & UUFO",
+     "title": "Hello",
+     "remix": null,
+     "label": "ETRNTY"
+    },
+    {
+     "artist": "Benny Benassi",
+     "title": "Love Is Gonna Save Us",
+     "remix": "Hel:sløwed Bootleg",
+     "label": "ULTRA"
+    },
+    {
+     "artist": "Black Box & Gareden",
+     "title": "Tulum Nights",
+     "remix": null,
+     "label": "DEEPER HARMONIES (FIND YOUR HARMONY)"
+    },
+    {
+     "artist": "Jon Fayer",
+     "title": "You & I",
+     "remix": null,
+     "label": "FSOE ARGENTO"
+    },
+    {
+     "artist": "Corren Cavini",
+     "title": "Hopes & Fears",
+     "remix": null,
+     "label": "PURIFIED"
+    },
+    {
+     "artist": "Alper Çetin",
+     "title": "Love It",
+     "remix": null,
+     "label": "SERENDIPITY MUZIK (BLACK HOLE)"
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Forever Today",
+     "remix": "Sean Tyas Rework",
+     "label": null
+    },
+    {
+     "artist": "Allen Watts",
+     "title": "Smooth",
+     "remix": null,
+     "label": "HIGH VOLTAGE"
+    },
+    {
+     "artist": "Binary Finary",
+     "title": "1998",
+     "remix": "Anfisa Letyago Remix",
+     "label": "ARMADA"
+    },
+    {
+     "artist": "CIElll & Aaron Reddick",
+     "title": "Never Be The Same",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mochakk ft. Joni",
+     "title": "Da Fonk",
+     "remix": "WILL CARRIGAN Edit",
+     "label": null
+    },
+    {
+     "artist": "KETTAMA & Clouds",
+     "title": "Sort It Out",
+     "remix": null,
+     "label": "STEEL CITY DANCE DISCS"
+    },
+    {
+     "artist": "Ben Nicky & York",
+     "title": "On The Beach",
+     "remix": null,
+     "label": "ARMADA"
+    },
+    {
+     "artist": "RÜFÜS DU SOL",
+     "title": "Innerbloom",
+     "remix": "BUNT. In The Round Edit",
+     "label": null
+    },
+    {
+     "artist": "Ben Gold & Trancemaster Krause",
+     "title": "Needed U",
+     "remix": null,
+     "label": "ARMADA"
+    }
+   ]
+  },
+  {
+   "episode": 4,
+   "title": "PRISMATIC 004",
+   "date": "2026-01-23",
+   "coverage": "partial (7/21)",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/2lk8ru61/tiesto-prismatic-004-2026-01-23.html",
+   "tracks": [
+    {
+     "artist": "IDEMI & Lustral",
+     "title": "Everytime",
+     "remix": "Benwal Remix",
+     "label": null
+    },
+    {
+     "artist": "RAM",
+     "title": "RAMsterdam",
+     "remix": "Jorn van Deynhoven Remix",
+     "label": null
+    },
+    {
+     "artist": "Khainz",
+     "title": "Getting Lost",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tinlicker",
+     "title": "Reborn",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "OTTAGON ft. TW3LVE",
+     "title": "Feel It Coming",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Twinspin",
+     "title": "Rave",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ HEARTSTRING & SWIM",
+     "title": "Forever (If U Need It)",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 5,
+   "title": "PRISMATIC 005",
+   "date": "2026-01-30",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/stl71nk/tiesto-prismatic-005-2026-01-30.html",
+   "tracks": [
+    {
+     "artist": "Entasia & Sil aka Olav Basoski",
+     "title": "Windows",
+     "remix": null,
+     "label": "ARMADA"
+    },
+    {
+     "artist": "Southbound",
+     "title": "I'm God",
+     "remix": null,
+     "label": "AAO"
+    },
+    {
+     "artist": "longstoryshort",
+     "title": "4AM DUB",
+     "remix": null,
+     "label": "FREE"
+    },
+    {
+     "artist": "Iain M",
+     "title": "Endless Sky",
+     "remix": null,
+     "label": "OUTBURST"
+    },
+    {
+     "artist": "Lostly",
+     "title": "As You Leave",
+     "remix": null,
+     "label": "BORDERLINE"
+    },
+    {
+     "artist": "Richard Durand",
+     "title": "Rubicon",
+     "remix": null,
+     "label": "FSOE"
+    },
+    {
+     "artist": "Factor B",
+     "title": "You'll Miss Me When I'm Gone",
+     "remix": null,
+     "label": "THEATRE OF THE MIND"
+    },
+    {
+     "artist": "Mathame",
+     "title": "Love Somebody",
+     "remix": "LEV Remix",
+     "label": "TOMORROWLAND"
+    },
+    {
+     "artist": "MESH & Stone Van Brooken",
+     "title": "Remember",
+     "remix": null,
+     "label": "NOW"
+    },
+    {
+     "artist": "Fahlberg",
+     "title": "It's All Good",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cubicore",
+     "title": "Bring It Back",
+     "remix": null,
+     "label": "CATALYSTIC RECORDINGS"
+    },
+    {
+     "artist": "Genix & Bebi",
+     "title": "Feels Like",
+     "remix": null,
+     "label": "ANJUNABEATS"
+    },
+    {
+     "artist": "33 Below",
+     "title": "HALO",
+     "remix": null,
+     "label": "MAJOR RECORDINGS"
+    },
+    {
+     "artist": "Y-Traxx",
+     "title": "Mystery Land",
+     "remix": "Quinny Remix",
+     "label": "XTRA NOVA"
+    },
+    {
+     "artist": "Kingi",
+     "title": "Rain",
+     "remix": null,
+     "label": "SELF RELEASED"
+    },
+    {
+     "artist": "HIFEER",
+     "title": "Wilderness",
+     "remix": null,
+     "label": "REVEALED RADAR"
+    },
+    {
+     "artist": "Dimension ft. Karen Harding",
+     "title": "Guardian Angel",
+     "remix": "Modeā Remix",
+     "label": "MINISTRY OF SOUND"
+    },
+    {
+     "artist": "Ben Gold",
+     "title": "Blackcard",
+     "remix": null,
+     "label": "SLASH"
+    },
+    {
+     "artist": "KUKO",
+     "title": "Voicemail",
+     "remix": null,
+     "label": "INNERGATE"
+    },
+    {
+     "artist": "B JONES",
+     "title": "Glow Up",
+     "remix": null,
+     "label": "BLACK HOLE"
+    }
+   ]
+  },
+  {
+   "episode": 6,
+   "title": "PRISMATIC 006",
+   "date": "2026-02-06",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1v89km79/tiesto-prismatic-006-2026-02-06.html",
+   "tracks": [
+    {
+     "artist": "Milky & Mall Grab",
+     "title": "Just The Way You Are",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kule",
+     "title": "Closer",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Years & Years",
+     "title": "King",
+     "remix": "Modeā Sunrise Mix",
+     "label": null
+    },
+    {
+     "artist": "vjorka",
+     "title": "Frem",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Alex M.O.R.P.H. & Paul Denton",
+     "title": "Teleporter",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lostly",
+     "title": "Alone",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sequence Six",
+     "title": "Orka",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Matt Guy",
+     "title": "U Must've Heard It",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CRUSH3d",
+     "title": "Give It All",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "UUFO",
+     "title": "Need U",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Airbase",
+     "title": "Everything Else Could Wait",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kryder",
+     "title": "Time",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Peace Control",
+     "title": "U Ain't Lyin'",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "yerbby",
+     "title": "Fly With Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Funk Tribu",
+     "title": "Speakers Blowing",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DOREY",
+     "title": "I'm In Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "RIVER & Signum",
+     "title": "What Ya Got 4 Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KELLAR",
+     "title": "Hearts On The Floor",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ben Gold & JOKESONYOU",
+     "title": "Still Here",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KRL MX",
+     "title": "Time 4 Love",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 7,
+   "title": "PRISMATIC 007",
+   "date": "2026-02-13",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/17qhs27k/tiesto-prismatic-007-2026-02-13.html",
+   "tracks": [
+    {
+     "artist": "Bag Raiders",
+     "title": "Shooting Stars",
+     "remix": "Tess Edit",
+     "label": null
+    },
+    {
+     "artist": "KE-YEN",
+     "title": "DEEPER INTO THE SOUND",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "bullet tooth & Milion",
+     "title": "Empty Eyes",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jove",
+     "title": "Take Me Higher",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mariano San Pedro",
+     "title": "Mortis",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cosmic Gate",
+     "title": "Exploration Of Space",
+     "remix": "Olly James Remix",
+     "label": null
+    },
+    {
+     "artist": "Push",
+     "title": "Back When We Believed",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Forever Today",
+     "remix": "Robbie Seed Remix",
+     "label": null
+    },
+    {
+     "artist": "Emma Hewitt x Daxson",
+     "title": "Warrior",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Radiohead",
+     "title": "Everything In Its Right Place",
+     "remix": "Gigamesh Discotech Remix",
+     "label": null
+    },
+    {
+     "artist": "Rivo & Jaquet",
+     "title": "Mess Around (Baby Baby)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Liva K",
+     "title": "Track With The Organ",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Luch",
+     "title": "Uh Huh",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cam Stockman ft. Joyce Sims",
+     "title": "Into My Life",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Emmanuel Top",
+     "title": "Acid Phase",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ben Hemsley & Gaskin",
+     "title": "If Your Girl",
+     "remix": "Joe Hunt House Flip",
+     "label": null
+    },
+    {
+     "artist": "Clover & K.ONE",
+     "title": "Archangel",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KELLAR & TITVS",
+     "title": "Chasing Dreams",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sean Drinan",
+     "title": "Strong To Survive",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marnik & Conrad Taylor ft. Ed Graves",
+     "title": "A Better Place",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 8,
+   "title": "PRISMATIC 008",
+   "date": "2026-02-21",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/2fwfrjwt/tiesto-prismatic-008-2026-02-21.html",
+   "tracks": [
+    {
+     "artist": "Tiësto & Brieanna Grace",
+     "title": "Beautiful Places",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "OTTAGON",
+     "title": "The Underground",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Moonman & Ferry Corsten & Joris Voorn",
+     "title": "Don't Be Afraid",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nitrous Oxide",
+     "title": "Peaktime",
+     "remix": "Tjam Remix",
+     "label": null
+    },
+    {
+     "artist": "D.A.R.E",
+     "title": "True Love",
+     "remix": "JARR Head Remix",
+     "label": null
+    },
+    {
+     "artist": "Jesh Bargota",
+     "title": "Memoria",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Alex M.O.R.P.H. & TYGR TYGR & MRPHLNDR",
+     "title": "Save Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "VXSION",
+     "title": "Porto",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Adran",
+     "title": "Stand Me",
+     "remix": "Andy Bros Remix",
+     "label": null
+    },
+    {
+     "artist": "&friends ft. Joseph",
+     "title": "Something About U",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Fahlberg",
+     "title": "Still Waiting For A Sign",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine & Gino Ingrosso",
+     "title": "I Hear No More",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Everything But The Girl",
+     "title": "Missing",
+     "remix": "JENO Remix",
+     "label": null
+    },
+    {
+     "artist": "TWOFACED",
+     "title": "Love Again",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Charlotte de Witte ft. Conduit",
+     "title": "A Prayer For The Dancefloor",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "WATTO ft. MCYL",
+     "title": "Going Up",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "dj try",
+     "title": "Hold On",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ IP & Sticky Pages",
+     "title": "Free Yourself",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "ASLØ",
+     "title": "Vox Sanctum",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marco V & Jens",
+     "title": "Loops & Tings Relooped",
+     "remix": "Acid Asian Edit",
+     "label": null
+    },
+    {
+     "artist": "Part Time Killer & Paraçek",
+     "title": "Mr. Brightside",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 9,
+   "title": "PRISMATIC 009",
+   "date": "2026-02-28",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-009/",
+   "tracks": [
+    {
+     "artist": "Mansa",
+     "title": "Midnight On My Mind",
+     "remix": null,
+     "label": "BROKE"
+    },
+    {
+     "artist": "Layton Giordani ft. Camden Cox",
+     "title": "Destiny",
+     "remix": null,
+     "label": "MADMINDS (ARMADA)"
+    },
+    {
+     "artist": "Monic & Ahimsa",
+     "title": "Time Is Slipping Away",
+     "remix": null,
+     "label": "ACTUATION"
+    },
+    {
+     "artist": "DJ CØSMIC DREAM",
+     "title": "Friday",
+     "remix": null,
+     "label": "INSIGNIA"
+    },
+    {
+     "artist": "Andrew Rayel pres. Extasia & Alan Morris ft. Joanna Angelina",
+     "title": "Never Be The Same",
+     "remix": null,
+     "label": "FIND YOUR HARMONY"
+    },
+    {
+     "artist": "Daxson",
+     "title": "Manifesto",
+     "remix": null,
+     "label": "PERFECTO FLUORO"
+    },
+    {
+     "artist": "Amelie Lens vs. Bicep vs. Key4050",
+     "title": "Falling For Glueless",
+     "remix": "RAM Mash-Boot",
+     "label": null
+    },
+    {
+     "artist": "Cosmic Gate",
+     "title": "Exploration Of Space",
+     "remix": null,
+     "label": "WAKE YOUR MIND (BLACK HOLE)"
+    },
+    {
+     "artist": "Vincent De Moor",
+     "title": "Fly Away",
+     "remix": "Cosmic Gate Remix",
+     "label": "COMBINED FORCES"
+    },
+    {
+     "artist": "Cosmic Gate & Pretty Pink",
+     "title": "Bloom",
+     "remix": null,
+     "label": "WAKE YOUR MIND (BLACK HOLE)"
+    },
+    {
+     "artist": "Losless",
+     "title": "I Feel Energy",
+     "remix": null,
+     "label": "DIEGETIK"
+    },
+    {
+     "artist": "Yubik & Enai",
+     "title": "Dragonfly",
+     "remix": null,
+     "label": "TUNECORE"
+    },
+    {
+     "artist": "Massuma",
+     "title": "Mermaid",
+     "remix": null,
+     "label": "PLACES & SPACES"
+    },
+    {
+     "artist": "Lane 8 & Art School Girlfriend",
+     "title": "The Deep",
+     "remix": "Teho Remix",
+     "label": "THIS NEVER HAPPENED"
+    },
+    {
+     "artist": "Adam Beyer & Massano",
+     "title": "Lazer Beams",
+     "remix": null,
+     "label": "DRUMCODE"
+    },
+    {
+     "artist": "BIPOLUR",
+     "title": "Hold Me Close",
+     "remix": null,
+     "label": "MODERN DELIVERY"
+    },
+    {
+     "artist": "Daniel Allan & Arlo & fkblnde",
+     "title": "Falling",
+     "remix": null,
+     "label": "THIRTY KNOTS"
+    },
+    {
+     "artist": "S3PPA",
+     "title": "LIKE A WOMAN",
+     "remix": null,
+     "label": "SELF RELEASED"
+    },
+    {
+     "artist": "StanV",
+     "title": "The Lights",
+     "remix": null,
+     "label": "BEMIND"
+    },
+    {
+     "artist": "SUNDA",
+     "title": "Be With Me",
+     "remix": "Luke Terry Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 10,
+   "title": "PRISMATIC 010",
+   "date": "2026-03-07",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/123ttpl9/tiesto-prismatic-010-2026-03-07.html",
+   "tracks": [
+    {
+     "artist": "Odd Mob ft. Lizzy Land",
+     "title": "Never Alone",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "G-POL",
+     "title": "Illicit Dust",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Darude",
+     "title": "Feel The Beat",
+     "remix": "Ilan Bluestone Remix",
+     "label": null
+    },
+    {
+     "artist": "Ummet Ozcan",
+     "title": "Iunu",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DEPARTAMENTO",
+     "title": "VEINS",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "bbyclose",
+     "title": "dream about u",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LUSU & Signum ft. Scott Mac",
+     "title": "Coming On Strong",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Aeon Shift",
+     "title": "Point Of No Return",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "XiJaro & Pitch",
+     "title": "I Have Friends Everywhere",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Talla 2XLC & DSTRTD SGNL",
+     "title": "Dreams",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Charlotte de Witte",
+     "title": "Become",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "from ze oven",
+     "title": "Paradise",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "BURNR",
+     "title": "Rockin' Steady",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "dj try",
+     "title": "Something Real",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kara Okay & Kyle Starkey",
+     "title": "I Believe",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Fenrick",
+     "title": "All I Want Is Party",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "MOAA",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "W4STED",
+     "title": "Neverland",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JØR",
+     "title": "Party People",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Portex",
+     "title": "Drop That Acid",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "southstar & Milky Chance",
+     "title": "By My Side (stolen Dance)",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 11,
+   "title": "PRISMATIC 011",
+   "date": "2026-03-14",
+   "coverage": "partial (3/20)",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/1sh3fr3k/tiesto-prismatic-011-2026-03-14.html",
+   "tracks": [
+    {
+     "artist": "Gusta",
+     "title": "Let You In",
+     "remix": "Eternity Mix",
+     "label": null
+    },
+    {
+     "artist": "ARTBAT & Giuseppe Ottaviani & Conor Ross",
+     "title": "Break The Loop",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Rooléh",
+     "title": "For You",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 12,
+   "title": "PRISMATIC 012",
+   "date": "2026-03-21",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-012/",
+   "tracks": [
+    {
+     "artist": "DJ HEARTSTRING & Baugruppe90",
+     "title": "What Music Felt Like In 2007",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Calvin Harris",
+     "title": "I'm Not Alone",
+     "remix": "JAMO Remix",
+     "label": null
+    },
+    {
+     "artist": "Jon Mangan",
+     "title": "Aether",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Megra",
+     "title": "People Get Lost",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "IDEMI",
+     "title": "Teach You Desire",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "iiO ft. Nadia Ali",
+     "title": "Rapture",
+     "remix": "Loods Remix",
+     "label": null
+    },
+    {
+     "artist": "Amy Wiles",
+     "title": "Each Other (2 People)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sean Dexter",
+     "title": "Synthetica",
+     "remix": "BLR Remix",
+     "label": null
+    },
+    {
+     "artist": "ANOTR ft. 54 Ultra",
+     "title": "Talk To You",
+     "remix": "MORGANJ Remix",
+     "label": null
+    },
+    {
+     "artist": "Samer Soltan",
+     "title": "Catch The Heat",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Betical",
+     "title": "Track Of Time",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Humans Musik",
+     "title": "2 Phones On",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sander van Doorn & Crooked Bangs",
+     "title": "My Body",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marnix Mulder",
+     "title": "Effosia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lostly",
+     "title": "303 Ways",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Underworld",
+     "title": "Dark & Long",
+     "remix": "Will Carrigan Sport Mix",
+     "label": null
+    },
+    {
+     "artist": "SELKER",
+     "title": "Too Much For Me",
+     "remix": "Azzurro Remix",
+     "label": null
+    },
+    {
+     "artist": "snoritz",
+     "title": "Kiss Me In The Rain",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Benleh",
+     "title": "Keep Going",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Henk & August Kind",
+     "title": "Laser Beams",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 13,
+   "title": "PRISMATIC 013",
+   "date": "2026-03-28",
+   "coverage": "partial (14/~20)",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-013/",
+   "tracks": [
+    {
+     "artist": "KELLAR",
+     "title": "Thinking About You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "K.ONE & Whos Fault",
+     "title": "You're Here",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine",
+     "title": "Got No Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Newtone",
+     "title": "Forever (I Want You)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mike Momburg",
+     "title": "Dreamin'",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TWOFACED",
+     "title": "Yearning",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nova Blue",
+     "title": "Do It Like Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SILK",
+     "title": "Used To",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "XiJaro & Pitch",
+     "title": "Cahaya",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Luke Terry",
+     "title": "Into The Sun",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Rafael Osmo",
+     "title": "Sunset Melody",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "Style",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "FOLZ",
+     "title": "Lose My Mind",
+     "remix": "Trance Mix",
+     "label": null
+    },
+    {
+     "artist": "Øneheart & Juno & Baby Jane",
+     "title": "Medusa",
+     "remix": "Shugz Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 14,
+   "title": "PRISMATIC 014",
+   "date": "2026-04-04",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-014/",
+   "tracks": [
+    {
+     "artist": "Dean Turnley",
+     "title": "Actin' Tough",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CHARMUR",
+     "title": "fear nobody",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pagan",
+     "title": "Take A Bite",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Paul Denton",
+     "title": "Deep In Your Mind",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bo Bensdorp",
+     "title": "Ecstasy",
+     "remix": "Ascend Mix",
+     "label": null
+    },
+    {
+     "artist": "Mathame ft. Jex",
+     "title": "Endless",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "19:26 x Gadouh",
+     "title": "Give Me Life",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jos & Eli",
+     "title": "Lucidia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Fahlberg",
+     "title": "Feeling Good",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "ANOTR ft. 54 Ultra",
+     "title": "Talk To You",
+     "remix": "Remix",
+     "label": null
+    },
+    {
+     "artist": "Nina Simone",
+     "title": "Take Care Of Business",
+     "remix": "Solomun Remix",
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. Sneaky Sound System",
+     "title": "I Will Be Here",
+     "remix": "Wolfgang Gartner Remix",
+     "label": null
+    },
+    {
+     "artist": "Ronski Speed",
+     "title": "Rendezvous",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kaeno & Sean Truby",
+     "title": "Flightpath",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JÄMO",
+     "title": "When I See U (Shadows)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Trance Mums",
+     "title": "Forever",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marlon Hoffstadt",
+     "title": "Breathe",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KI/KI",
+     "title": "5AM",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LEVT",
+     "title": "Never Could Let Go",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lilly Palmer",
+     "title": "Bigger Than Techno",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marlon Hoffstadt & Hannah Laing ft. Caroline Roxy",
+     "title": "Stomp Your Feet",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 15,
+   "title": "PRISMATIC 015",
+   "date": "2026-04-11",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1y22x9dt/tiesto-prismatic-015-2026-04-11.html",
+   "tracks": [
+    {
+     "artist": "Headhigh",
+     "title": "Take Me Away",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "macK",
+     "title": "It Feels So Good",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JENO & Wempe",
+     "title": "In The Air",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "how2fly",
+     "title": "I Still See You In My Dreams",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "The Floorfillers",
+     "title": "Works Your Body Down",
+     "remix": "Kyle Starkey Remix",
+     "label": null
+    },
+    {
+     "artist": "AUTOFLOWER",
+     "title": "Understand",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Moby ft. Mim Goese",
+     "title": "When It's Cold I'd Like To Die",
+     "remix": "SWIM Remix",
+     "label": null
+    },
+    {
+     "artist": "Weska ft. Kyra Mastro",
+     "title": "Nowhere To Hide",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Yost Koen",
+     "title": "Sympathy",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Samer Soltan",
+     "title": "Catch The Heat",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cynar",
+     "title": "Vertiginous",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Alt Control",
+     "title": "Running",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Azhure",
+     "title": "Right",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mr Sam x Da Fresh",
+     "title": "Broken Dream",
+     "remix": "Mr Sam Made In France Version",
+     "label": null
+    },
+    {
+     "artist": "Amos & Riot Night & 0Gravity",
+     "title": "Together We Are",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Signum",
+     "title": "Champion",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "ATRIP",
+     "title": "HERZSCHLAG",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KARMA",
+     "title": "As The Rush Comes",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Britney Speed",
+     "title": "Body Higher",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ben Gold",
+     "title": "Blackcard",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Romy",
+     "title": "Love Who You Love",
+     "remix": "KI/KI Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 16,
+   "title": "PRISMATIC 016",
+   "date": "2026-04-18",
+   "coverage": "partial (15/21)",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/297sd7m9/tiesto-prismatic-016-2026-04-18.html",
+   "tracks": [
+    {
+     "artist": "Trance Mums",
+     "title": "Forever",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bryan Kearney & Modeā",
+     "title": "Ready To Fly",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "ADB",
+     "title": "Out Of Service",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Benwal & Entasia & Baron Von Trax",
+     "title": "Copycat",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ben Hemsley",
+     "title": "El Comienzo",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jim Jonathan",
+     "title": "Can't Lose You",
+     "remix": "Amsterdam Sunrise Mix",
+     "label": null
+    },
+    {
+     "artist": "Jake Shore & Henry Fong",
+     "title": "Feel My NRG",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Committee",
+     "title": "Welcome",
+     "remix": "Luvstruck Remix",
+     "label": null
+    },
+    {
+     "artist": "Liam Wilson",
+     "title": "Unconditionally",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Frankyeffe",
+     "title": "Your Dream",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "EURO IDOL & Phyzical Trax ft. EUROPE DJ",
+     "title": "Reach 4 U",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Vall Du Son",
+     "title": "PLAY",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DV60 & Ali Overdrive",
+     "title": "Don't Bring Me Down",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Earth From Space",
+     "title": "Angels",
+     "remix": "yerbby Remix",
+     "label": null
+    },
+    {
+     "artist": "DJ Schwertransporter",
+     "title": "System",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 17,
+   "title": "PRISMATIC 017",
+   "date": "2026-04-25",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1ns4tdz1/tiesto-prismatic-017-2026-04-25.html",
+   "tracks": [
+    {
+     "artist": "JENO & Wempe",
+     "title": "Contra",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sunlounger & Shugz & CIElll ft. Zara Taylor",
+     "title": "Lost",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Shugz",
+     "title": "Rapture",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ HEARTSTRING & SWIM & Jamesjamesjames",
+     "title": "Into Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Midnight In Amsterdam & Sebastian Wibe",
+     "title": "Under The Moon",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Josh Dorey",
+     "title": "Me N U",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Megra",
+     "title": "In My Mind",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JOHNNY O ft. CITYSPROBLEM",
+     "title": "Aether / Ascent",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ Boring ft. SWIM",
+     "title": "Stay With Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KREAM & SCRIPT",
+     "title": "Turn Up The Dose",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "BLR & Amber Revival",
+     "title": "Cause You're Mine",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lana Del Rey",
+     "title": "Young & Beautiful",
+     "remix": "ALEOS Remix",
+     "label": null
+    },
+    {
+     "artist": "TOBEHONEST & WELKER",
+     "title": "Too Bright",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LAWTON & Deckers",
+     "title": "Los Retratos",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CIS",
+     "title": "Funk",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Matty Ralph & JOKESONYOU",
+     "title": "Heaven",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Schiller ft. Peter Heppner",
+     "title": "Dream Of You",
+     "remix": "DJ Dings & Tim Rausch Rework",
+     "label": null
+    },
+    {
+     "artist": "Odyrae",
+     "title": "You Are The Light",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ueberrest",
+     "title": "Disturbing Paradise",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 18,
+   "title": "PRISMATIC 018",
+   "date": "2026-05-02",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/16t51msk/tiesto-prismatic-018-2026-05-02.html",
+   "tracks": [
+    {
+     "artist": "Bryan Kearney & Modeā",
+     "title": "Ready To Fly",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Amy Wiles & DOREY & KLP",
+     "title": "Imagination",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ Planet Express",
+     "title": "All Of Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Agnelli & Nelson",
+     "title": "Everyday",
+     "remix": "LAWTON Lick",
+     "label": null
+    },
+    {
+     "artist": "Milky",
+     "title": "Just The Way You Are",
+     "remix": "Paige Tomlinson Remix",
+     "label": null
+    },
+    {
+     "artist": "DANIQ",
+     "title": "Take Me Away",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pro Athlete",
+     "title": "Missing U",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cassius ft. Steve Edwards",
+     "title": "The Sound Of Violence",
+     "remix": "Hightown Edit",
+     "label": null
+    },
+    {
+     "artist": "Close Proximity",
+     "title": "Open Up Your Mind",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Amour Propre",
+     "title": "Blurred Signal",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Space Motion & Soofnic",
+     "title": "Rock The Party",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Andreas Henneberg",
+     "title": "My Body Is Your Temple",
+     "remix": "Jonas Saalbach Remix",
+     "label": null
+    },
+    {
+     "artist": "Antdot & Mozambo",
+     "title": "Wish I Didn't Miss You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Daft Punk",
+     "title": "Aerodynamic",
+     "remix": "Engelbert Remake Mix",
+     "label": null
+    },
+    {
+     "artist": "Airbase",
+     "title": "Medusa",
+     "remix": "Darren Porter Remix",
+     "label": null
+    },
+    {
+     "artist": "C-Systems ft. Lea Rognoni",
+     "title": "Got A Problem",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Davey Asprey & Caitlin Potter",
+     "title": "Something",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Edo & Trias Kinetica",
+     "title": "Feel The Energy",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Dan Heist",
+     "title": "Kids",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Aaron Smith ft. Luvli",
+     "title": "Dancin",
+     "remix": "southstar Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 19,
+   "title": "PRISMATIC 019",
+   "date": "2026-05-09",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/bv44bh1/tiesto-prismatic-019-2026-05-09.html",
+   "tracks": [
+    {
+     "artist": "Mike Momburg & Coco Star",
+     "title": "I Need A Miracle",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "OCEAN",
+     "title": "I Want Your Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ango",
+     "title": "I Tried",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "nilsix",
+     "title": "Nostalgia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sean Tyas",
+     "title": "Chrome",
+     "remix": "Will Rees Remix",
+     "label": null
+    },
+    {
+     "artist": "MOGUAI & Luca Testa",
+     "title": "Metropolis",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pale-X",
+     "title": "Breeze",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Paul Oakenfold & Daxson & RAM",
+     "title": "RAMsterdam",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "John O'Callaghan & Paul Skelton & Sue McLaren",
+     "title": "Signs",
+     "remix": "Lostly Remix",
+     "label": null
+    },
+    {
+     "artist": "Anyma & OTTAGON",
+     "title": "Unstoppable",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cherry & Kostyn & UNDERMOON",
+     "title": "Paranoya",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nichols+Roark",
+     "title": "CHNKY MNKY",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Carl Bee",
+     "title": "Twilight",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Loods",
+     "title": "Eternally",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ Dings & Tim Rausch",
+     "title": "No Relaxin!",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Fenrick & DJ IP",
+     "title": "Fenrip",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ GUESTLIST & Cleopard2000",
+     "title": "SPECIAL TOUCH",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LAWTON & Caroline Roxy",
+     "title": "Horizon",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jakarta",
+     "title": "One Desire",
+     "remix": "Fiorælla Edit",
+     "label": null
+    },
+    {
+     "artist": "NYCO",
+     "title": "The Place",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 20,
+   "title": "PRISMATIC 020",
+   "date": "2026-05-16",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "House, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/23p3qvg1/tiesto-prismatic-020-2026-05-16.html",
+   "tracks": [
+    {
+     "artist": "Tiësto ft. Olivia Sebastianelli",
+     "title": "Don't Lose Your Head",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "Sensu & ELOQ",
+     "title": "Ur Way",
+     "remix": null,
+     "label": "HEADROOM"
+    },
+    {
+     "artist": "KELLAR & Paige Tomlinson",
+     "title": "Take Me Back",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TWOFACED",
+     "title": "Yearning",
+     "remix": "Faster Horses Remix",
+     "label": "SELF RELEASED"
+    },
+    {
+     "artist": "JENO & Wempe",
+     "title": "Contra",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "CIElll",
+     "title": "Tethered",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "Nedea & Bryan Kearney",
+     "title": "Back Once Again",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "IDEMI",
+     "title": "Reflections",
+     "remix": null,
+     "label": "INSOMNIAC"
+    },
+    {
+     "artist": "MRTY",
+     "title": "Private",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. BT",
+     "title": "Love Comes Again",
+     "remix": "Emre Gulmez & Klyde Jaxx Remix",
+     "label": "MAGIK MUZIK"
+    },
+    {
+     "artist": "Glowal",
+     "title": "Robats",
+     "remix": null,
+     "label": "DIYNAMIC"
+    },
+    {
+     "artist": "Notre Dame",
+     "title": "No Rules",
+     "remix": null,
+     "label": "DIYNAMIC"
+    },
+    {
+     "artist": "Adam Ten & J.views",
+     "title": "Rivers And Homes Retake",
+     "remix": null,
+     "label": "KOMPAKT"
+    },
+    {
+     "artist": "Tarik & SecondCity",
+     "title": "Take Control",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "The Thrillseekers",
+     "title": "When Darkness Falls",
+     "remix": null,
+     "label": "ADJUSTED"
+    },
+    {
+     "artist": "Ferry Tayle & Tonks pres. Mirage",
+     "title": "Remember The Future",
+     "remix": null,
+     "label": "ASOT (ARMADA)"
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Nyana",
+     "remix": "Cameron Mo & Seegmo Remix",
+     "label": "BLACK HOLE"
+    },
+    {
+     "artist": "Billy Gillies & Liam Wilson",
+     "title": "Welcome To Ibiza",
+     "remix": null,
+     "label": "FRQNCY"
+    },
+    {
+     "artist": "Marcel Van Houte & Nelzmen",
+     "title": "See The Sun",
+     "remix": null,
+     "label": "UNLEASH THE BEATS"
+    }
+   ]
+  },
+  {
+   "episode": 21,
+   "title": "PRISMATIC 021",
+   "date": "2026-05-23",
+   "coverage": "partial (5/29) special: mainstage/live-style",
+   "episode_genre_tags_1001tl": "Mainstage, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/15vh9pst/tiesto-prismatic-021-2026-05-23.html",
+   "tracks": [
+    {
+     "artist": "Tiësto ft. Olivia Sebastianelli",
+     "title": "Don't Lose Your Head",
+     "remix": "Intro Edit",
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Lost In The Ocean",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nova Blue",
+     "title": "Do It Like Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "RVN",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Human Resource",
+     "title": "Dominator",
+     "remix": "ID Remix",
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 22,
+   "title": "PRISMATIC 022",
+   "date": "2026-05-30",
+   "coverage": "partial (7/19)",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/2t2nmwzt/tiesto-prismatic-022-2026-05-30.html",
+   "tracks": [
+    {
+     "artist": "Tiësto ft. Olivia Sebastianelli",
+     "title": "Don't Lose Your Head",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Amy Wiles & DOREY & KLP",
+     "title": "Imagination",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine",
+     "title": "Before Us",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "K.ONE & Groovebaby",
+     "title": "Who Will Find Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KELLAR & Surpa 55",
+     "title": "Power Of Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kara Okay & Paige Tomlinson",
+     "title": "Here Once Again",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Artche",
+     "title": "Through The Veil",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 23,
+   "title": "PRISMATIC 023",
+   "date": "2026-06-06",
+   "coverage": "partial (12/20)",
+   "episode_genre_tags_1001tl": "Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/1nsdqdpk/tiesto-prismatic-023-2026-06-06.html",
+   "tracks": [
+    {
+     "artist": "KELLAR",
+     "title": "Can't Get Enough",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "OCEAN",
+     "title": "Nobody",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Silva Bumpa",
+     "title": "On 2nite",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Hardt Antoine",
+     "title": "Raw",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Andrea Oliva",
+     "title": "Neon Hearts",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nosi",
+     "title": "Things I Have Never Seen",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Monzilla",
+     "title": "Towards The Sun",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SØNIN ft. Wyrel",
+     "title": "Next To You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "StanV",
+     "title": "Breathe",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Audent & No Chasa",
+     "title": "It Gets Better",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "Upclose",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Larkness",
+     "title": "Running Back To You",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 24,
+   "title": "PRISMATIC 024",
+   "date": "2026-06-13",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1cgf8fl1/tiesto-prismatic-024-2026-06-13.html",
+   "tracks": [
+    {
+     "artist": "Benleh",
+     "title": "Keep Going",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "LAMMER",
+     "title": "Walking On A Dream",
+     "remix": "Euro Trance Mix",
+     "label": null
+    },
+    {
+     "artist": "Scot Project",
+     "title": "H2",
+     "remix": "Barqiemoon Summer Mix",
+     "label": "DRUCK"
+    },
+    {
+     "artist": "dj try & JOHNNY O & CITYSPROBLEM",
+     "title": "Emergence",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bo Bensdorp",
+     "title": "Float",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine",
+     "title": "Here For Us",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "SecondCity",
+     "title": "I Wanna Feel",
+     "remix": "Paige Tomlinson Remix",
+     "label": "ALTRA MODA"
+    },
+    {
+     "artist": "Slayyyter",
+     "title": "GAS STATION",
+     "remix": "dj try Flip",
+     "label": null
+    },
+    {
+     "artist": "Skrillex & Feid",
+     "title": "Noche Without You",
+     "remix": null,
+     "label": "OWSLA"
+    },
+    {
+     "artist": "Rose Ringed",
+     "title": "Pull Me Close",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Artche",
+     "title": "Lay Your Guard Down",
+     "remix": null,
+     "label": "ICONYC"
+    },
+    {
+     "artist": "Andrew Meller",
+     "title": "Echoes Of Love",
+     "remix": null,
+     "label": "DIYNAMIC"
+    },
+    {
+     "artist": "Lee Foss & BUJA & Franksy",
+     "title": "Cult Of Bass",
+     "remix": null,
+     "label": "REPOPULATE MARS"
+    },
+    {
+     "artist": "Julie Desire",
+     "title": "Turn It On",
+     "remix": null,
+     "label": "PLANET STRANGELOVE"
+    },
+    {
+     "artist": "Andrea Chiglien",
+     "title": "Love Me Till The End",
+     "remix": null,
+     "label": "GOTHIC"
+    },
+    {
+     "artist": "Solarstone",
+     "title": "Solarcoaster",
+     "remix": "Superstrings Emotional Rollercoaster Remix",
+     "label": "ARMADA"
+    },
+    {
+     "artist": "Mainline Magic Orchestra",
+     "title": "Tranchera",
+     "remix": null,
+     "label": "PUBLIC POSSESSION"
+    },
+    {
+     "artist": "Funk Tribu",
+     "title": "reborn (alma)",
+     "remix": null,
+     "label": "TRIBE REC"
+    },
+    {
+     "artist": "KI/KI",
+     "title": "Going Existential In The Rave",
+     "remix": null,
+     "label": "SLASH"
+    },
+    {
+     "artist": "L.P. Rhythm",
+     "title": "Versatile",
+     "remix": "JIUZ Remix",
+     "label": "DISORDER"
+    }
+   ]
+  },
+  {
+   "episode": 25,
+   "title": "PRISMATIC 025",
+   "date": "2026-06-20",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/2r75bx11/tiesto-prismatic-025-2026-06-20.html",
+   "tracks": [
+    {
+     "artist": "Cloonee & Prospa",
+     "title": "Free Your Mind",
+     "remix": "Barqiemoon & EMMRSN Remix",
+     "label": null
+    },
+    {
+     "artist": "dj try & Pagan",
+     "title": "Thinking Of You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Headhigh",
+     "title": "How Does It Feel",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Clover & macK",
+     "title": "Positron 26'",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Flume ft. Vera Blue",
+     "title": "Rushing Back",
+     "remix": "Audent & Qeegs Remix",
+     "label": null
+    },
+    {
+     "artist": "Felix Jaehn & RoRo & HVRR & Technoir",
+     "title": "Believe In",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jordan George",
+     "title": "Gotta Have It",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TITVS ft. Charlee Lane",
+     "title": "Oceans",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cyda",
+     "title": "Nostalgia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kryder",
+     "title": "Eivissa",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sebastian Konrad & Mike The Connector",
+     "title": "Rock It",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "FOLEY",
+     "title": "You'll Never",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Known Artist",
+     "title": "You Gonna Sorry",
+     "remix": "Club Mix",
+     "label": null
+    },
+    {
+     "artist": "Da Hool",
+     "title": "Summer",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pascal M & Scott Mac",
+     "title": "The Remedy",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Energy 52",
+     "title": "Cafe Del Mar",
+     "remix": "JARR Head Remix",
+     "label": null
+    },
+    {
+     "artist": "EFESIAN",
+     "title": "Good Time",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SIKOTI",
+     "title": "Satellite",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "Like This",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ IP",
+     "title": "Gotta Do",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 26,
+   "title": "PRISMATIC 026",
+   "date": "2026-06-27",
+   "coverage": "partial (15/20)",
+   "episode_genre_tags_1001tl": "Trance, Techno",
+   "source": "https://www.1001tracklists.com/tracklist/2nftgjmt/tiesto-prismatic-026-2026-06-27.html",
+   "tracks": [
+    {
+     "artist": "Modeā",
+     "title": "Part Of Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Barthezz",
+     "title": "On The Move",
+     "remix": "Barqiemoon & Jef Nice Remix",
+     "label": null
+    },
+    {
+     "artist": "TITVS",
+     "title": "Us",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Dan Newman",
+     "title": "Love Generation",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kyle Starkey & Entasia",
+     "title": "234",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Faster Horses",
+     "title": "The Only Girl",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. Kirsty Hawkshaw",
+     "title": "Urban Train",
+     "remix": "Talla 2XLC Remix",
+     "label": null
+    },
+    {
+     "artist": "IDEMI",
+     "title": "Deepest Desires",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. BT",
+     "title": "Love Comes Again",
+     "remix": "Zarka Remix",
+     "label": null
+    },
+    {
+     "artist": "Kuspe",
+     "title": "The Way",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "No Mana & Kuspe & Bertie Scott",
+     "title": "Losing Focus",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DOREY",
+     "title": "Full Circle",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Oxia",
+     "title": "Domino",
+     "remix": "Space 92 Remix",
+     "label": null
+    },
+    {
+     "artist": "Franco Smith",
+     "title": "Stimulation",
+     "remix": "Thomas Schumacher Edit",
+     "label": null
+    },
+    {
+     "artist": "Smith & Brown",
+     "title": "Inhibition",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Swart",
+     "title": "SUNDANCE",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 27,
+   "title": "PRISMATIC 027",
+   "date": "2026-07-04",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/n5hbrh9/tiesto-prismatic-027-2026-07-04.html",
+   "tracks": [
+    {
+     "artist": "LEFRIX",
+     "title": "Someday",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sean Drinan",
+     "title": "Believe In Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SØNIN",
+     "title": "Dreamin",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Barqiemoon",
+     "title": "I Need You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Benleh",
+     "title": "Keep Going",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Partiboi69 & KETTAMA",
+     "title": "Pumpin",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Y U QT",
+     "title": "Really Works",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JÄXM",
+     "title": "17",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "camoufly",
+     "title": "Ultramoon",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CamelPhat & Volkoder",
+     "title": "Unique Moment",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Baset & Bittermind",
+     "title": "Feel Good",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LOEK",
+     "title": "Freakin' Out",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "IDEMI",
+     "title": "Like An Angel (Touch Me)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tao Andra",
+     "title": "The Silence Breaks",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ Planet Express",
+     "title": "Just Like Heaven",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "vjorka",
+     "title": "4ever",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Larkness",
+     "title": "n_A",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Trance Mums & SEKTA",
+     "title": "GO",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JOR",
+     "title": "Can't Stay Forever",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Schrotthagen",
+     "title": "Pain In My Heart",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 28,
+   "title": "PRISMATIC 028",
+   "date": "2026-07-11",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1pqdwwr1/tiesto-prismatic-028-2026-07-11.html",
+   "tracks": [
+    {
+     "artist": "S3PPA",
+     "title": "Inner Peace",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Luvstruck & Leena Punks & Ethan",
+     "title": "In My Heart",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bryan Kearney & Ready in LED",
+     "title": "Over & Over",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "HILLS",
+     "title": "Lift Me Up",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Dole & Kom & Clubheroes & Sean Drinan",
+     "title": "Da Lost Piano",
+     "remix": "26 Mix",
+     "label": null
+    },
+    {
+     "artist": "Modeā",
+     "title": "Part Of Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bauhouse",
+     "title": "I Wish You Were Mine",
+     "remix": "Edit",
+     "label": null
+    },
+    {
+     "artist": "Craig Connelly & Dani Sylvia",
+     "title": "Something Real",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mauro Picotto & Giuseppe Ottaviani",
+     "title": "Ibiza Dream",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Liminal MX",
+     "title": "Remember",
+     "remix": "Fur Coat Remix",
+     "label": null
+    },
+    {
+     "artist": "EBEN",
+     "title": "Run Away",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Dualite & Daniel Etienne & Alure",
+     "title": "Sweat",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Andre Zimmer",
+     "title": "Hypnotizing",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mat Eclair",
+     "title": "Wish",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cleopard2000 x CH4YN",
+     "title": "Hard To Be Around",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Clouds",
+     "title": "Cyan",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DAIRE x Lightforce",
+     "title": "Join Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "NYCO",
+     "title": "Unlock The Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "David Rust",
+     "title": "The Dome",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Beauz & Triangel & Party Pi",
+     "title": "OSAKA",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 29,
+   "title": "PRISMATIC 029",
+   "date": "2026-07-17",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/glsmmtk/tiesto-prismatic-029-2026-07-17.html",
+   "tracks": [
+    {
+     "artist": "Tiësto & Caleb Arredondo",
+     "title": "Echo Sax Finale",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LAWTON & Trancemaster Krause",
+     "title": "AYLA",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JOKESONYOU",
+     "title": "Closer",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Centre Court",
+     "title": "The Star",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DEVERAUX & S3PPA",
+     "title": "Goosebumps",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Faithless",
+     "title": "Insomnia",
+     "remix": "Disclosure 2025 Edit",
+     "label": null
+    },
+    {
+     "artist": "OCEAN",
+     "title": "I Want Your Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Giuseppe Ottaviani & Billy Gillies",
+     "title": "Doves",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SWIM & DJ HEARTSTRING",
+     "title": "In2Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Adriatique ft. Rhys From The Sticks",
+     "title": "Coming Home",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JAVIIS",
+     "title": "Infinity",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kara Okay",
+     "title": "Floating",
+     "remix": "Dream Mix",
+     "label": null
+    },
+    {
+     "artist": "Nova Blue & EV",
+     "title": "Weekend Cinderella",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "909 Racing Team & DJ Melvin",
+     "title": "L.O.I.S.",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Daxson & Sarah de Warren",
+     "title": "Vixen",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KI/KI",
+     "title": "Here With Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "JOR",
+     "title": "Till Sunrise",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nico Moreno & NOVAH ft. Kimi",
+     "title": "Better With You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Golpe",
+     "title": "Master At Work",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cera Khin",
+     "title": "Mamichula",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 30,
+   "title": "PRISMATIC 030",
+   "date": "2026-07-25",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/n5m2lg1/tiesto-prismatic-030-2026-07-25.html",
+   "tracks": [
+    {
+     "artist": "DEVERAUX",
+     "title": "You Got Me Acting Crazy",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Daniq & Drixs",
+     "title": "IDK",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TITVS & OLLY",
+     "title": "Again",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "how2fly",
+     "title": "Lifting Me Higher",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Disfreq",
+     "title": "Uplift/Better Days",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto & Caleb Arredondo",
+     "title": "Echo Sax Finale",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mr Sam & Quench",
+     "title": "Dreams",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ CØSMIC DREAM",
+     "title": "Ocean Blue",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "GIELLE",
+     "title": "CAUGHT IN THE FIRE",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Off Clouds & CHVCK",
+     "title": "Rebuild",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bryson Hill",
+     "title": "Stepper",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kolter",
+     "title": "Hey Everybody (Back In The Dance)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Sam In Space",
+     "title": "Dancin",
+     "remix": "Close Proximity Remix",
+     "label": null
+    },
+    {
+     "artist": "Marsolo ft. O.MMY",
+     "title": "Run",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ferry Corsten & Leon Bolier & Mostly Cloudy",
+     "title": "Bring Me Back To Life",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jordan Tilstone",
+     "title": "Broken Fragments",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Alt1 & Matty Ralph",
+     "title": "Are You Ready?",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "NYCO",
+     "title": "Some Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Hanne B",
+     "title": "Sirene",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "MELIS & aisu",
+     "title": "Coming Home",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 31,
+   "title": "PRISMATIC 031",
+   "date": "2026-08-01",
+   "coverage": "full (Ibiza Special)",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://www.1001tracklists.com/tracklist/2u0ttlt9/tiesto-prismatic-031-ibiza-special-2026-08-01.html",
+   "tracks": [
+    {
+     "artist": "York",
+     "title": "Reachers Of Civilization",
+     "remix": "Tiësto Edit",
+     "label": null
+    },
+    {
+     "artist": "Taxigirl",
+     "title": "High Glow",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CamelPhat & Volkoder",
+     "title": "Unique Moment",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. Olivia Sebastianelli",
+     "title": "Don't Lose Your Head",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Edward Maya & Vika Jigulina",
+     "title": "Stereo Love",
+     "remix": "ISOxo Edit",
+     "label": null
+    },
+    {
+     "artist": "Tiësto & Caleb Arredondo",
+     "title": "Echo Sax Finale",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Paul Oakenfold ft. Carla Werner",
+     "title": "Southern Sun",
+     "remix": "Tiësto 2025 Remix",
+     "label": null
+    },
+    {
+     "artist": "Rank 1 & Notelle",
+     "title": "Serotonin",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ferry Tayle & Tonks pres. Mirage",
+     "title": "Remember The Future",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Shugz",
+     "title": "Pressure Point",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CIElll",
+     "title": "Tethered",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KI/KI",
+     "title": "5AM",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bryan Kearney & Modeā",
+     "title": "Ready To Fly",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LAWTON & Deckers",
+     "title": "Los Retratos",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KI/KI",
+     "title": "Going Existential In The Rave",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "NYCO",
+     "title": "Some Love",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ Dings & Tim Rausch",
+     "title": "Streamline",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 32,
+   "title": "PRISMATIC 032",
+   "date": "2026-08-08",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-032/",
+   "tracks": [
+    {
+     "artist": "JOR",
+     "title": "Till Sunrise",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KUKO",
+     "title": "Voicemail",
+     "remix": "Tiësto Remix",
+     "label": null
+    },
+    {
+     "artist": "Alan Fitzpatrick",
+     "title": "We Do What We Want",
+     "remix": "Karish Edit",
+     "label": null
+    },
+    {
+     "artist": "Yomanda",
+     "title": "Synth & Strings",
+     "remix": "LAWTON Lick",
+     "label": null
+    },
+    {
+     "artist": "Duke Dumont ft. Jay Norton",
+     "title": "Ocean Drive",
+     "remix": "CIElll & Mack Edit",
+     "label": null
+    },
+    {
+     "artist": "Ultra Naté",
+     "title": "Free",
+     "remix": "Don Remix",
+     "label": null
+    },
+    {
+     "artist": "Nedea & Bryan Kearney",
+     "title": "Back Once Again",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TWOFACED & Nikita Warren",
+     "title": "I Need You",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Headhigh",
+     "title": "We Belong Together",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "BLR & Amber Revival",
+     "title": "Autumn Leaves",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "David Guetta & MARTEN HØRGER pres. Men Machine & Snap!",
+     "title": "PWR",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kölsch",
+     "title": "Picasso",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "HUGEL & Imael Angel & Ultra Naté",
+     "title": "Movin' To The Sun",
+     "remix": "Blake Light & ALAC Remix",
+     "label": null
+    },
+    {
+     "artist": "Swedish House Mafia & Lykke Li",
+     "title": "Happiness Is So Sad",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Talla 2XLC & York",
+     "title": "Ghosts",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jordan Tilstone",
+     "title": "Kilnside Euphoria",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Mekka",
+     "title": "Diamondback",
+     "remix": "Paul Denton Remix",
+     "label": null
+    },
+    {
+     "artist": "Everything But The Girl",
+     "title": "Missing",
+     "remix": "Will Atkinson Bootleg",
+     "label": null
+    },
+    {
+     "artist": "The Rocketman & TMPL",
+     "title": "Round & Round",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nifra & KEVU & Caroline Roxy",
+     "title": "High On The Beat",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 33,
+   "title": "PRISMATIC 033",
+   "date": "2026-08-15",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/24mfzqx9/tiesto-prismatic-033-2026-08-15.html",
+   "tracks": [
+    {
+     "artist": "Lumine",
+     "title": "Here For Us",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DOREY",
+     "title": "Close My Eyes",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Chicane ft. Moya Brennan",
+     "title": "Saltwater",
+     "remix": "Ferry Tayle & Tonks pres. Mirage Remix",
+     "label": null
+    },
+    {
+     "artist": "S3PPA",
+     "title": "Inner Peace",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Headhigh & K.ONE",
+     "title": "Go",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Jose Amnesia",
+     "title": "The Eternal",
+     "remix": "CIElll Remix",
+     "label": null
+    },
+    {
+     "artist": "LIZA & No Chasa",
+     "title": "On A Cloud",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Faster Horses & Vivace",
+     "title": "There's Nothing Else",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "No Chasa & SEKTA & Jimmy Gilmartin",
+     "title": "Let You Go",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "MEDUZA & Kevin de Vries",
+     "title": "7 Days",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "it's murph ft. Kate Morgan",
+     "title": "Forever Young",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Maur",
+     "title": "Waiting For",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Loods & KETTAMA ft. Camden Cox",
+     "title": "Feels Like Heaven",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Centre Court & Ken Spieker",
+     "title": "Back To Life",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Ben Gold",
+     "title": "Diving Faces",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Gareth Emery & Annabel & dj try",
+     "title": "Under The Sky (Broken Tides)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Giuseppe Ottaviani ft. Diana Goldberg",
+     "title": "Hold On",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Superstrings",
+     "title": "Balearic Temptation",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CJ Bolland",
+     "title": "The Prophet",
+     "remix": "Mark Sixma Edit",
+     "label": null
+    },
+    {
+     "artist": "Davey Asprey & MDDLTN & Tai Woffinden",
+     "title": "Fallout",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 34,
+   "title": "PRISMATIC 034",
+   "date": "2026-08-22",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://www.1001tracklists.com/tracklist/2uyrl7n1/tiesto-prismatic-034-2026-08-22.html",
+   "tracks": [
+    {
+     "artist": "Amy Wiles",
+     "title": "Way That You Look At Me",
+     "remix": null,
+     "label": "ETERNITY"
+    },
+    {
+     "artist": "SILK & Emie & JIUZ",
+     "title": "Daydream (Hit The Wave)",
+     "remix": null,
+     "label": "ARMADA"
+    },
+    {
+     "artist": "DJ HEARTSTRING",
+     "title": "Another Year Alone (i love you)",
+     "remix": null,
+     "label": "STEEL CITY DANCE DISCS"
+    },
+    {
+     "artist": "DEVERAUX",
+     "title": "You Got Me Acting Crazy",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "Karl Mac",
+     "title": "Poison",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "CIS",
+     "title": "He The Best",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "Saxxon",
+     "title": "Feel The Melody",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "From Orbit",
+     "title": "Son Of A Gun",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "RISTO",
+     "title": "ONLY ONE",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nala",
+     "title": "Cigarrete",
+     "remix": null,
+     "label": "DIYNAMIC"
+    },
+    {
+     "artist": "Devault",
+     "title": "What I Came For",
+     "remix": null,
+     "label": "INSOMNIAC"
+    },
+    {
+     "artist": "SØNIN & Leon Bolier",
+     "title": "Sirocco",
+     "remix": null,
+     "label": "ENHANCED PROG"
+    },
+    {
+     "artist": "Swedish House Mafia & Lykke Li",
+     "title": "Happiness Is So Sad",
+     "remix": "Mark Roma Remix",
+     "label": "DANSA"
+    },
+    {
+     "artist": "TITVS",
+     "title": "Shala River",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Olly James & Caroline Roxy",
+     "title": "Trance, Acid, Techno",
+     "remix": null,
+     "label": "DREAMSTATE"
+    },
+    {
+     "artist": "VE/RA",
+     "title": "Trapped",
+     "remix": null,
+     "label": "KURAI (REVEALED)"
+    },
+    {
+     "artist": "Kenya Grace",
+     "title": "Strangers",
+     "remix": "Pegassi Remix",
+     "label": "MAJOR RECORDINGS/WARNER"
+    },
+    {
+     "artist": "KUKO",
+     "title": "Voicemail",
+     "remix": "Tiësto Remix",
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "DJ Sonnenbrand",
+     "title": "Reverie",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "STORM",
+     "title": "Backline",
+     "remix": null,
+     "label": "WHALIEN"
+    }
+   ]
+  },
+  {
+   "episode": 35,
+   "title": "PRISMATIC 035",
+   "date": "2026-08-29",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance",
+   "source": "https://tranceattack.net/prismatic-035/",
+   "tracks": [
+    {
+     "artist": "KELLAR & Paige Tomlinson",
+     "title": "Take Me Back",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KE-YEN",
+     "title": "YOUR WHOLE LIFE IS JUST A DREAM",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Benwal",
+     "title": "Closer",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Centre Court & Wempe",
+     "title": "Eyana",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine",
+     "title": "who tell em",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Pegassi",
+     "title": "Ascension",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "EMMRSN",
+     "title": "Love Takes Me Higher",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Britney Speed",
+     "title": "This Is My House",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Azzecca",
+     "title": "back 2 u",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "EJECA",
+     "title": "Glyder",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LUFS & Aplexo",
+     "title": "Down",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Nala",
+     "title": "Warning",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Summum & Desmond ft. Atlantic Ocean",
+     "title": "Echoes From The 90s",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "BLR & Amber Revival",
+     "title": "Autumn Leaves",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kayosa & Tolland",
+     "title": "Tell Me When It's Over",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Maria Healy",
+     "title": "Come Home",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "The Quest",
+     "title": "Round Trip",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Vincent De Moor",
+     "title": "Flowtation",
+     "remix": "Dan Madams Bootleg",
+     "label": null
+    },
+    {
+     "artist": "macK & Tom Carroll",
+     "title": "Release Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Cera Khin",
+     "title": "I Don't Date Humans",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 36,
+   "title": "PRISMATIC 036",
+   "date": "2026-09-05",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Trance, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/1h63vqpk/tiesto-prismatic-036-2026-09-05.html",
+   "tracks": [
+    {
+     "artist": "Eli Brown",
+     "title": "Damaged",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Lumine",
+     "title": "who tell em",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "GRIM",
+     "title": "The More You Lie",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Divasi",
+     "title": "Go Undone",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CIS",
+     "title": "Where You Are Now",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KETTAMA",
+     "title": "Comes and Goes",
+     "remix": "Barqiemoon Remix",
+     "label": null
+    },
+    {
+     "artist": "Nedir Nadir",
+     "title": "It's Not Over",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Clouds & Luvain",
+     "title": "Savage Orbit",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Bo Bensdorp",
+     "title": "Ascension",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Colyn & Fahlberg",
+     "title": "Closure",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Kevin de Vries & Platero",
+     "title": "Man Like Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Eric Prydz",
+     "title": "Opus",
+     "remix": "Trashock Remix",
+     "label": null
+    },
+    {
+     "artist": "Tiësto ft. BT",
+     "title": "Love Comes Again",
+     "remix": "Innēr Sense Remix",
+     "label": null
+    },
+    {
+     "artist": "DubVision",
+     "title": "Tonight",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Solarstone vs. Sirocco",
+     "title": "Destination",
+     "remix": "Effen Remix",
+     "label": null
+    },
+    {
+     "artist": "Luminary",
+     "title": "Amsterdam",
+     "remix": "Smith & Pledger Remix",
+     "label": null
+    },
+    {
+     "artist": "dj try",
+     "title": "Believe In More",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "RIVER",
+     "title": "Vibe Regulator",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Caiva",
+     "title": "Head In The Clouds",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tom Carroll",
+     "title": "Empty Sky",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 37,
+   "title": "PRISMATIC 037",
+   "date": "2026-09-12",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/1kzl3d8k/tiesto-prismatic-037-2026-09-12.html",
+   "tracks": [
+    {
+     "artist": "Flourish & Wolf Cutt",
+     "title": "The Sign",
+     "remix": "Tiësto Remix",
+     "label": null
+    },
+    {
+     "artist": "S3PPA",
+     "title": "Together",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TESS",
+     "title": "Light",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LEFRIX",
+     "title": "On Your Mind",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CIS",
+     "title": "He The Best",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DJ GUESTLIST & Cleopard2000",
+     "title": "SPECIAL TOUCH",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KIMMIC & Karen Overton",
+     "title": "Your Loving Arms",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "John Dahlbäck & Luvstruck",
+     "title": "Pyramid",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Semblance Smile & North Skies",
+     "title": "Trying",
+     "remix": "Mostly Cloudy Fastlane Remix",
+     "label": null
+    },
+    {
+     "artist": "Lykke Li",
+     "title": "I Follow Rivers",
+     "remix": "Addal Remix",
+     "label": null
+    },
+    {
+     "artist": "Carl Bee ft. Cari Golden",
+     "title": "Hits Like This",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tommy Phillips",
+     "title": "Sun is Shining (Lovelee Dae)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SWIM",
+     "title": "Leaving On",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Skyvol & Monzilla",
+     "title": "Vinyl Lover",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Doppenberg & Vaco ft. Alexandra Kessler",
+     "title": "Always (Estaremos Aqui)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "M.I.K.E. Push & KAS:ST",
+     "title": "Strange World",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LAWTON & Trancemaster Krause & Caroline Roxy",
+     "title": "Horizon",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Linds",
+     "title": "Don't Stop It",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Gravagerz",
+     "title": "Self Aware",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "two girls one mom",
+     "title": "Certified Floor Hitter",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 38,
+   "title": "PRISMATIC 038",
+   "date": "2026-09-19",
+   "coverage": "full",
+   "episode_genre_tags_1001tl": "Dance/Electro Pop, Trance",
+   "source": "https://www.1001tracklists.com/tracklist/26h863k9/tiesto-prismatic-038-2026-09-19.html",
+   "tracks": [
+    {
+     "artist": "CHARMUR",
+     "title": "Touch Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "René et Gaston & Marco Nobel & EMMRSN & Chocolate Puma",
+     "title": "Vallée de L'Armes",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "DOREY",
+     "title": "Put Your Guard Down",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KE-YEN",
+     "title": "YOUR WHOLE LIFE IS JUST A DREAM",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "The Roc Project feat. Tina Arena",
+     "title": "Never",
+     "remix": "LD50 & Thompa Remix",
+     "label": null
+    },
+    {
+     "artist": "YORK x Bella Claxton x Mike Momburg",
+     "title": "On The Beach",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "TITVS",
+     "title": "Grance",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "ANK",
+     "title": "WISH THAT YOU WERE MINE",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "LD50",
+     "title": "Solara",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CHOOFA",
+     "title": "Get Down",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "From Orbit x EMMRSN",
+     "title": "Bring It",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Tiësto",
+     "title": "Flight 643",
+     "remix": "Krevix Remix",
+     "label": null
+    },
+    {
+     "artist": "Marisa Turner",
+     "title": "People 2 People",
+     "remix": "StanV Remix",
+     "label": null
+    },
+    {
+     "artist": "Daniel Skyver",
+     "title": "Respace",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "OSSA",
+     "title": "Alone (Can't Have Your Love)",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Marlon Hoffstadt & Niko Rubio",
+     "title": "Water",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Shake Daddy & Jimmy Gilmartin",
+     "title": "303 Odyssey",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Underworld",
+     "title": "Born Slippy",
+     "remix": "Portex Remix",
+     "label": null
+    },
+    {
+     "artist": "snoritz",
+     "title": "Flute Track",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "CH4YN",
+     "title": "Pretty Green Eyes",
+     "remix": null,
+     "label": null
+    }
+   ]
+  },
+  {
+   "episode": 39,
+   "title": "PRISMATIC 039",
+   "date": "2026-09-26",
+   "coverage": "partial (10/19)",
+   "episode_genre_tags_1001tl": "Trance, Techno, Melodic House & Techno",
+   "source": "https://www.1001tracklists.com/tracklist/2s5klp6k/tiesto-prismatic-039-2026-09-26.html",
+   "tracks": [
+    {
+     "artist": "Lisa Korver",
+     "title": "Motel",
+     "remix": null,
+     "label": "MUSICAL FREEDOM"
+    },
+    {
+     "artist": "HACKETT",
+     "title": "Thin Air",
+     "remix": null,
+     "label": "OBSCUUR"
+    },
+    {
+     "artist": "Bryan Kearney",
+     "title": "Forevermore",
+     "remix": null,
+     "label": "KEARNAGE"
+    },
+    {
+     "artist": "KernelKrop",
+     "title": "Time Travel",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "camoufly",
+     "title": "Odyssey",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "KASIA",
+     "title": "Simulate",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Einmusik",
+     "title": "Do You Think Of Me",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "Max King ft. GIA",
+     "title": "Balearic Teardrops",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "BLONDEX",
+     "title": "Somnia",
+     "remix": null,
+     "label": null
+    },
+    {
+     "artist": "SHVDZ",
+     "title": "Go With The Flow",
+     "remix": null,
+     "label": null
+    }
+   ]
+  }
+ ]
+}

@@ -365,8 +365,9 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     generateFullTrackStatusLabel.setJustificationType(juce::Justification::topLeft);
     generateFullTrackStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     generateFullTrackStatusLabel.setText(
-        "Composes a complete ~6.5 min track (drums, bass, pad, arp, lead, FX) in the selected key "
-        "and saves it as an Ableton Live Set + MIDI file.", juce::dontSendNotification);
+        "Composes a complete ~5.5 min trance track in the style of Tiesto's PRISMATIC show (140 BPM: "
+        "drums, snare rolls, rolling bass, pad, pluck, supersaw lead, FX) in the selected key and saves it "
+        "as an Ableton Live Set + MIDI file.", juce::dontSendNotification);
     mainContent.addAndMakeVisible(generateFullTrackStatusLabel);
 
     // Per-role mute row (Part 10) - a MIX control, independent of
@@ -2000,12 +2001,14 @@ void AbletonCopilotAudioProcessorEditor::generateFullTrackClicked()
 
         lastFullTrackFolder = chosen;
 
-        refreshLoopBpm();
         const auto [keyRoot, isMinor] = getSelectedKey();
 
+        // PRISMATIC-style trance at its own 140 BPM (the Live Set carries
+        // the tempo), not the host's current tempo - see SongGenerator.h.
         Engine::SongParams params;
+        params.style    = Engine::SongStyle::Trance;
         params.seed     = (uint32_t) juce::Random::getSystemRandom().nextInt(10000);
-        params.bpm      = currentLoopBpm;
+        params.bpm      = Engine::defaultBpm(params.style);
         params.rootNote = keyRoot;
         params.scale    = isMinor ? Engine::ScaleType::Aeolian : Engine::ScaleType::Ionian;
 

@@ -166,6 +166,8 @@
         <FILE id="Als1hdr" name="AlsWriter.h" compile="0" resource="0" file="Source/Engine/AlsWriter.h"/>
         <FILE id="Gzp1cpp" name="Gzip.cpp" compile="1" resource="0" file="Source/Engine/Gzip.cpp"/>
         <FILE id="Gzp1hdr" name="Gzip.h" compile="0" resource="0" file="Source/Engine/Gzip.h"/>
+        <FILE id="Trc1cpp" name="TranceGenerator.cpp" compile="1" resource="0" file="Source/Engine/TranceGenerator.cpp"/>
+        <FILE id="Sgi1hdr" name="SongInternal.h" compile="0" resource="0" file="Source/Engine/SongInternal.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

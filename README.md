@@ -6,6 +6,23 @@ Serum 2, and can compose a complete track from scratch as an Ableton Live Set.
 
 ## Generate a full track from scratch
 
+There are three styles (`--style`):
+
+| Style | Tempo | Length | What it is |
+|---|---|---|---|
+| **`trance`** (default) | 140 | 192 bars, about 5:30 | The main sound of Tiësto's PRISMATIC show: rolling 16th bass, open hats on the offbeats, snare-roll builds, a 32-bar breakdown, a supersaw anthem lead over a pluck, one chord per bar in the drops |
+| `neorave` | 147 | 160 bars, about 4:20 | PRISMATIC's harder lane: offbeat saw bass, an acid 303 line, a trance-gate pad, perfect-fifth rave stabs |
+| `melodic-techno` | 124 | 200 bars, about 6:30 | The original generator, described below |
+
+The trance styles follow `MLPipeline/musical_target/prismatic_style.md`, which analyses all 39
+PRISMATIC episodes (691 track entries in `MLPipeline/musical_target/prismatic/`). Trance makes up
+about 65% of the show, the median tempo is 140 BPM, and 68% of the tracks are in minor keys, most
+often G minor and F minor. The code notes whether each rule comes from that data or from a
+production tutorial [E], or is an inference [I].
+
+The rest of this section describes the melodic-techno style.
+
+
 The full-track generator (`Source/Engine/SongGenerator.h`) composes a complete ~6.5 minute
 arrangement (200 bars at 124 BPM). The structure follows the three real reference arrangements
 analysed in `MLPipeline/musical_target/melodic_techno_research.md`:
@@ -51,14 +68,14 @@ editing only known fields. Checks run on every change:
 To regenerate the embedded template after changing it: `python3 Tools/als_template/make_als_template.py`.
 
 ### From the plugin
-Studio tab, **Generate Full Track (.als)**. Pick a folder. The song uses the plugin's selected key
-and the host tempo, and gets a new seed on every click.
+Studio tab, **Generate Full Track (.als)**. Pick a folder. It writes a trance track at 140 BPM in the
+plugin's selected key, with a new seed on every click.
 
 ### From the command line (no JUCE or Xcode needed)
 ```bash
 Tools/build_generate_track.sh
-./build/generate_track --key Am --bpm 124 --seed 7 --out ~/Music
-# options: --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
+./build/generate_track --style trance --key Gm --seed 7 --wav --out ~/Music
+# options: --style trance|neorave|melodic-techno  --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
 #          --bars-per-chord N  --out DIR  --no-als  --no-mid  --wav
 ```
 `--wav` also renders an audio preview (`Source/Engine/SongRenderer.h`), so you can hear the

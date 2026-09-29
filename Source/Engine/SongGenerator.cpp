@@ -1,4 +1,5 @@
 #include "SongGenerator.h"
+#include "SongInternal.h"
 #include "BassEngine.h"
 #include "DrumEngine.h"
 #include "Grid.h"
@@ -77,11 +78,8 @@ namespace Engine
         return name;
     }
 
-    namespace
+    namespace songdetail
     {
-        constexpr int kStepsPerBar = 16;
-        constexpr double kBeatsPerStep = 0.25;
-
         // Plain modulo draws only - std::uniform_int_distribution's output
         // is implementation-defined, and the same seed must produce the
         // same song on the user's Mac (libc++) as in these tests.
@@ -102,15 +100,6 @@ namespace Engine
             return k == MusicSection::Drop || k == MusicSection::FinalDrop;
         }
 
-        // Absolute-time note, split into per-section clips at the end.
-        struct AbsNote
-        {
-            double start, length;
-            int    pitch, velocity;
-        };
-
-        int scaleSemitone(const Song& song, int degree) { return degreeToSemitone(degree, song.scale); }
-
         // Octave-wrap `pitch` into [lo, lo+12).
         int wrapInto(int pitch, int lo)
         {
@@ -120,6 +109,66 @@ namespace Engine
         }
 
         int clampVel(int v) { return std::max(1, std::min(127, v)); }
+
+        std::vector<SongClip> splitIntoClips(const Song& song, std::vector<AbsNote> notes)
+        {
+            std::stable_sort(notes.begin(), notes.end(), [](const AbsNote& a, const AbsNote& b)
+                             { return a.start < b.start || (a.start == b.start && a.pitch < b.pitch); });
+
+            // Same-pitch notes must never overlap (MIDI note-off pairing and
+            // Live's per-key note lists both assume it): trim each note to
+            // the next onset of its pitch, and drop exact duplicates.
+            {
+                std::vector<AbsNote> cleaned;
+                std::vector<int> lastIndexOfPitch(128, -1);
+                for (const AbsNote& a : notes)
+                {
+                    int& last = lastIndexOfPitch[(size_t) std::max(0, std::min(127, a.pitch))];
+                    if (last >= 0)
+                    {
+                        AbsNote& prev = cleaned[(size_t) last];
+                        if (prev.start == a.start)
+                            continue;
+                        prev.length = std::min(prev.length, a.start - prev.start);
+                    }
+                    last = (int) cleaned.size();
+                    cleaned.push_back(a);
+                }
+                notes.swap(cleaned);
+            }
+
+            std::vector<SongClip> clips;
+            size_t n = 0;
+            for (const SongSection& s : song.sections)
+            {
+                const double begin = s.startBar * 4.0;
+                const double end   = (s.startBar + s.bars) * 4.0;
+                SongClip clip;
+                clip.name     = s.name;
+                clip.startBar = s.startBar;
+                clip.bars     = s.bars;
+                while (n < notes.size() && notes[n].start < end)
+                {
+                    const AbsNote& a = notes[n++];
+                    if (a.start < begin)
+                        continue;
+                    const double len = std::min(a.length, end - a.start);
+                    clip.notes.push_back({ a.start - begin, len, a.pitch, a.velocity });
+                }
+                if (!clip.notes.empty())
+                    clips.push_back(std::move(clip));
+            }
+            return clips;
+        }
+    }
+
+    namespace
+    {
+        using namespace songdetail;
+        constexpr int kStepsPerBar = 16;
+        constexpr double kBeatsPerStep = 0.25;
+
+        int scaleSemitone(const Song& song, int degree) { return degreeToSemitone(degree, song.scale); }
 
         // ---------------- drums ----------------
 
@@ -467,63 +516,40 @@ namespace Engine
             }
         }
 
-        // ---------------- clip splitting ----------------
-
-        std::vector<SongClip> splitIntoClips(const Song& song, std::vector<AbsNote> notes)
-        {
-            std::stable_sort(notes.begin(), notes.end(), [](const AbsNote& a, const AbsNote& b)
-                             { return a.start < b.start || (a.start == b.start && a.pitch < b.pitch); });
-
-            // Same-pitch notes must never overlap (MIDI note-off pairing and
-            // Live's per-key note lists both assume it): trim each note to
-            // the next onset of its pitch, and drop exact duplicates.
-            {
-                std::vector<AbsNote> cleaned;
-                std::vector<int> lastIndexOfPitch(128, -1);
-                for (const AbsNote& a : notes)
-                {
-                    int& last = lastIndexOfPitch[(size_t) std::max(0, std::min(127, a.pitch))];
-                    if (last >= 0)
-                    {
-                        AbsNote& prev = cleaned[(size_t) last];
-                        if (prev.start == a.start)
-                            continue;
-                        prev.length = std::min(prev.length, a.start - prev.start);
-                    }
-                    last = (int) cleaned.size();
-                    cleaned.push_back(a);
-                }
-                notes.swap(cleaned);
-            }
-
-            std::vector<SongClip> clips;
-            size_t n = 0;
-            for (const SongSection& s : song.sections)
-            {
-                const double begin = s.startBar * 4.0;
-                const double end   = (s.startBar + s.bars) * 4.0;
-                SongClip clip;
-                clip.name     = s.name;
-                clip.startBar = s.startBar;
-                clip.bars     = s.bars;
-                while (n < notes.size() && notes[n].start < end)
-                {
-                    const AbsNote& a = notes[n++];
-                    if (a.start < begin)
-                        continue;
-                    const double len = std::min(a.length, end - a.start);
-                    clip.notes.push_back({ a.start - begin, len, a.pitch, a.velocity });
-                }
-                if (!clip.notes.empty())
-                    clips.push_back(std::move(clip));
-            }
-            return clips;
-        }
     }
 
-    Song generateSong(const SongParams& params)
+    const char* styleName(SongStyle style)
     {
+        switch (style)
+        {
+            case SongStyle::Trance:        return "Trance";
+            case SongStyle::NeoRave:       return "Neo-Rave Trance";
+            case SongStyle::MelodicTechno: return "Melodic Techno";
+        }
+        return "?";
+    }
+
+    double defaultBpm(SongStyle style)
+    {
+        switch (style)
+        {
+            case SongStyle::Trance:        return 140.0;
+            case SongStyle::NeoRave:       return 147.0;
+            case SongStyle::MelodicTechno: return 124.0;
+        }
+        return 124.0;
+    }
+
+    Song generateSong(const SongParams& paramsIn)
+    {
+        SongParams params = paramsIn;
+        if (params.bpm <= 0.0)
+            params.bpm = defaultBpm(params.style);
+        if (params.style != SongStyle::MelodicTechno)
+            return generateTranceSong(params);
+
         Song song;
+        song.style    = params.style;
         song.bpm      = params.bpm;
         song.rootNote = ((params.rootNote % 12) + 12) % 12;
         song.scale    = params.scale;

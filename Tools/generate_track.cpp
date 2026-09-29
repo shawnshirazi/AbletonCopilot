@@ -1,17 +1,19 @@
 // generate_track - command-line front end for Engine::generateSong.
 //
-// Writes a complete Melodic Techno arrangement as an Ableton Live Set
-// (.als) plus a Standard MIDI File (.mid) fallback.
+// Writes a complete arrangement as an Ableton Live Set (.als) plus a
+// Standard MIDI File (.mid) fallback.
 //
 //   Tools/build_generate_track.sh
-//   ./build/generate_track --key Am --bpm 124 --seed 7 --out ~/Music/AbletonCopilot
+//   ./build/generate_track --style trance --seed 7 --wav --out ~/Music/AbletonCopilot
 //
 // Options:
+//   --style S         trance (default; Tiesto PRISMATIC-style, 140 BPM),
+//                     neorave (147 BPM offbeat/acid trance), melodic-techno (124 BPM)
 //   --seed N          reproducible variation (default: random)
-//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default Am)
-//   --bpm B           60-200 (default 124)
-//   --progression I   0..3, see Engine::progressionCatalogue() (default: from seed)
-//   --bars-per-chord N  harmonic rhythm (default 8)
+//   --key K           Am, F#m, Ebm, C, Dm-dorian ... (default Gm for trance styles, Am for melodic techno)
+//   --bpm B           60-200 (default: the style's tempo)
+//   --progression I   0..3, the style's progression list (default: from seed)
+//   --bars-per-chord N  harmonic rhythm, melodic techno only (default 8)
 //   --out DIR         output directory (default .)
 //   --no-als / --no-mid
 //   --wav             also render an audio preview (<title>.wav, synthesised sketch sounds)
@@ -74,7 +76,7 @@ namespace
 
     int usage()
     {
-        std::fprintf(stderr, "usage: generate_track [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
+        std::fprintf(stderr, "usage: generate_track [--style trance|neorave|melodic-techno] [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
                              "[--bars-per-chord 8] [--out DIR] [--no-als] [--no-mid] [--wav]\n");
         return 2;
     }
@@ -83,6 +85,9 @@ namespace
 int main(int argc, char** argv)
 {
     Engine::SongParams params;
+    params.style = Engine::SongStyle::Trance;
+    params.bpm   = 0.0; // style default
+    bool keyGiven = false;
     params.seed = (uint32_t) std::chrono::system_clock::now().time_since_epoch().count() % 10000u;
     std::string outDir = ".";
     bool writeAls = true, writeMid = true, writeWav = false;
@@ -97,8 +102,21 @@ int main(int argc, char** argv)
         else if (a == "--progression" && (v = next()))     params.progressionIndex = std::atoi(v);
         else if (a == "--bars-per-chord" && (v = next()))  params.barsPerChord = std::atoi(v);
         else if (a == "--out" && (v = next()))             outDir = v;
+        else if (a == "--style" && (v = next()))
+        {
+            const std::string st = v;
+            if (st == "trance") params.style = Engine::SongStyle::Trance;
+            else if (st == "neorave" || st == "neo-rave") params.style = Engine::SongStyle::NeoRave;
+            else if (st == "melodic-techno" || st == "techno") params.style = Engine::SongStyle::MelodicTechno;
+            else
+            {
+                std::fprintf(stderr, "unknown style '%s' (trance, neorave, melodic-techno)\n", v);
+                return 2;
+            }
+        }
         else if (a == "--key" && (v = next()))
         {
+            keyGiven = true;
             if (!parseKey(v, params.rootNote, params.scale))
             {
                 std::fprintf(stderr, "unrecognised key '%s' (try Am, F#m, C, Dm-dorian)\n", v);
@@ -110,6 +128,10 @@ int main(int argc, char** argv)
         else if (a == "--wav")    writeWav = true;
         else return usage();
     }
+    if (!keyGiven && params.style != Engine::SongStyle::MelodicTechno)
+        params.rootNote = 7; // G minor - the most common tonic in the PRISMATIC data (with F minor)
+    if (params.bpm <= 0.0)
+        params.bpm = Engine::defaultBpm(params.style);
     if (params.bpm < 60.0 || params.bpm > 200.0)
     {
         std::fprintf(stderr, "--bpm must be between 60 and 200\n");
@@ -119,7 +141,7 @@ int main(int argc, char** argv)
     const Engine::Song song = Engine::generateSong(params);
     const std::string base = outDir + "/" + safeFileName(song.title);
 
-    std::printf("%s\n", song.title.c_str());
+    std::printf("%s  [%s]\n", song.title.c_str(), Engine::styleName(song.style));
     std::printf("  progression %s (%s), %d bars, %d:%02d\n", song.progression.name, song.progression.character,
                 song.totalBars, (int) song.lengthSeconds() / 60, (int) song.lengthSeconds() % 60);
     for (const auto& s : song.sections)
