@@ -14,9 +14,11 @@
 //   --bars-per-chord N  harmonic rhythm (default 8)
 //   --out DIR         output directory (default .)
 //   --no-als / --no-mid
+//   --wav             also render an audio preview (<title>.wav, synthesised sketch sounds)
 #include "../Source/Engine/AlsWriter.h"
 #include "../Source/Engine/MidiFileWriter.h"
 #include "../Source/Engine/SongGenerator.h"
+#include "../Source/Engine/SongRenderer.h"
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -73,7 +75,7 @@ namespace
     int usage()
     {
         std::fprintf(stderr, "usage: generate_track [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
-                             "[--bars-per-chord 8] [--out DIR] [--no-als] [--no-mid]\n");
+                             "[--bars-per-chord 8] [--out DIR] [--no-als] [--no-mid] [--wav]\n");
         return 2;
     }
 }
@@ -83,7 +85,7 @@ int main(int argc, char** argv)
     Engine::SongParams params;
     params.seed = (uint32_t) std::chrono::system_clock::now().time_since_epoch().count() % 10000u;
     std::string outDir = ".";
-    bool writeAls = true, writeMid = true;
+    bool writeAls = true, writeMid = true, writeWav = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -105,6 +107,7 @@ int main(int argc, char** argv)
         }
         else if (a == "--no-als") writeAls = false;
         else if (a == "--no-mid") writeMid = false;
+        else if (a == "--wav")    writeWav = true;
         else return usage();
     }
     if (params.bpm < 60.0 || params.bpm > 200.0)
@@ -140,6 +143,17 @@ int main(int argc, char** argv)
     {
         const std::string path = base + ".mid";
         if (Engine::writeMidiFileToPath(song, path))
+            std::printf("wrote %s\n", path.c_str());
+        else
+        {
+            std::fprintf(stderr, "failed to write %s\n", path.c_str());
+            rc = 1;
+        }
+    }
+    if (writeWav)
+    {
+        const std::string path = base + ".wav";
+        if (Engine::writeWav16(Engine::renderSongPreview(song), path))
             std::printf("wrote %s\n", path.c_str());
         else
         {

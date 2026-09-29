@@ -59,8 +59,12 @@ and the host tempo, and gets a new seed on every click.
 Tools/build_generate_track.sh
 ./build/generate_track --key Am --bpm 124 --seed 7 --out ~/Music
 # options: --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
-#          --bars-per-chord N  --out DIR  --no-als  --no-mid
+#          --bars-per-chord N  --out DIR  --no-als  --no-mid  --wav
 ```
+`--wav` also renders an audio preview (`Source/Engine/SongRenderer.h`), so you can hear the
+arrangement before opening Live. It uses simple built-in synths: kick, clap, hats, saw bass,
+supersaw pad, plucked arp with delay, lead, risers and impacts, with sidechain and reverb. It's a
+sketch of the arrangement; the real sound comes from the instruments you load in Live.
 The same seed and options always produce the same song.
 
 ## Layout
