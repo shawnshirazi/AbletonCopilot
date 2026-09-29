@@ -133,6 +133,24 @@ int main()
         }
     }
 
+    // --- same-pitch notes never overlap (MIDI note-off pairing / Live key lists) ---
+    for (uint32_t seed = 1; seed <= 20; ++seed)
+    {
+        SongParams q = p;
+        q.seed = seed;
+        const Song s = generateSong(q);
+        for (auto& t : s.tracks)
+            for (auto& c : t.clips)
+            {
+                std::vector<double> lastEnd(128, -1.0);
+                for (auto& n : c.notes)
+                {
+                    CHECK(n.startBeat >= lastEnd[(size_t) n.pitch] - 1e-9);
+                    lastEnd[(size_t) n.pitch] = n.startBeat + n.lengthBeats;
+                }
+            }
+    }
+
     // --- pitched parts stay diatonic and in register ---
     for (const char* n : { "Bass", "Pad", "Arp", "Lead" })
         for (auto& c : findTrack(song, n)->clips)

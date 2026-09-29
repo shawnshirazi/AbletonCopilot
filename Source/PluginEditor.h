@@ -155,6 +155,15 @@ private:
     // updateGenerateButtonAvailability-style gating).
     void exportDrumStemsClicked();
 
+    // "Generate Full Track" (Source/Engine/SongGenerator.h) - composes a
+    // complete ~6.5-minute Melodic Techno arrangement from scratch
+    // (drums, bass, pad, arp, lead, FX) in the selected key at the
+    // current tempo, and writes it as an Ableton Live Set (.als, opens
+    // straight into Live's Arrangement view) plus a .mid fallback into a
+    // user-chosen folder. Independent of the loop generator above - needs
+    // nothing generated first.
+    void generateFullTrackClicked();
+
     // Part D of the bass-runtime-bug + sample-selection investigation:
     // "why did the selector think this was a good Melodic Techno
     // percussion sound?" - writes the full PERC candidate pool (every
@@ -442,6 +451,14 @@ private:
     juce::Label                        exportDrumStemsStatusLabel;
     std::unique_ptr<juce::FileChooser> stemExportFileChooser;
     juce::File                         lastStemExportFolder;
+
+    // "Generate Full Track" - see generateFullTrackClicked(). Each click
+    // uses a fresh seed (shown in the status text so a result can be
+    // reproduced with Tools/generate_track --seed).
+    juce::TextButton                   generateFullTrackButton { "Generate Full Track (.als)" };
+    juce::Label                        generateFullTrackStatusLabel;
+    std::unique_ptr<juce::FileChooser> fullTrackFileChooser;
+    juce::File                         lastFullTrackFolder;
 
     // Loop-generator mute row: independent per-role MIX control (Part 10 of
     // the loop-generator brief) - never touches the stored pattern, see

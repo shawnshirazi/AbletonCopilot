@@ -7,6 +7,9 @@
 #include "SerumPresetStatus.h"
 #include "SoundRecommendation.h"
 #include "SoundLibraryLearner.h"
+#include "Engine/SongGenerator.h"
+#include "Engine/AlsWriter.h"
+#include "Engine/MidiFileWriter.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -349,6 +352,22 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     exportDrumStemsStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     exportDrumStemsStatusLabel.setText("Generate a loop first.", juce::dontSendNotification);
     mainContent.addAndMakeVisible(exportDrumStemsStatusLabel);
+
+    // "Generate Full Track" (Source/Engine/SongGenerator.h) - a complete
+    // arrangement written as an Ableton Live Set; needs nothing generated
+    // first, so it's always enabled.
+    generateFullTrackButton.setColour(juce::TextButton::buttonColourId,  kPanel);
+    generateFullTrackButton.setColour(juce::TextButton::textColourOffId, kAccent);
+    generateFullTrackButton.onClick = [this] { generateFullTrackClicked(); };
+    mainContent.addAndMakeVisible(generateFullTrackButton);
+
+    generateFullTrackStatusLabel.setFont(small());
+    generateFullTrackStatusLabel.setJustificationType(juce::Justification::topLeft);
+    generateFullTrackStatusLabel.setColour(juce::Label::textColourId, kTextDim);
+    generateFullTrackStatusLabel.setText(
+        "Composes a complete ~6.5 min track (drums, bass, pad, arp, lead, FX) in the selected key "
+        "and saves it as an Ableton Live Set + MIDI file.", juce::dontSendNotification);
+    mainContent.addAndMakeVisible(generateFullTrackStatusLabel);
 
     // Per-role mute row (Part 10) - a MIX control, independent of
     // generation. See PluginProcessor::setGeneratedDrumRoleMuted; role
@@ -945,6 +964,17 @@ void AbletonCopilotAudioProcessorEditor::resized()
         constexpr int kExportStatusHeight = 96; // room for the 6 role lines + Length/BPM/Sample Rate + Exported confirmation
         exportDrumStemsStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kExportStatusHeight).reduced(12, 0));
         y += kExportStatusHeight + 8;
+    }
+
+    // Generate Full Track - button + status.
+    {
+        auto fullTrackRow = juce::Rectangle<int>(0, y, contentWidth, 28).reduced(12, 0);
+        generateFullTrackButton.setBounds(fullTrackRow.removeFromLeft(220));
+        y += 28 + 4;
+
+        constexpr int kFullTrackStatusHeight = 110; // title/key/progression + section list summary + output paths
+        generateFullTrackStatusLabel.setBounds(juce::Rectangle<int>(0, y, contentWidth, kFullTrackStatusHeight).reduced(12, 0));
+        y += kFullTrackStatusHeight + 8;
     }
 
     // Detailed diagnostics - kept, not deleted (goal 9), just below the
@@ -1947,6 +1977,69 @@ void AbletonCopilotAudioProcessorEditor::exportDrumStemsClicked()
 
         exportDrumStemsStatusLabel.setText(text, juce::dontSendNotification);
         resized();
+    });
+}
+
+void AbletonCopilotAudioProcessorEditor::generateFullTrackClicked()
+{
+    const juce::File startFolder = lastFullTrackFolder.isDirectory()
+        ? lastFullTrackFolder
+        : juce::File::getSpecialLocation(juce::File::userMusicDirectory);
+
+    fullTrackFileChooser = std::make_unique<juce::FileChooser>(
+        "Choose a folder for the generated Ableton Live Set", startFolder);
+
+    auto flags = juce::FileBrowserComponent::openMode
+               | juce::FileBrowserComponent::canSelectDirectories;
+
+    fullTrackFileChooser->launchAsync(flags, [this](const juce::FileChooser& fc)
+    {
+        const juce::File chosen = fc.getResult();
+        if (!chosen.isDirectory())
+            return; // cancelled
+
+        lastFullTrackFolder = chosen;
+
+        refreshLoopBpm();
+        const auto [keyRoot, isMinor] = getSelectedKey();
+
+        Engine::SongParams params;
+        params.seed     = (uint32_t) juce::Random::getSystemRandom().nextInt(10000);
+        params.bpm      = currentLoopBpm;
+        params.rootNote = keyRoot;
+        params.scale    = isMinor ? Engine::ScaleType::Aeolian : Engine::ScaleType::Ionian;
+
+        const Engine::Song song = Engine::generateSong(params);
+
+        // Each song gets its own folder, like a normal Live project.
+        const juce::String baseName = juce::File::createLegalFileName(juce::String(song.title));
+        const juce::File projectDir = chosen.getChildFile(baseName + " Project").getNonexistentSibling();
+        const juce::Result made = projectDir.createDirectory();
+
+        const juce::File alsFile = projectDir.getChildFile(baseName + ".als");
+        const juce::File midFile = projectDir.getChildFile(baseName + ".mid");
+        const bool alsOk = made.wasOk() && Engine::writeAlsFileToPath(song, alsFile.getFullPathName().toStdString());
+        const bool midOk = made.wasOk() && Engine::writeMidiFileToPath(song, midFile.getFullPathName().toStdString());
+
+        juce::String text;
+        text << song.title << "  (seed " << (int) song.seed << ")\n"
+             << "Progression " << song.progression.name << " - " << song.progression.character
+             << ", " << song.totalBars << " bars, "
+             << (int) song.lengthSeconds() / 60 << ":" << juce::String((int) song.lengthSeconds() % 60).paddedLeft('0', 2) << "\n";
+        juce::StringArray sectionNames;
+        for (const auto& s : song.sections)
+            sectionNames.add(juce::String(s.name) + " " + juce::String(s.bars));
+        text << sectionNames.joinIntoString(" > ") << "\n";
+        text << (alsOk ? "Saved " : "FAILED to save ") << alsFile.getFullPathName() << "\n";
+        text << (midOk ? "Saved " : "FAILED to save ") << midFile.getFullPathName();
+        if (!made.wasOk())
+            text << "\n" << made.getErrorMessage();
+
+        generateFullTrackStatusLabel.setText(text, juce::dontSendNotification);
+        resized();
+
+        if (alsOk)
+            alsFile.revealToUser();
     });
 }
 

@@ -23,3 +23,6 @@ MLPipeline/fragments/
 # OS/editor cruft
 .DS_Store
 .claude/
+
+# Local build output (Tools/build_generate_track.sh)
+build/

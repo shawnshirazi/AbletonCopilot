@@ -158,6 +158,14 @@
         <FILE id="Brk1hdr" name="BreakdownArrangement.h" compile="0" resource="0" file="Source/Engine/BreakdownArrangement.h"/>
         <FILE id="Grv1cpp" name="GrooveLoop.cpp" compile="1" resource="0" file="Source/Engine/GrooveLoop.cpp"/>
         <FILE id="Grv1hdr" name="GrooveLoop.h" compile="0" resource="0" file="Source/Engine/GrooveLoop.h"/>
+        <FILE id="Sng1cpp" name="SongGenerator.cpp" compile="1" resource="0" file="Source/Engine/SongGenerator.cpp"/>
+        <FILE id="Sng1hdr" name="SongGenerator.h" compile="0" resource="0" file="Source/Engine/SongGenerator.h"/>
+        <FILE id="Mid1cpp" name="MidiFileWriter.cpp" compile="1" resource="0" file="Source/Engine/MidiFileWriter.cpp"/>
+        <FILE id="Mid1hdr" name="MidiFileWriter.h" compile="0" resource="0" file="Source/Engine/MidiFileWriter.h"/>
+        <FILE id="Als1cpp" name="AlsWriter.cpp" compile="1" resource="0" file="Source/Engine/AlsWriter.cpp"/>
+        <FILE id="Als1hdr" name="AlsWriter.h" compile="0" resource="0" file="Source/Engine/AlsWriter.h"/>
+        <FILE id="Gzp1cpp" name="Gzip.cpp" compile="1" resource="0" file="Source/Engine/Gzip.cpp"/>
+        <FILE id="Gzp1hdr" name="Gzip.h" compile="0" resource="0" file="Source/Engine/Gzip.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

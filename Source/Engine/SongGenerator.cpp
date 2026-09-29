@@ -473,6 +473,29 @@ namespace Engine
         {
             std::stable_sort(notes.begin(), notes.end(), [](const AbsNote& a, const AbsNote& b)
                              { return a.start < b.start || (a.start == b.start && a.pitch < b.pitch); });
+
+            // Same-pitch notes must never overlap (MIDI note-off pairing and
+            // Live's per-key note lists both assume it): trim each note to
+            // the next onset of its pitch, and drop exact duplicates.
+            {
+                std::vector<AbsNote> cleaned;
+                std::vector<int> lastIndexOfPitch(128, -1);
+                for (const AbsNote& a : notes)
+                {
+                    int& last = lastIndexOfPitch[(size_t) std::max(0, std::min(127, a.pitch))];
+                    if (last >= 0)
+                    {
+                        AbsNote& prev = cleaned[(size_t) last];
+                        if (prev.start == a.start)
+                            continue;
+                        prev.length = std::min(prev.length, a.start - prev.start);
+                    }
+                    last = (int) cleaned.size();
+                    cleaned.push_back(a);
+                }
+                notes.swap(cleaned);
+            }
+
             std::vector<SongClip> clips;
             size_t n = 0;
             for (const SongSection& s : song.sections)
