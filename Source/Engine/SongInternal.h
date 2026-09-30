@@ -31,5 +31,6 @@ namespace Engine
 
         Song generateTranceSong(const SongParams& params);
         Song generateProgressiveSong(const SongParams& params);
+        Song generateDrivingTechnoSong(const SongParams& params);
     }
 }

@@ -54,8 +54,12 @@ namespace Engine
         Trance,        // melodic/uplifting "Prismatic" trance - 140 BPM, rolling bass, supersaw anthem lead
         NeoRave,       // neo-rave / hard-house trance - 147 BPM, offbeat saw bass, acid line, gated pad
         MelodicTechno, // the original 124 BPM melodic techno generator
-        ProgressiveTechno // 125 BPM, built around a phasing 5-step arp cell over extended chords
-                          // (modelled on a reference loop - see ProgressiveGenerator.cpp)
+        ProgressiveTechno, // 125 BPM, built around a phasing 5-step arp cell over extended chords
+                           // (modelled on a reference loop - see ProgressiveGenerator.cpp)
+        DrivingTechno      // 128 BPM peak-time/driving techno with an emotive melodic core - rumble
+                           // bass, pumping tonic stab, sparse descending hook, a repeated-note pulse
+                           // melody and a bII + chromatic-climb build (modelled on a reference
+                           // track - see DrivingTechnoGenerator.cpp)
     };
 
     const char* styleName(SongStyle style);
@@ -100,7 +104,7 @@ namespace Engine
         std::vector<SongNote> notes;
     };
 
-    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx, SnareRoll, Pluck, Acid };
+    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx, SnareRoll, Pluck, Acid, Stab };
 
     struct SongTrack
     {

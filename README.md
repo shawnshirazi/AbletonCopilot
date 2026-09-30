@@ -6,11 +6,12 @@ Serum 2, and can compose a complete track from scratch as an Ableton Live Set.
 
 ## Generate a full track from scratch
 
-There are four styles (`--style`):
+There are five styles (`--style`):
 
 | Style | Tempo | Length | What it is |
 |---|---|---|---|
-| **`progressive`** (default) | 125 | 176 bars, about 5:40 | A phasing arp (a 5- or 6-note cell running against the 4/4 bar) over extended chords, and a composed call-and-response lead (the best of 2000 scored candidates: no clashes, resolves home). The key is random per seed. Inspired by a reference loop; see `MLPipeline/musical_target/progressive_arp_reference.md` |
+| **`driving`** (default) | 128 | 144 bars, 4:30 | Peak-time/driving techno with an emotive melodic core: rumble bass, a pumping tonic stab, a sparse descending hook, a repeated-note pulse melody over i ↔ VI, and a ♭II + chromatic-climb build. Modelled on a reference track; see `MLPipeline/musical_target/driving_techno_reference.md` |
+| `progressive` | 125 | 176 bars, about 5:40 | A phasing arp (a 5- or 6-note cell running against the 4/4 bar) over extended chords, and a composed call-and-response lead (the best of 2000 scored candidates: no clashes, resolves home). The key is random per seed. Inspired by a reference loop; see `MLPipeline/musical_target/progressive_arp_reference.md` |
 | `trance` | 140 | 192 bars, about 5:30 | The main sound of Tiësto's PRISMATIC show: rolling 16th bass, open hats on the offbeats, snare-roll builds, a 32-bar breakdown, a supersaw anthem lead over a pluck, one chord per bar in the drops |
 | `neorave` | 147 | 160 bars, about 4:20 | PRISMATIC's harder lane: offbeat saw bass, an acid 303 line, a trance-gate pad, perfect-fifth rave stabs |
 | `melodic-techno` | 124 | 200 bars, about 6:30 | The original generator, described below |
@@ -69,14 +70,14 @@ editing only known fields. Checks run on every change:
 To regenerate the embedded template after changing it: `python3 Tools/als_template/make_als_template.py`.
 
 ### From the plugin
-Studio tab, **Generate Full Track (.als)**. Pick a folder. It writes a progressive techno track at
-125 BPM in the plugin's selected key, with a new seed on every click.
+Studio tab, **Generate Full Track (.als)**. Pick a folder. It writes a driving techno track at
+128 BPM in the plugin's selected key, with a new seed on every click.
 
 ### From the command line (no JUCE or Xcode needed)
 ```bash
 Tools/build_generate_track.sh
-./build/generate_track --style progressive --key Dm --seed 7 --wav --out ~/Music
-# options: --style progressive|trance|neorave|melodic-techno  --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
+./build/generate_track --style driving --key Am --seed 7 --wav --out ~/Music
+# options: --style driving|progressive|trance|neorave|melodic-techno  --seed N  --key Am|F#m|C|Dm-dorian  --bpm 60-200  --progression 0-3
 #          --bars-per-chord N  --out DIR  --no-als  --no-mid  --wav
 ```
 `--wav` also renders an audio preview (`Source/Engine/SongRenderer.h`), so you can hear the

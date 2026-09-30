@@ -365,9 +365,9 @@ AbletonCopilotAudioProcessorEditor::AbletonCopilotAudioProcessorEditor(
     generateFullTrackStatusLabel.setJustificationType(juce::Justification::topLeft);
     generateFullTrackStatusLabel.setColour(juce::Label::textColourId, kTextDim);
     generateFullTrackStatusLabel.setText(
-        "Composes a complete ~5.5 min progressive techno track (125 BPM: a phasing arp over extended "
-        "chords, rolling bass, pad, lead, drums, FX) in the selected key and saves it as an Ableton "
-        "Live Set + MIDI file.", juce::dontSendNotification);
+        "Composes a complete ~4.5 min driving techno track (128 BPM: rumble bass, pumping stab, a "
+        "descending hook, a pulse melody and a rising build) in the selected key and saves it as an "
+        "Ableton Live Set + MIDI file.", juce::dontSendNotification);
     mainContent.addAndMakeVisible(generateFullTrackStatusLabel);
 
     // Per-role mute row (Part 10) - a MIX control, independent of
@@ -2003,11 +2003,11 @@ void AbletonCopilotAudioProcessorEditor::generateFullTrackClicked()
 
         const auto [keyRoot, isMinor] = getSelectedKey();
 
-        // Progressive techno at the style's own 125 BPM (the Live Set
-        // carries the tempo), not the host's current tempo - see
-        // SongGenerator.h / ProgressiveGenerator.cpp.
+        // Driving techno at the style's own 128 BPM (the Live Set carries
+        // the tempo), not the host's current tempo - see SongGenerator.h /
+        // DrivingTechnoGenerator.cpp.
         Engine::SongParams params;
-        params.style    = Engine::SongStyle::ProgressiveTechno;
+        params.style    = Engine::SongStyle::DrivingTechno;
         params.seed     = (uint32_t) juce::Random::getSystemRandom().nextInt(10000);
         params.bpm      = Engine::defaultBpm(params.style);
         params.rootNote = keyRoot;

@@ -285,7 +285,8 @@ namespace Engine
             // Slow swells for melodic techno; faster trance pads; near-instant
             // for the 16th-note chops of a trance-gate pad.
             const bool   mt         = c.song.style == SongStyle::MelodicTechno
-                                      || c.song.style == SongStyle::ProgressiveTechno; // slow swells
+                                      || c.song.style == SongStyle::ProgressiveTechno
+                                      || c.song.style == SongStyle::DrivingTechno; // slow swells
             const double noteSec    = (double) noteLen / sr;
             const double attack     = std::min(mt ? 1.4 : 0.3, std::max(0.003, noteSec * 0.25));
             const double releaseSec = noteSec < 0.5 ? 0.06 : (mt ? 2.2 : 1.2);
@@ -359,6 +360,83 @@ namespace Engine
             }
         }
 
+        // Driving-techno RUMBLE: a driven sub (sine through tanh = warm
+        // harmonics) with a long, low-passed smear so consecutive 16ths blur
+        // into a continuous growl - the reference's low end has no single
+        // clean pitch, just energy spread across ~45-60 Hz.
+        void renderRumble(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const double f = mtof(pitch);
+            const bool longNote = noteLen > (size_t) (0.5 * sr);
+            const size_t len = noteLen + (size_t) ((longNote ? 0.6 : 0.22) * sr);
+            double ph = 0.0, ph2 = 0.0;
+            Svf lp;
+            lp.set(130.0, 0.8, sr);
+            for (size_t j = 0; j < len; ++j)
+            {
+                const double t = j / sr;
+                ph  += 2.0 * kPi * f / sr;
+                ph2 += 2.0 * kPi * f * 1.012 / sr; // slight detune = movement
+                const double env = longNote ? std::min(1.0, t / 0.2) * (j < noteLen ? 1.0 : std::exp(-(double) (j - noteLen) / sr / 0.2))
+                                            : std::exp(-t / 0.075) * 0.8 + 0.2 * std::exp(-t / 0.3);
+                lp.process((float) std::tanh(2.4 * (std::sin(ph) + 0.5 * std::sin(ph2))));
+                const float v = lp.low * (float) env * (longNote ? 0.12f : 0.55f) * vel * c.mix.sc(s0 + j, 0.9f);
+                c.mix.add(s0 + j, v, 0.0f, 0.04f);
+            }
+        }
+
+        // Pumping tonic/5th STAB: short filtered saw, heavily ducked by the kick.
+        void renderStab(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const double f = mtof(pitch);
+            const size_t len = noteLen + (size_t) (0.05 * sr);
+            SawOsc a, b;
+            Svf lp;
+            const float br = c.brightnessAtSample(s0);
+            for (size_t j = 0; j < len; ++j)
+            {
+                const double t = j / sr;
+                if (j % 8 == 0)
+                    lp.set(300.0 + 1100.0 * br + 1200.0 * br * std::exp(-t / 0.03), 1.6, sr);
+                lp.process(a.next(f * 0.997, sr) * 0.5f + b.next(f * 1.003, sr) * 0.5f);
+                const float env = (float) (std::min(1.0, t / 0.002) * std::exp(-t / 0.06));
+                c.mix.add(s0 + j, lp.low * env * 0.30f * vel * c.mix.sc(s0 + j, 0.7f), (pitch % 2 == 0) ? 0.45f : -0.45f, 0.08f, 0.1f);
+            }
+        }
+
+        // Driving-techno HOOK synth: mid-range, dark and round (saw + pulse
+        // through a gentle low-pass), singing sustain with a soft tail, sent to
+        // the dotted-8th delay and the reverb.
+        void renderHook(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel)
+        {
+            const double sr = c.mix.sr;
+            const double f = mtof(pitch);
+            const size_t tail = (size_t) (0.25 * sr);
+            SawOsc a, b, sq;
+            Svf lp, lpR;
+            const float br = c.brightnessAtSample(s0);
+            for (size_t j = 0; j < noteLen + tail; ++j)
+            {
+                const double t = j / sr;
+                if (j % 8 == 0)
+                {
+                    lp.set(700.0 + 2400.0 * br + 900.0 * std::exp(-t / 0.08), 1.2, sr);
+                    lpR.set(700.0 + 2400.0 * br + 900.0 * std::exp(-t / 0.08), 1.2, sr);
+                }
+                const float sub = sq.nextSquare(f * 0.5, sr) * 0.15f;
+                lp.process(a.next(f * 0.996, sr) * 0.45f + sub);
+                const float left = lp.low;
+                lpR.process(b.next(f * 1.004, sr) * 0.45f + sub);
+                double env = std::min(1.0, t / 0.004) * (0.55 + 0.45 * std::exp(-t / 0.18));
+                if (j >= noteLen) env *= std::exp(-(double) (j - noteLen) / sr / 0.08);
+                const float g = (float) env * 0.6f * vel * c.mix.sc(s0 + j, 0.4f);
+                c.mix.add(s0 + j, left * g, -0.6f, 0.3f, 0.35f);
+                c.mix.add(s0 + j, lpR.low * g, 0.6f, 0.3f, 0.35f);
+            }
+        }
+
         // Warm, wide progressive arp - matched to the reference loop's measured
         // character: ~97% of its energy below 2 kHz, a ~50 ms hold then a gentle
         // ~9 dB fall across the 16th (notes blur into each other), wide stereo
@@ -378,7 +456,9 @@ namespace Engine
                 const double t = j / sr;
                 if (j % 8 == 0)
                 {
-                    const double cutoff = 520.0 + 2700.0 * br * br + 1800.0 * br * std::exp(-t / 0.07);
+                    const bool driving = c.song.style == SongStyle::DrivingTechno;
+                    const double cutoff = driving ? 1100.0 + 4200.0 * br + 2500.0 * std::exp(-t / 0.06)
+                                                  : 520.0 + 2700.0 * br * br + 1800.0 * br * std::exp(-t / 0.07);
                     fl.set(cutoff, 1.25, sr);
                     fr.set(cutoff, 1.25, sr);
                 }
@@ -701,14 +781,21 @@ namespace Engine
                         case SongTrackRole::SnareRoll: renderSnare(ctx, s0, vel); break;
                         case SongTrackRole::Pluck:     renderPluck(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Acid:      renderAcid(ctx, s0, len, note.pitch, vel); break;
-                        case SongTrackRole::Bass: renderBass(ctx, s0, len, note.pitch, vel); break;
+                        case SongTrackRole::Bass:
+                            if (song.style == SongStyle::DrivingTechno) renderRumble(ctx, s0, len, note.pitch, vel);
+                            else renderBass(ctx, s0, len, note.pitch, vel);
+                            break;
+                        case SongTrackRole::Stab: renderStab(ctx, s0, len, note.pitch, vel); break;
                         case SongTrackRole::Pad:  renderPad(ctx, s0, len, note.pitch, vel, padSeed = padSeed * 1664525u + 1013904223u); break;
                         case SongTrackRole::Arp:
-                            if (song.style == SongStyle::ProgressiveTechno) renderWarmArp(ctx, s0, len, note.pitch, vel);
+                            if (song.style == SongStyle::ProgressiveTechno || song.style == SongStyle::DrivingTechno)
+                                renderWarmArp(ctx, s0, len, note.pitch, vel);
                             else renderArp(ctx, s0, len, note.pitch, vel);
                             break;
                         case SongTrackRole::Lead:
-                            if (song.style == SongStyle::MelodicTechno || song.style == SongStyle::ProgressiveTechno)
+                            if (song.style == SongStyle::DrivingTechno)
+                                renderHook(ctx, s0, len, note.pitch, vel);
+                            else if (song.style == SongStyle::MelodicTechno || song.style == SongStyle::ProgressiveTechno)
                                 renderLead(ctx, s0, len, note.pitch, vel);
                             else renderSuperLead(ctx, s0, len, note.pitch, vel, song.style == SongStyle::NeoRave);
                             break;
@@ -740,8 +827,9 @@ namespace Engine
         float peak = 1e-9f;
         for (size_t i = 0; i < n; ++i)
             peak = std::max(peak, std::max(std::fabs(out.left[i]), std::fabs(out.right[i])));
-        const float drive = 2.6f / peak;
-        const float norm = 0.93f / std::tanh(2.6f);
+        const float driveAmt = song.style == SongStyle::DrivingTechno ? 4.5f : 2.6f; // peak-time techno is mastered hot
+        const float drive = driveAmt / peak;
+        const float norm = 0.93f / std::tanh(driveAmt);
         for (size_t i = 0; i < n; ++i)
         {
             out.left[i]  = std::tanh(out.left[i] * drive) * norm;

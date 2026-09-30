@@ -7,7 +7,8 @@
 //   ./build/generate_track --style trance --seed 7 --wav --out ~/Music/AbletonCopilot
 //
 // Options:
-//   --style S         progressive (default; 125 BPM, phasing arp over extended chords),
+//   --style S         driving (default; 128 BPM driving techno with an emotive melodic core),
+//                     progressive (125 BPM, phasing arp over extended chords),
 //                     trance (Tiesto PRISMATIC-style, 140 BPM), neorave (147 BPM
 //                     offbeat/acid trance), melodic-techno (124 BPM)
 //   --seed N          reproducible variation (default: random)
@@ -77,7 +78,7 @@ namespace
 
     int usage()
     {
-        std::fprintf(stderr, "usage: generate_track [--style progressive|trance|neorave|melodic-techno] [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
+        std::fprintf(stderr, "usage: generate_track [--style driving|progressive|trance|neorave|melodic-techno] [--seed N] [--key Am] [--bpm 124] [--progression 0-3] "
                              "[--bars-per-chord 8] [--out DIR] [--no-als] [--no-mid] [--wav]\n");
         return 2;
     }
@@ -86,7 +87,7 @@ namespace
 int main(int argc, char** argv)
 {
     Engine::SongParams params;
-    params.style = Engine::SongStyle::ProgressiveTechno;
+    params.style = Engine::SongStyle::DrivingTechno;
     params.bpm   = 0.0; // style default
     bool keyGiven = false;
     params.seed = (uint32_t) std::chrono::system_clock::now().time_since_epoch().count() % 10000u;
@@ -106,13 +107,14 @@ int main(int argc, char** argv)
         else if (a == "--style" && (v = next()))
         {
             const std::string st = v;
-            if (st == "progressive" || st == "progressive-techno") params.style = Engine::SongStyle::ProgressiveTechno;
+            if (st == "driving" || st == "driving-techno" || st == "peak") params.style = Engine::SongStyle::DrivingTechno;
+            else if (st == "progressive" || st == "progressive-techno") params.style = Engine::SongStyle::ProgressiveTechno;
             else if (st == "trance") params.style = Engine::SongStyle::Trance;
             else if (st == "neorave" || st == "neo-rave") params.style = Engine::SongStyle::NeoRave;
             else if (st == "melodic-techno" || st == "techno") params.style = Engine::SongStyle::MelodicTechno;
             else
             {
-                std::fprintf(stderr, "unknown style '%s' (progressive, trance, neorave, melodic-techno)\n", v);
+                std::fprintf(stderr, "unknown style '%s' (driving, progressive, trance, neorave, melodic-techno)\n", v);
                 return 2;
             }
         }
@@ -130,7 +132,7 @@ int main(int argc, char** argv)
         else if (a == "--wav")    writeWav = true;
         else return usage();
     }
-    if (!keyGiven && params.style == Engine::SongStyle::ProgressiveTechno)
+    if (!keyGiven && (params.style == Engine::SongStyle::ProgressiveTechno || params.style == Engine::SongStyle::DrivingTechno))
     {
         // A different minor key per seed (A D E F G C F# B Bb C#).
         static const int kRoots[] = { 9, 2, 4, 5, 7, 0, 6, 11, 10, 1 };
