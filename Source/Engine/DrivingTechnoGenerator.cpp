@@ -162,6 +162,20 @@ namespace Engine
                 }
             }
 
+            // Atmosphere drone voicing: root low, then 5th, and the 9th above
+            // the octave - open and consonant (no 3rd, so it sits under any
+            // melody note without rubbing).
+            void atmosChord(const Song& s, int deg, std::vector<AbsNote>& out, double beat, double len, int vel)
+            {
+                int root = s.rootNote + st(s, deg);
+                while (root < 52) root += 12;
+                while (root >= 64) root -= 12;
+                const int fifth = root + (st(s, deg + 4) - st(s, deg));
+                const int ninth = root + 12 + (st(s, deg + 1) - st(s, deg));
+                for (int p : { root, fifth, ninth })
+                    out.push_back({ beat, len, p, clampVel(vel) });
+            }
+
             struct Hook
             {
                 std::array<int, 4> degrees; // scale steps from the tonic
@@ -257,7 +271,7 @@ namespace Engine
                           song.keyName().c_str(), (int) (params.bpm + 0.5));
             song.title = title;
 
-            std::vector<AbsNote> kick, clap, hats, perc, roll, rumble, stab, pad, pulse, lead, fx;
+            std::vector<AbsNote> kick, clap, hats, perc, roll, rumble, stab, pad, pulse, lead, fx, atmos;
             const int tonicStab = wrapInto(song.rootNote, 55);
 
             for (const SongSection& s : song.sections)
@@ -313,6 +327,42 @@ namespace Engine
                             addNote(roll, t0 + step * kStep, kStep, SongDrumNotes::kSnare, 70 + 10 * (step - 12));
                     if ((s.kind == MusicSection::Drop || s.kind == MusicSection::FinalDrop) && b % 16 == 0)
                         addNote(fx, t0, 4.0, SongFxNotes::kCrash, b == 0 ? 116 : 92);
+                }
+
+                // Atmosphere: evolving drones that carry the space between the
+                // rhythmic parts - chord-following where the harmony moves, a
+                // tonic pedal elsewhere.
+                auto atmosSpan = [&](int fromBar, int bars, int vel)
+                {
+                    int b = fromBar;
+                    while (b < fromBar + bars)
+                    {
+                        const int deg = c.chordByBar[(size_t) (s.startBar + b)];
+                        int e = b + 1;
+                        while (e < fromBar + bars && c.chordByBar[(size_t) (s.startBar + e)] == deg) ++e;
+                        atmosChord(song, deg, atmos, (s.startBar + b) * 4.0, (e - b) * 4.0, vel);
+                        b = e;
+                    }
+                };
+                switch (s.kind)
+                {
+                    case MusicSection::Intro:     atmosSpan(0, s.bars, 72); break;
+                    case MusicSection::Establish: atmosSpan(0, s.bars, 56); break;
+                    case MusicSection::PreDrop:   atmosSpan(0, s.bars, 84); break;
+                    case MusicSection::Drop:
+                    case MusicSection::FinalDrop: atmosSpan(s.bars / 2, s.bars / 2, 58); break;
+                    case MusicSection::Breakdown: atmosSpan(0, s.bars, 96); break;
+                    case MusicSection::BreakdownBuild:
+                    {
+                        atmosSpan(0, 2, 88);
+                        const int flat2 = song.rootNote + 1;
+                        int r = flat2; while (r < 52) r += 12; while (r >= 64) r -= 12;
+                        for (int p : { r, r + 7, r + 16 }) atmos.push_back({ (s.startBar + 2) * 4.0, 8.0, p, 90 });
+                        atmosSpan(4, s.bars - 5, 80); // tonic pedal under the chromatic climb
+                        break;
+                    }
+                    case MusicSection::Outro:     atmosSpan(0, s.bars, 74); break;
+                    default: break;
                 }
 
                 // Melodic layers per section.
@@ -443,6 +493,7 @@ namespace Engine
             addTrack("Pad", SongTrackRole::Pad, 23, pad);
             addTrack("Pulse", SongTrackRole::Arp, 19, pulse);
             addTrack("Lead", SongTrackRole::Lead, 21, lead);
+            addTrack("Atmos", SongTrackRole::Atmos, 16, atmos);
             addTrack("FX", SongTrackRole::Fx, 13, fx);
             return song;
         }

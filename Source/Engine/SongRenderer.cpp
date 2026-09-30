@@ -103,8 +103,9 @@ namespace Engine
             std::vector<float> reverbSend;  // mono
             std::vector<float> delaySend;   // mono
             std::vector<float> duck;        // 0..1 kick sidechain shape (1 = fully ducked)
+            std::vector<float> hallSend;    // mono - the long "atmosphere" hall (~8 s tail)
 
-            void add(size_t i, float v, float pan, float rev = 0.0f, float del = 0.0f)
+            void add(size_t i, float v, float pan, float rev = 0.0f, float del = 0.0f, float hall = 0.0f)
             {
                 if (i >= n) return;
                 // Constant-power-ish pan, pan in [-1, 1].
@@ -114,6 +115,7 @@ namespace Engine
                 r[i] += v * pr;
                 if (rev != 0.0f) reverbSend[i] += v * rev;
                 if (del != 0.0f) delaySend[i] += v * del;
+                if (hall != 0.0f) hallSend[i] += v * hall;
             }
             float sc(size_t i, float depth) const { return i < n ? 1.0f - depth * duck[i] : 1.0f; }
         };
@@ -136,7 +138,8 @@ namespace Engine
                         case MusicSection::Drop:           v = 0.85f; break;
                         case MusicSection::FinalDrop:      v = 1.00f; break;
                         case MusicSection::PreDrop:        v = 0.75f - 0.35f * t; break;
-                        case MusicSection::Breakdown:      v = 0.30f + 0.35f * t; break;
+                        case MusicSection::Breakdown:      v = song.style == SongStyle::DrivingTechno ? 0.60f + 0.25f * t // the reference's breakdown is bright and airy
+                                                                                                 : 0.30f + 0.35f * t; break;
                         case MusicSection::BreakdownBuild: v = 0.55f + 0.45f * t; break;
                         case MusicSection::Outro:          v = 0.60f - 0.40f * t; break;
                     }
@@ -314,7 +317,7 @@ namespace Engine
                 for (int k = 0; k < 3; ++k)
                 {
                     lp[(size_t) k].process(osc[(size_t) k].next(mtof(pitch + kDetune[k]), sr));
-                    c.mix.add(s0 + j, lp[(size_t) k].low * g, kPan[k], 0.45f);
+                    c.mix.add(s0 + j, lp[(size_t) k].low * g, kPan[k], 0.45f, 0.0f, mt ? 0.35f : 0.0f);
                 }
             }
         }
@@ -357,6 +360,52 @@ namespace Engine
                 if (j >= noteLen) amp *= (float) std::exp(-(double) (j - noteLen) / sr / 0.05);
                 const float v = lp.low * amp * 0.30f * vel * c.mix.sc(s0 + j, 0.35f);
                 c.mix.add(s0 + j, v, 0.0f, 0.4f, 0.28f);
+            }
+        }
+
+        // ATMOS: an evolving drone/texture - 6 detuned saws spread across the
+        // stereo field through a low-pass that sweeps slowly (a ~20 s LFO,
+        // phase per note), plus band-passed noise "air" riding on top, a
+        // 2-4 s swell, breathing with the kick, sent deep into the hall.
+        void renderAtmos(Ctx& c, size_t s0, size_t noteLen, int pitch, float vel, uint32_t seed)
+        {
+            const double sr = c.mix.sr;
+            const double attack = std::min(3.0, std::max(0.05, noteLen / sr * 0.35));
+            const size_t release = (size_t) (3.5 * sr);
+            static constexpr double kDet[6] = { -0.16, -0.09, -0.03, 0.03, 0.1, 0.17 };
+            static constexpr float  kPan[6] = { -0.95f, -0.55f, -0.2f, 0.2f, 0.55f, 0.95f };
+            std::array<SawOsc, 6> osc {};
+            Noise nz;
+            nz.s = seed | 1u;
+            for (auto& o : osc) o.phase = (nz.next() + 1.0f) * 0.5f;
+            std::array<Svf, 6> lp {};
+            Svf airL, airR;
+            const double lfoPhase = (nz.next() + 1.0) * kPi;
+            for (size_t j = 0; j < noteLen + release; ++j)
+            {
+                const double t = j / sr;
+                const double abs = (double) (s0 + j) / sr;
+                if (j % 32 == 0)
+                {
+                    const float b = c.brightnessAtSample(s0 + j);
+                    const double sweep = 0.5 + 0.5 * std::sin(2.0 * kPi * abs / 21.0 + lfoPhase);
+                    const double cutoff = 300.0 + (900.0 + 2600.0 * b) * sweep;
+                    for (auto& f : lp) f.set(cutoff, 0.9, sr);
+                    airL.set(3500.0 + 3000.0 * sweep, 1.6, sr);
+                    airR.set(4200.0 + 2600.0 * (1.0 - sweep), 1.6, sr);
+                }
+                double env = std::min(1.0, t / attack);
+                if (j >= noteLen) env *= std::exp(-(double) (j - noteLen) / sr / 1.0);
+                const float g = (float) env * 0.05f * vel * c.mix.sc(s0 + j, 0.5f);
+                for (int k = 0; k < 6; ++k)
+                {
+                    lp[(size_t) k].process(osc[(size_t) k].next(mtof(pitch + kDet[k]), sr));
+                    c.mix.add(s0 + j, lp[(size_t) k].low * g, kPan[k], 0.1f, 0.0f, 0.55f);
+                }
+                airL.process(nz.next());
+                airR.process(nz.next());
+                c.mix.add(s0 + j, airL.band * g * 1.8f, -0.85f, 0.0f, 0.0f, 0.5f);
+                c.mix.add(s0 + j, airR.band * g * 1.8f, 0.85f, 0.0f, 0.0f, 0.5f);
             }
         }
 
@@ -432,8 +481,8 @@ namespace Engine
                 double env = std::min(1.0, t / 0.004) * (0.55 + 0.45 * std::exp(-t / 0.18));
                 if (j >= noteLen) env *= std::exp(-(double) (j - noteLen) / sr / 0.08);
                 const float g = (float) env * 0.6f * vel * c.mix.sc(s0 + j, 0.4f);
-                c.mix.add(s0 + j, left * g, -0.6f, 0.3f, 0.35f);
-                c.mix.add(s0 + j, lpR.low * g, 0.6f, 0.3f, 0.35f);
+                c.mix.add(s0 + j, left * g, -0.6f, 0.3f, 0.35f, 0.25f);
+                c.mix.add(s0 + j, lpR.low * g, 0.6f, 0.3f, 0.35f, 0.25f);
             }
         }
 
@@ -468,8 +517,9 @@ namespace Engine
                 double env = t < 0.05 ? 1.0 : std::exp(-(t - 0.05) / 0.11);
                 if (j >= noteLen) env *= std::exp(-(double) (j - noteLen) / sr / 0.05);
                 const float g = (float) std::min(1.0, t / 0.003) * (float) env * 0.5f * vel * c.mix.sc(s0 + j, 0.35f);
-                c.mix.add(s0 + j, fl.low * g, -0.9f, 0.25f, 0.42f);
-                c.mix.add(s0 + j, fr.low * g, 0.9f, 0.25f, 0.42f);
+                const float hall = c.song.style == SongStyle::DrivingTechno ? 0.3f : 0.0f;
+                c.mix.add(s0 + j, fl.low * g, -0.9f, 0.25f, 0.42f, hall);
+                c.mix.add(s0 + j, fr.low * g, 0.9f, 0.25f, 0.42f, hall);
             }
         }
 
@@ -672,15 +722,20 @@ namespace Engine
         // ------------------------------------------------------------ effects
 
         // Freeverb-style reverb: 8 parallel combs + 4 series allpasses per side.
-        void applyReverb(Mix& m, std::vector<float>& outL, std::vector<float>& outR)
+        // Freeverb-style reverb. The default settings are the room used for
+        // everything; the hall (feedback 0.935, longer pre-delay, wider L/R
+        // spread) is the long atmosphere space pads, drones and throws sit in.
+        void applyReverb(Mix& m, const std::vector<float>& send, std::vector<float>& outL, std::vector<float>& outR,
+                         float feedback = 0.86f, float damp = 0.3f, float gain = 3.0f, int stereoSpread = 23,
+                         double preDelaySec = 0.0)
         {
             static constexpr int kComb[8]    = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 };
             static constexpr int kAllpass[4] = { 556, 441, 341, 225 };
             const double scale = m.sr / 44100.0;
-            const float feedback = 0.86f, damp = 0.3f;
+            const size_t pre = (size_t) (preDelaySec * m.sr);
             for (int side = 0; side < 2; ++side)
             {
-                const int spread = side == 0 ? 0 : 23;
+                const int spread = side == 0 ? 0 : stereoSpread;
                 std::vector<std::vector<float>> combs, alls;
                 std::vector<size_t> ci(8, 0), ai(4, 0);
                 std::vector<float> store(8, 0.0f);
@@ -689,7 +744,7 @@ namespace Engine
                 std::vector<float>& out = side == 0 ? outL : outR;
                 for (size_t i = 0; i < m.n; ++i)
                 {
-                    const float in = m.reverbSend[i] * 0.015f;
+                    const float in = (i >= pre ? send[i - pre] : 0.0f) * 0.015f;
                     float acc = 0.0f;
                     for (int k = 0; k < 8; ++k)
                     {
@@ -708,7 +763,7 @@ namespace Engine
                         acc = b - acc;
                         if (++ai[(size_t) k] >= buf.size()) ai[(size_t) k] = 0;
                     }
-                    out[i] += acc * 3.0f;
+                    out[i] += acc * gain;
                 }
             }
         }
@@ -738,10 +793,11 @@ namespace Engine
     {
         const double secPerBeat = 60.0 / std::max(1.0, song.bpm);
         const double songSeconds = song.totalBars * 4.0 * secPerBeat;
-        const size_t n = (size_t) ((songSeconds + 4.0) * sampleRate); // + reverb/release tail
+        const size_t n = (size_t) ((songSeconds + 8.0) * sampleRate); // + hall/release tail
 
         Mix mix { sampleRate, n, std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f),
-                  std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f) };
+                  std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f),
+                  std::vector<float>(n, 0.0f) };
         Ctx ctx { song, mix, brightnessPerBar(song), secPerBeat };
 
         auto toSample = [&](const SongClip& c, double beat) { return (size_t) ((c.startBar * 4.0 + beat) * secPerBeat * sampleRate); };
@@ -786,6 +842,7 @@ namespace Engine
                             else renderBass(ctx, s0, len, note.pitch, vel);
                             break;
                         case SongTrackRole::Stab: renderStab(ctx, s0, len, note.pitch, vel); break;
+                        case SongTrackRole::Atmos: renderAtmos(ctx, s0, len, note.pitch, vel, padSeed = padSeed * 1664525u + 1013904223u); break;
                         case SongTrackRole::Pad:  renderPad(ctx, s0, len, note.pitch, vel, padSeed = padSeed * 1664525u + 1013904223u); break;
                         case SongTrackRole::Arp:
                             if (song.style == SongStyle::ProgressiveTechno || song.style == SongStyle::DrivingTechno)
@@ -808,7 +865,8 @@ namespace Engine
         out.left  = mix.l;
         out.right = mix.r;
         applyDelay(mix, secPerBeat, out.left, out.right);
-        applyReverb(mix, out.left, out.right);
+        applyReverb(mix, mix.reverbSend, out.left, out.right);
+        applyReverb(mix, mix.hallSend, out.left, out.right, 0.935f, 0.5f, 1.4f, 61, 0.045);
 
         // Master: DC-blocking high-pass (~15 Hz), normalise, gentle tanh
         // saturation as a limiter, final gain.

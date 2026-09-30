@@ -104,7 +104,7 @@ namespace Engine
         std::vector<SongNote> notes;
     };
 
-    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx, SnareRoll, Pluck, Acid, Stab };
+    enum class SongTrackRole { Kick, Clap, Hats, Perc, Bass, Pad, Arp, Lead, Fx, SnareRoll, Pluck, Acid, Stab, Atmos };
 
     struct SongTrack
     {
