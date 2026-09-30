@@ -170,6 +170,9 @@
         <FILE id="Sgi1hdr" name="SongInternal.h" compile="0" resource="0" file="Source/Engine/SongInternal.h"/>
         <FILE id="Prg1cpp" name="ProgressiveGenerator.cpp" compile="1" resource="0" file="Source/Engine/ProgressiveGenerator.cpp"/>
         <FILE id="Drv1cpp" name="DrivingTechnoGenerator.cpp" compile="1" resource="0" file="Source/Engine/DrivingTechnoGenerator.cpp"/>
+        <FILE id="Mdl1cpp" name="MelodyModel.cpp" compile="1" resource="0" file="Source/Engine/MelodyModel.cpp"/>
+        <FILE id="Mdl1hdr" name="MelodyModel.h" compile="0" resource="0" file="Source/Engine/MelodyModel.h"/>
+        <FILE id="Mdd1hdr" name="MelodyModelData.h" compile="0" resource="0" file="Source/Engine/MelodyModelData.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>

@@ -26,3 +26,5 @@ MLPipeline/fragments/
 
 # Local build output (Tools/build_generate_track.sh)
 build/
+Tools/melody_model/raw/
+Tools/melody_model/corpus.json

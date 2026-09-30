@@ -95,18 +95,50 @@ namespace
                 CHECK(bar - build->startBar >= 4 && bar - build->startBar < 12);
         }
 
-        // Hook: diatonic, each 2-bar statement's main figure ends on the tonic.
+        // Theme (composed by the learned melody model): diatonic, a real
+        // phrase in each 8 bars of the drop (>= 16 notes, >= 5 distinct
+        // pitches, range >= 5 semitones), ending on a common corpus ending, and
+        // no sustained (>= a quarter) note a semitone from the tonic/5th pedal.
         for (auto& c : track(song, "Lead")->clips)
             for (auto& n : c.notes)
                 CHECK(isInScale(n.pitch - song.rootNote, song.scale));
         {
-            const auto lead = steps(track(song, "Lead"));
-            std::vector<int> first;
-            for (auto& [st, ps] : lead)
-                if (st >= drop->startBar * 16 && st < drop->startBar * 16 + 16) first.push_back(ps[0]);
-            CHECK(first.size() == 4);
-            if (first.size() == 4)
-                CHECK(((first[3] - song.rootNote) % 12 + 12) % 12 == 0);
+            std::vector<std::pair<double, SongNote>> dropLead;
+            for (auto& c : track(song, "Lead")->clips)
+                for (auto& n : c.notes)
+                {
+                    const double t = c.startBar * 4.0 + n.startBeat;
+                    if (t >= drop->startBar * 4.0 && t < (drop->startBar + 8) * 4.0) dropLead.push_back({ t, n });
+                }
+            std::sort(dropLead.begin(), dropLead.end(), [](auto& x, auto& y) { return x.first < y.first; });
+            std::set<int> distinct;
+            int lo = 999, hi = 0;
+            for (auto& [t, n] : dropLead)
+            {
+                distinct.insert(n.pitch);
+                lo = std::min(lo, n.pitch);
+                hi = std::max(hi, n.pitch);
+                if (n.lengthBeats >= 0.95)
+                    for (int ped : { song.rootNote, song.rootNote + 7 })
+                    {
+                        const int iv = ((n.pitch - ped) % 12 + 12) % 12;
+                        CHECK(iv != 1 && iv != 11);
+                    }
+            }
+            CHECK(dropLead.size() >= 16);
+            CHECK(distinct.size() >= 5);
+            CHECK(hi - lo >= 5);
+            if (!dropLead.empty())
+            {
+                const int rel = ((dropLead.back().second.pitch - song.rootNote) % 12 + 12) % 12;
+                // The corpus's four common phrase endings (1, 5, 2, b7 - 70% of
+                // endings), or a tone of the theme's second chord, which its last bars sit over.
+                const int progB = song.progression.degrees[1];
+                bool tonOfB = false;
+                for (int k : { 0, 2, 4 })
+                    tonOfB |= ((dropLead.back().second.pitch - song.rootNote - degreeToSemitone(progB + k, song.scale)) % 12 + 12) % 12 == 0;
+                CHECK(rel == 0 || rel == 7 || rel == 2 || rel == 10 || tonOfB);
+            }
         }
 
         // Breakdown pulse: 16 repeated 16ths per bar, at most two pitches per bar, diatonic.

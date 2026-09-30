@@ -9,9 +9,12 @@
 //            offbeat, 16th shaker; a RUMBLE bass on the 3rd+4th 16th of each
 //            beat ("k . b b" - nothing right after the kick); a pumping
 //            tonic+5th STAB on every 16th except the kick hits.
-//   HOOK     sparse and descending over the tonic pedal (reference: F-E-D-A,
-//            b6-5-4-1 in A minor) with a two-note pickup into each repeat;
-//            later an octave lower.
+//   THEME    (reference: a sparse descending hook, F-E-D-A over the tonic
+//            pedal.) Here: an 8-bar lead composed by the learned melody model
+//            (MelodyModel.h - statistics from 65 real melodic/progressive/
+//            trance leads) over the drop's chord movement, teased in the
+//            groove, carried by the drops, revealed high over the breakdown,
+//            an octave down at the start of Drop 2.
 //   HARMONY  two chords, 4 bars each - i <-> VI in the reference, so the
 //            VI chord lifts with a lydian #11.
 //   PULSE    the breakdown melody is a repeated-note 16th pulse whose pitch
@@ -21,6 +24,7 @@
 //            CHROMATICALLY one semitone per bar up to the octave, landing on
 //            the drop; the pulse melody returns inside the last drop.
 #include "SongInternal.h"
+#include "MelodyModel.h"
 #include "Theory.h"
 #include <algorithm>
 #include <array>
@@ -176,38 +180,21 @@ namespace Engine
                     out.push_back({ beat, len, p, clampVel(vel) });
             }
 
-            struct Hook
+            // The composed theme (8 bars, phrase-relative 16th steps), placed
+            // from `startBar` for `bars` bars, looping if longer than 8.
+            void placeTheme(const std::vector<MelodyModel::Note>& theme, std::vector<AbsNote>& out, int startBar, int bars,
+                            int vel, int octave)
             {
-                std::array<int, 4> degrees; // scale steps from the tonic
-                int rhythm;
-                bool pickup;
-            };
-
-            constexpr int kHookRhythms[][4][2] = {
-                { { 1, 1 }, { 2, 3 }, { 5, 2 }, { 8, 2 } },   // the reference's shape
-                { { 0, 2 }, { 3, 3 }, { 6, 2 }, { 8, 4 } },
-                { { 2, 2 }, { 4, 4 }, { 10, 2 }, { 12, 2 } },
-                { { 1, 1 }, { 2, 2 }, { 6, 2 }, { 10, 4 } },
-            };
-
-            // 2-bar hook statements from `startBar` for `bars` bars.
-            void playHook(Ctx& c, const Hook& h, std::vector<AbsNote>& out, int startBar, int bars, int vel,
-                          int octave, int notesPerStatement = 4)
-            {
-                const int tonic = wrapInto(c.song.rootNote, 57); // A3-ish register
-                auto pitchOf = [&](int d) { return tonic + st(c.song, d) + octave; };
-                for (int b = 0; b + 1 < bars + 1 && b < bars; b += 2)
-                {
-                    const int bar = startBar + b;
-                    for (int i = 0; i < notesPerStatement; ++i)
-                        addNote(out, bar * 4.0 + kHookRhythms[h.rhythm][i][0] * kStep, kHookRhythms[h.rhythm][i][1] * kStep * 0.95,
-                                pitchOf(h.degrees[(size_t) i]), vel + (i == 0 ? 6 : 0));
-                    if (h.pickup && b + 1 < bars && notesPerStatement == 4)
+                for (int rep = 0; rep * 8 < bars; ++rep)
+                    for (const MelodyModel::Note& n : theme)
                     {
-                        addNote(out, (bar + 1) * 4.0 + 13 * kStep, 2 * kStep * 0.95, pitchOf(h.degrees[1]), vel - 8);
-                        addNote(out, (bar + 1) * 4.0 + 15 * kStep, kStep * 0.95, pitchOf(h.degrees[0]), vel - 4);
+                        const int bar = rep * 8 + n.step / 16;
+                        if (bar >= bars) continue;
+                        const int maxLen = bars * 16 - (rep * 128 + n.step);
+                        const int len = std::min(n.len, maxLen);
+                        out.push_back({ startBar * 4.0 + (rep * 128 + n.step) * kStep, len * kStep * 0.95, n.pitch + octave,
+                                        clampVel(vel + (n.step % 8 == 0 ? 6 : 0)) });
                     }
-                }
             }
         }
 
@@ -251,14 +238,40 @@ namespace Engine
                 }
             choosePulseTones(c);
 
-            static constexpr int kHooks[][4] = { { 5, 4, 3, 0 }, { 4, 3, 2, 0 }, { 5, 4, 2, 0 }, { 6, 5, 4, 0 }, { 3, 2, 1, 0 } }; // all descend to the tonic
-            Hook hook;
+            // The THEME: an 8-bar lead composed by the learned melody model
+            // (MelodyModel.h) over the drop's chord movement - chord A for 4
+            // bars, chord B for 4. Sustained notes may not sit a semitone from
+            // the pedal stab (tonic, 5th) or the chord's triad (a flat-9 rub);
+            // short passing notes may, as in the corpus.
+            std::vector<MelodyModel::Note> theme;
             {
-                const int h = pick(rng, 5);
-                for (int i = 0; i < 4; ++i) hook.degrees[(size_t) i] = kHooks[h][i];
-                hook.rhythm = pick(rng, 4);
-                hook.pickup = pick(rng, 4) != 0;
+                MelodyModel::Spec spec;
+                spec.rootNote = song.rootNote;
+                spec.scale    = song.scale;
+                spec.bars     = 8;
+                spec.chordDegreeByBar = { c.pair.a, c.pair.a, c.pair.a, c.pair.a, c.pair.b, c.pair.b, c.pair.b, c.pair.b };
+                spec.low  = wrapInto(song.rootNote, 57);      // around A3..
+                spec.high = spec.low + 17;                     // ..D5
+                const Song& sg = song;
+                const TwoChords pr = c.pair;
+                spec.forbidden = [sg, pr](int step, int len, int pitch)
+                {
+                    if (len < 4) return false;
+                    const int deg = step / 16 < 4 ? pr.a : pr.b;
+                    std::vector<int> pcs = triadPcs(sg, deg);
+                    pcs.push_back(pc(sg.rootNote));
+                    pcs.push_back(pc(sg.rootNote + 7));
+                    for (int q : pcs)
+                    {
+                        const int iv = ((pc(pitch) - q) % 12 + 12) % 12;
+                        if (iv == 1 || iv == 11) return true;
+                    }
+                    return false;
+                };
+                std::mt19937 mrng(mixSeed(params.seed ^ 0x7E3Eu));
+                theme = MelodyModel::compose(spec, mrng, 1500);
             }
+
             static constexpr PulsePattern kPatterns[] = {
                 { { 1, 0, 0, 1 }, { 2, 0, 0, 1 } }, // the reference's C A A C | B-G A A B shape
                 { { 0, 1, 0, 1 }, { 1, 0, 2, 0 } },
@@ -369,16 +382,16 @@ namespace Engine
                 switch (s.kind)
                 {
                     case MusicSection::Intro:
-                        playHook(c, hook, lead, s.startBar + 12, 4, 70, 0, 2); // first fragments
+                        placeTheme(theme, lead, s.startBar + 12, 2, 66, 0); // a first glimpse
                         break;
                     case MusicSection::Establish:
-                        playHook(c, hook, lead, s.startBar + 4, s.bars - 4, 80, 0);
+                        placeTheme(theme, lead, s.startBar + 4, 4, 76, 0);
                         break;
                     case MusicSection::PreDrop:
-                        playHook(c, hook, lead, s.startBar, s.bars - 1, 88, 0);
+                        placeTheme(theme, lead, s.startBar, s.bars - 1, 86, 0);
                         break;
                     case MusicSection::Drop:
-                        playHook(c, hook, lead, s.startBar, s.bars, 100, 0);
+                        placeTheme(theme, lead, s.startBar, s.bars, 100, 0);
                         break;
                     case MusicSection::Breakdown:
                     {
@@ -399,6 +412,7 @@ namespace Engine
                             addNote(rumble, (s.startBar + b) * 4.0, 15.0, sub, 80); // long sub root
                         }
                         pulseMelody(c, pulsePat, pulse, s.startBar, s.bars, 62, 0); // the breakdown sits ~6 dB under the drops
+                        placeTheme(theme, lead, s.startBar + s.bars / 2, s.bars / 2, 60, 12); // the theme, revealed high and soft
                         break;
                     }
                     case MusicSection::BreakdownBuild:
@@ -446,12 +460,12 @@ namespace Engine
                     case MusicSection::FinalDrop:
                         // First half: the hook an octave lower; second half: the hook
                         // plus the pulse melody inside the drop (the climax).
-                        playHook(c, hook, lead, s.startBar, s.bars / 2, 96, -12);
-                        playHook(c, hook, lead, s.startBar + s.bars / 2, s.bars / 2, 104, 0);
+                        placeTheme(theme, lead, s.startBar, s.bars / 2, 96, -12);
+                        placeTheme(theme, lead, s.startBar + s.bars / 2, s.bars / 2, 104, 0);
                         pulseMelody(c, pulsePat, pulse, s.startBar + s.bars / 2, s.bars / 2, 90, 0);
                         break;
                     case MusicSection::Outro:
-                        playHook(c, hook, lead, s.startBar, 4, 80, 0);
+                        placeTheme(theme, lead, s.startBar, 4, 78, 0);
                         break;
                     default:
                         break;

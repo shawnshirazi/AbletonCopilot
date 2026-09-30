@@ -1,195 +1,228 @@
 #!/usr/bin/env python3
-"""Learn a melody model from a corpus of real melodic-techno lead melodies
-and write it as a C++ header (Source/Engine/MelodyModelData.h).
+"""Learn a melody model from a corpus of real lead melodies and write it as a
+C++ header (Source/Engine/MelodyModelData.h).
 
   python3 Tools/melody_model/train_melody_model.py corpus.json [out.h]
 
-corpus.json: [{"title","artist","key_guess","notes":[[start_beats, dur_beats, midi], ...]}, ...]
+corpus.json entries: {"title","artist","core":bool,"style_auto":"line"|"arp","mode","tonic_pc",
+                      "notes":[[start_beats, dur_beats, midi], ...],
+                      "chords":[[start_beats, dur_beats, "Root", [intervals], inversion], ...]}
 
-Only aggregate statistics go into the header - no melody from the corpus is
-stored or reproduced:
-  - 2-bar rhythm templates (16th-grid onsets + lengths), weighted by count
-  - scale-step interval transition matrix P(next | previous), -7..+7 steps
-  - scale-degree distribution on strong beats / on phrase-final notes
-  - 4-bar repetition schemes (which bars restate bar 1)
-  - summary stats (steps vs leaps, range, notes per bar, syncopation)
+The corpus used is the Hooktheory TheoryTab data published with Sheet Sage
+(github.com/chrisdonahue/sheetsage-data, CC BY-NC-SA 3.0) filtered to
+instrumental melodic/progressive house, techno and trance leads at 110-140 BPM
+- see MLPipeline/musical_target/melody_corpus_stats.md. Only AGGREGATE
+statistics are written; no melody from the corpus is stored or reproduced.
+
+Learned per archetype ("line" melodies and "arp"/pedal figures):
+  - P(next interval | previous interval), in scale steps -7..+7
+  - P(degree relative to the sounding chord's root | strong / weak position)
+  - P(key degree | phrase-final note)
+  - one-bar rhythm templates (16th-grid onsets + lengths), weighted by count
+  - rhythm/pitch repetition rates inside 4-bar groups, anticipation rate
 """
 import json
 import math
-import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent.parent / "Source" / "Engine" / "MelodyModelData.h"
-
-NAMES = {"C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4, "F": 5, "F#": 6, "GB": 6, "G": 7,
-         "G#": 8, "AB": 8, "A": 9, "A#": 10, "BB": 10, "B": 11}
 MINOR = [0, 2, 3, 5, 7, 8, 10]
 MAX_IV = 7
+NOTE_PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
-def parse_key(k):
-    """'A minor', 'Am', 'F#m', 'C major' -> (root_pc, is_minor) or None."""
-    if not k:
-        return None
-    m = re.match(r"\s*([A-Ga-g])([#b]?)\s*(m|min|minor|maj|major)?", str(k))
-    if not m:
-        return None
-    root = NAMES[(m.group(1) + m.group(2)).upper()]
-    minor = (m.group(3) or "m").lower().startswith("m") and not (m.group(3) or "").lower().startswith("maj")
-    return root, minor
+def root_pc(name):
+    pc = NOTE_PC[name[0].upper()]
+    for ch in name[1:]:
+        pc += 1 if ch == "#" else -1 if ch == "b" else 0
+    return pc % 12
 
 
-def estimate_key(notes):
-    """Krumhansl-style fit against natural-minor/major scale membership, weighted by duration."""
-    w = Counter()
-    for s, d, p in notes:
-        w[p % 12] += d
-    best = None
-    for root in range(12):
-        for minor in (True, False):
-            scale = MINOR if minor else [0, 2, 4, 5, 7, 9, 11]
-            inscale = sum(w[(root + x) % 12] for x in scale)
-            tonic = w[root] + 0.5 * w[(root + 7) % 12]
-            score = inscale + 0.3 * tonic
-            if best is None or score > best[0]:
-                best = (score, root, minor)
-    return best[1], best[2]
+def degree(pitch, tonic):
+    """MIDI pitch -> absolute natural-minor scale step from the tonic (chromatic notes snap down)."""
+    octave, pc = divmod(pitch - tonic, 12)
+    below = max(x for x in MINOR if x <= pc)
+    return octave * 7 + MINOR.index(below)
 
 
-def to_minor_degree(p, root, minor):
-    """MIDI pitch -> (absolute scale step, in_scale) relative to the minor tonic (relative minor for major keys)."""
-    tonic = root if minor else (root + 9) % 12
-    rel = p - tonic
-    octave, pc = divmod(rel, 12)
-    if pc in MINOR:
-        return octave * 7 + MINOR.index(pc), True
-    # chromatic: snap down to the scale tone below
-    below = max(x for x in MINOR if x < pc)
-    return octave * 7 + MINOR.index(below), False
+class Stats:
+    def __init__(self):
+        self.trans = defaultdict(Counter)
+        self.strong = Counter()
+        self.weak = Counter()
+        self.final = Counter()
+        self.rhythms = Counter()
+        self.rep_rhythm = Counter()  # bar index (1..3) -> repeats bar 0 rhythm
+        self.rep_both = Counter()    # ... with the same relative pitches
+        self.groups = 0
+        self.anticip = 0
+        self.onsets = 0
+        self.melodies = 0
+        self.steps = self.moves = 0
+        self.ranges = []
+        self.profiles = []  # per 8-bar window: maxrun, meanrun, range, distinct, dirchange, leaps
+
+
+def chord_at(chords, beat):
+    for s, d, name, ivs, inv in chords:
+        if s <= beat < s + d:
+            return root_pc(name)
+    return None
+
+
+def learn(entry, st):
+    tonic = entry["tonic_pc"] % 12
+    notes = sorted((float(s), float(d), int(p)) for s, d, p in entry["notes"] if float(d) > 0)
+    if len(notes) < 6:
+        return
+    st.melodies += 1
+    q = [(int(round(s * 4)), max(1, int(round(d * 4))), p) for s, d, p in notes]
+    degs = [degree(p, tonic + 12 * (min(x[2] for x in q) // 12 - 1)) for _, _, p in q]
+    st.ranges.append(max(p for _, _, p in q) - min(p for _, _, p in q))
+    ivs = [max(-MAX_IV, min(MAX_IV, degs[i + 1] - degs[i])) for i in range(len(degs) - 1)]
+    for i in range(1, len(ivs)):
+        st.trans[ivs[i - 1]][ivs[i]] += 1
+    for iv in ivs:
+        st.moves += 1
+        st.steps += abs(iv) <= 1
+    for i, (on, ln, p) in enumerate(q):
+        st.onsets += 1
+        if on % 4 != 0 and (on % 4) + ln > 4:
+            st.anticip += 1
+        croot = chord_at(entry.get("chords", []), on / 4.0)
+        if croot is not None:
+            rel = (degree(p, tonic) - degree(croot + 12 * 10, tonic)) % 7
+            (st.strong if (on % 8 == 0 or ln >= 6) else st.weak)[rel] += 1
+        end = on + ln
+        if i == len(q) - 1 or q[i + 1][0] - end >= 4:
+            st.final[degs[i] % 7] += 1
+    # phrase-level shape profile per 8-bar window
+    maxbar = max(on for on, _, _ in q) // 16
+    for w0 in range(0, maxbar + 1, 8):
+        ph = [p for on, _, p in q if w0 * 16 <= on < (w0 + 8) * 16]
+        if len(ph) < 10:
+            continue
+        runs, r = [], 1
+        for i in range(1, len(ph)):
+            if ph[i] == ph[i - 1]:
+                r += 1
+            else:
+                runs.append(r)
+                r = 1
+        runs.append(r)
+        moves = [ph[i + 1] - ph[i] for i in range(len(ph) - 1)]
+        nz = [m for m in moves if m != 0]
+        dirch = sum(1 for i in range(1, len(nz)) if (nz[i] > 0) != (nz[i - 1] > 0)) / max(1, len(nz) - 1)
+        st.profiles.append((max(runs), sum(runs) / len(runs), max(ph) - min(ph), len(set(ph)), dirch,
+                            sum(1 for m in moves if abs(m) >= 5) / len(moves)))
+    # bars
+    bars = defaultdict(list)
+    for (on, ln, p), d in zip(q, degs):
+        bars[on // 16].append((on % 16, min(ln, 32 - on % 16), d))
+    for b, ev in bars.items():
+        if 1 <= len(ev) <= 12:
+            st.rhythms[tuple((o, l) for o, l, _ in ev)] += 1
+    first = min(bars)
+    last = max(bars)
+    for g in range(first, last - 2, 4):
+        if not bars.get(g):
+            continue
+        st.groups += 1
+        r0 = [(o, l) for o, l, _ in bars[g]]
+        p0 = [d - bars[g][0][2] for _, _, d in bars[g]]
+        for k in (1, 2, 3):
+            ev = bars.get(g + k, [])
+            if ev and [(o, l) for o, l, _ in ev] == r0:
+                st.rep_rhythm[k] += 1
+                if [d - ev[0][2] for _, _, d in ev] == p0:
+                    st.rep_both[k] += 1
+
+
+def logp(counter, keys, alpha=0.5):
+    tot = sum(counter[k] for k in keys) + alpha * len(keys)
+    return [math.log((counter[k] + alpha) / tot) for k in keys]
+
+
+def emit(name, st, lines):
+    ivr = list(range(-MAX_IV, MAX_IV + 1))
+    top = st.rhythms.most_common(40)
+    lines.append(f"    // ---- {name}: {st.melodies} melodies")
+    lines.append(f"    constexpr ArchetypeModel k{name} = {{")
+    lines.append(f"        {st.melodies}, {st.steps / max(1, st.moves):.4f}, {st.anticip / max(1, st.onsets):.4f}, "
+                 f"{sorted(st.ranges)[len(st.ranges) // 2] if st.ranges else 12},")
+    lines.append("        { " + ", ".join(f"{st.rep_rhythm[k] / max(1, st.groups):.3f}" for k in (1, 2, 3)) + " },")
+    lines.append("        { " + ", ".join(f"{st.rep_both[k] / max(1, st.rep_rhythm[k]):.3f}" for k in (1, 2, 3)) + " },")
+    lines.append("        {")
+    for prev in ivr:
+        lines.append("            { " + ", ".join(f"{v:.3f}" for v in logp(st.trans[prev], ivr)) + " },")
+    lines.append("        },")
+    lines.append("        { " + ", ".join(f"{v:.3f}" for v in logp(st.strong, range(7))) + " },")
+    lines.append("        { " + ", ".join(f"{v:.3f}" for v in logp(st.weak, range(7))) + " },")
+    lines.append("        { " + ", ".join(f"{v:.3f}" for v in logp(st.final, range(7))) + " },")
+    def quant(k, qv):
+        v = sorted(pr[k] for pr in st.profiles) or [0.0]
+        return v[min(len(v) - 1, int(qv * len(v)))]
+    lines.append("        { " + ", ".join(f"{quant(k, 0.25):.3f}" for k in range(6)) + " }, // profile p25")
+    lines.append("        { " + ", ".join(f"{quant(k, 0.5):.3f}" for k in range(6)) + " }, // profile p50")
+    lines.append("        { " + ", ".join(f"{quant(k, 0.75):.3f}" for k in range(6)) + " }, // profile p75")
+    lines.append(f"        {len(top)},")
+    lines.append("        {")
+    for pat, cnt in top:
+        pad = list(pat) + [(0, 0)] * (12 - len(pat))
+        lines.append(f"            {{ {cnt}, {len(pat)}, {{ {', '.join(str(o) for o, _ in pad)} }}, {{ {', '.join(str(l) for _, l in pad)} }} }},")
+    lines.append("        },")
+    lines.append("    };")
 
 
 def main():
     corpus = json.load(open(sys.argv[1]))
-    rhythms = Counter()
-    trans = defaultdict(Counter)
-    strong = Counter()
-    finals = Counter()
-    schemes = Counter()
-    steps = leaps = recovered = leap_total = 0
-    ranges, per_bar, sync = [], [], []
-    used = 0
-    for item in corpus:
-        notes = sorted((float(s), float(d), int(p)) for s, d, p in item.get("notes", []) if float(d) > 0)
-        if len(notes) < 6:
+    line, arp = Stats(), Stats()
+    for e in corpus:
+        if not e.get("core") or e.get("mode") not in ("minor", "dorian"):
             continue
-        key = parse_key(item.get("key_guess")) or estimate_key(notes)
-        root, minor = key
-        used += 1
-        # 16th grid
-        q = [(int(round(s * 4)), max(1, int(round(d * 4))), p) for s, d, p in notes]
-        start_bar = q[0][0] // 16
-        bars = defaultdict(list)
-        for st, ln, p in q:
-            bars[st // 16 - start_bar].append((st % 16, ln, p))
-        nbars = max(bars) + 1
-        # rhythms: every 2-bar window with 3..12 notes
-        for b in range(0, nbars - 1):
-            pat = tuple((st, min(ln, 32 - st)) for st, ln, p in bars.get(b, [])) + \
-                  tuple((st + 16, min(ln, 16 - st)) for st, ln, p in bars.get(b + 1, []))
-            if 3 <= len(pat) <= 12:
-                rhythms[pat] += 1
-        per_bar += [len(v) for v in bars.values()]
-        sync += [1 if st % 4 != 0 else 0 for st, ln, p in q]
-        degs = [to_minor_degree(p, root, minor)[0] for st, ln, p in q]
-        ranges.append(max(p for _, _, p in q) - min(p for _, _, p in q))
-        ivs = [max(-MAX_IV, min(MAX_IV, degs[i + 1] - degs[i])) for i in range(len(degs) - 1)]
-        for i in range(1, len(ivs)):
-            trans[ivs[i - 1]][ivs[i]] += 1
-        for i, iv in enumerate(ivs):
-            if abs(iv) <= 1:
-                steps += 1
-            else:
-                leaps += 1
-            if abs(iv) >= 3:
-                leap_total += 1
-                if i + 1 < len(ivs) and ivs[i + 1] != 0 and (ivs[i + 1] > 0) != (iv > 0) and abs(ivs[i + 1]) <= 2:
-                    recovered += 1
-        for (st, ln, p), d in zip(q, degs):
-            if st % 8 == 0:
-                strong[d % 7] += 1
-        # phrase finals: last note before a gap of >= 4 steps, or the last note
-        for i in range(len(q)):
-            end = q[i][0] + q[i][1]
-            if i == len(q) - 1 or q[i + 1][0] - end >= 4:
-                finals[degs[i] % 7] += 1
-        # 4-bar repetition schemes: label bars by (rhythm, contour) identity
-        for b0 in range(0, nbars - 3, 4):
-            labels, seen = [], {}
-            for b in range(b0, b0 + 4):
-                sig = tuple((st, to_minor_degree(p, root, minor)[0] - to_minor_degree(bars[b][0][2], root, minor)[0])
-                            for st, ln, p in bars.get(b, [])) if bars.get(b) else ()
-                if sig not in seen:
-                    seen[sig] = "ABCD"[len(seen)]
-                labels.append(seen[sig])
-            schemes["".join(labels)] += 1
-
-    if used == 0:
-        sys.exit("no usable melodies in corpus")
-
-    # ---- write header ----
-    top_rhythms = rhythms.most_common(48)
-    ivs_range = list(range(-MAX_IV, MAX_IV + 1))
-
-    def row(prev):
-        c = trans[prev]
-        tot = sum(c.values()) + 0.5 * len(ivs_range)
-        return [math.log((c[n] + 0.5) / tot) for n in ivs_range]
-
-    lines = ["#pragma once", "", "// GENERATED by Tools/melody_model/train_melody_model.py - do not edit.",
-             f"// Learned from {used} real melodic-techno lead melodies (aggregate statistics only;",
-             "// no corpus melody is stored). See MLPipeline/musical_target/melody_corpus_stats.md.", "",
+        learn(e, arp if e.get("style_auto") == "arp" else line)
+    lines = ["#pragma once", "", "// GENERATED by Tools/melody_model/train_melody_model.py - do not edit by hand.",
+             "//",
+             f"// Aggregate statistics learned from {line.melodies + arp.melodies} real instrumental lead melodies",
+             "// (melodic/progressive house, techno and trance, 110-140 BPM, minor/dorian) transcribed in the",
+             "// Hooktheory TheoryTab dataset as published with Sheet Sage (github.com/chrisdonahue/sheetsage-data,",
+             "// CC BY-NC-SA 3.0). No corpus melody is stored here. See",
+             "// MLPipeline/musical_target/melody_corpus_stats.md.", "",
              "namespace Engine", "{", "namespace MelodyModelData", "{",
-             f"    constexpr int kMelodiesUsed = {used};",
-             f"    constexpr int kMaxInterval = {MAX_IV}; // scale steps",
-             f"    constexpr double kStepRatio = {steps / max(1, steps + leaps):.4f};",
-             f"    constexpr double kLeapRecovery = {recovered / max(1, leap_total):.4f};",
-             f"    constexpr double kMeanNotesPerBar = {sum(per_bar) / max(1, len(per_bar)):.4f};",
-             f"    constexpr double kSyncopation = {sum(sync) / max(1, len(sync)):.4f};",
-             f"    constexpr double kMedianRange = {sorted(ranges)[len(ranges) // 2]:.1f}; // semitones", "",
-             "    // log P(next interval | previous interval), both in scale steps -7..+7",
-             f"    constexpr double kIntervalLogProb[{len(ivs_range)}][{len(ivs_range)}] = {{"]
-    for prev in ivs_range:
-        lines.append("        { " + ", ".join(f"{v:.4f}" for v in row(prev)) + " },")
-    lines.append("    };")
-    sd = sum(strong.values())
-    lines.append("    // log P(scale degree 0..6 of the minor key | strong beat)")
-    lines.append("    constexpr double kStrongDegreeLogProb[7] = { " +
-                 ", ".join(f"{math.log((strong[d] + 0.5) / (sd + 3.5)):.4f}" for d in range(7)) + " };")
-    fd = sum(finals.values())
-    lines.append("    // log P(scale degree | phrase-final note)")
-    lines.append("    constexpr double kFinalDegreeLogProb[7] = { " +
-                 ", ".join(f"{math.log((finals[d] + 0.5) / (fd + 3.5)):.4f}" for d in range(7)) + " };")
-    lines.append("")
-    lines.append("    struct RhythmTemplate { int count; int notes; int step[12]; int len[12]; };")
-    lines.append(f"    constexpr int kNumRhythms = {len(top_rhythms)};")
-    lines.append("    constexpr RhythmTemplate kRhythms[] = {")
-    for pat, cnt in top_rhythms:
-        stp = list(pat) + [(0, 0)] * (12 - len(pat))
-        lines.append(f"        {{ {cnt}, {len(pat)}, {{ {', '.join(str(s) for s, _ in stp)} }}, {{ {', '.join(str(l) for _, l in stp)} }} }},")
-    lines.append("    };")
-    top_schemes = schemes.most_common(8)
-    lines.append("")
-    lines.append("    struct Scheme { const char* bars; int count; }; // 4-bar repetition pattern, A = restates bar 1")
-    lines.append(f"    constexpr int kNumSchemes = {len(top_schemes)};")
-    lines.append("    constexpr Scheme kSchemes[] = { " + ", ".join(f'{{ "{s}", {c} }}' for s, c in top_schemes) + " };")
+             "    constexpr int kMaxInterval = 7; // scale steps", "",
+             "    struct BarRhythm { int count; int notes; int onset[12]; int len[12]; }; // 16th grid, len may tie past the bar",
+             "",
+             "    struct ArchetypeModel",
+             "    {",
+             "        int    melodies;",
+             "        double stepRatio;        // |interval| <= 1 scale step, incl. repeats",
+             "        double anticipation;     // off-beat onsets held across the next beat",
+             "        int    medianRange;      // semitones",
+             "        double rhythmRepeat[3];  // P(bar k of a 4-bar group has bar 1's rhythm), k = 2,3,4",
+             "        double pitchRepeatGivenRhythm[3]; // ... and also bar 1's relative pitches",
+             "        double intervalLogProb[15][15];   // [prev + 7][next + 7]",
+             "        double strongChordDegLogProb[7];  // degree above the sounding chord root, strong positions",
+             "        double weakChordDegLogProb[7];",
+             "        double finalDegreeLogProb[7];     // key degree of phrase-final notes",
+             "        // 8-bar phrase shape, interquartile range over the corpus:",
+             "        // longest repeated-note run, mean run, range (st), distinct pitches, direction-change rate, leap rate",
+             "        double profileP25[6];",
+             "        double profileP50[6];",
+             "        double profileP75[6];",
+             "        int    numRhythms;",
+             "        BarRhythm rhythms[40];",
+             "    };", ""]
+    emit("Line", line, lines)
+    emit("Arp", arp, lines)
     lines += ["}", "}", ""]
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
     out.write_text("\n".join(lines))
-    print(f"wrote {out}: {used} melodies, {len(top_rhythms)} rhythms, step ratio {steps / max(1, steps + leaps):.2f}, "
-          f"schemes {top_schemes[:4]}")
+    print(f"wrote {out}: line {line.melodies} melodies, step ratio {line.steps / max(1, line.moves):.2f}, "
+          f"rhythms {len(line.rhythms)}, rhythm repeat {[round(line.rep_rhythm[k] / max(1, line.groups), 2) for k in (1, 2, 3)]}; "
+          f"arp {arp.melodies}")
 
 
 if __name__ == "__main__":
